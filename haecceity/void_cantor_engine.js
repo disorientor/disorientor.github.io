@@ -5,6 +5,10 @@
  */
 (function() {
 
+function mapped(orig, amount, red, inc) {
+    return orig * (1.0 - Math.max(0.0, -amount) * red) + (1.0 - orig) * Math.max(0.0, amount) * inc;
+}
+
 function default_physical_settings(p) {
     p = p || {};
     return {
@@ -147,8 +151,22 @@ function table_wave(phase, position) {
 // ---------------------------------------------------------------------------
 // Space: asymmetric cross-feedback delay network
 // ---------------------------------------------------------------------------
+const HARSH_TABLES = {
+    ratios: [1.0, 1.4983, 2.013],
+    geometries: [
+            [1, 1.41421356, 2.71828], [1, 1.27183, 3.14159], [1, 1.61803, 2.41421],
+            [1, 1.73205, 2.64575], [1, 1.41421, 3.31662], [1, 1.13975, 1.79129], [1, 1.88775, 2.65331]
+        ],
+};
+
+const FORMANT_TABLES = {
+    gains: [1.0, 0.63, 0.32, 0.18],
+    res: [0.93, 0.92, 0.9, 0.88],
+};
+
 class Space {
     constructor() {
+        this.output = { left: 0, right: 0 };
         this.size = 65536;
         this.left = new Float64Array(this.size);
         this.right = new Float64Array(this.size);
@@ -187,10 +205,9 @@ class Space {
         this.right[this.cursor] = Math.tanh(x * 0.62 + this.damp_l * feedback + d * 0.08);
         this.cursor = (this.cursor + 1) % this.size;
         const wet = amount * 0.58;
-        return {
-            left: x * (1.0 - wet * 0.25) + wet * (a * 0.75 + c * 0.25),
-            right: x * (1.0 - wet * 0.25) + wet * (b * 0.75 + d * 0.25)
-        };
+        this.output.left = x * (1.0 - wet * 0.25) + wet * (a * 0.75 + c * 0.25);
+        this.output.right = x * (1.0 - wet * 0.25) + wet * (b * 0.75 + d * 0.25);
+        return this.output;
     }
 }
 
@@ -206,6 +223,9 @@ class ResonantReverb {
         this.combs = 3;
         this.comb_size = 16384;
 
+        this.y_scratch = new Float64Array(this.lines);
+        this.ring_scratch = new Float64Array(this.combs);
+        this.output = { left: 0, right: 0 };
         this.buffer = Array.from({ length: this.lines }, () => new Float64Array(this.size));
         this.diffuser = Array.from({ length: this.diffusers }, () => new Float64Array(this.diffuser_size));
         this.diffuser_cursor = new Int32Array(this.diffusers);
@@ -284,7 +304,7 @@ class ResonantReverb {
         this.phase += TAU * 0.21 / sr;
         if (this.phase > TAU) this.phase -= TAU;
         const wobble = Math.sin(this.phase) * 8.0 * (1.0 - resonance);
-        const y = new Float64Array(this.lines);
+        const y = this.y_scratch;
         let sum = 0;
         const cutoff = Math.min(sr * 0.45, 5500.0 + resonance * 6500.0 - amount * 2000.0);
         const coefficient = Math.exp(-TAU * cutoff / sr);
@@ -310,7 +330,7 @@ class ResonantReverb {
         const wet = amount * 0.55;
 
         const excite = (left + right) * 0.08 + (x.left + x.right) * 0.04;
-        const ring = new Float64Array(this.combs);
+        const ring = this.ring_scratch;
         for (let c = 0; c < this.combs; c++) {
             let pos = this.cursor - this.comb_length[c];
             while (pos < 0) pos += this.comb_size;
@@ -325,10 +345,9 @@ class ResonantReverb {
         this.cursor = (this.cursor + 1) % this.size;
         const sympathetic = resonance * wet * 1.8;
         const hall = wet * (1.0 - resonance * 0.55);
-        return {
-            left: x.left + left * hall + (ring[0] + ring[2] * 0.6 + ring[1] * 0.4) * sympathetic,
-            right: x.right + right * hall + (ring[0] + ring[1] * 0.6 + ring[2] * 0.4) * sympathetic
-        };
+        this.output.left = x.left + left * hall + (ring[0] + ring[2] * 0.6 + ring[1] * 0.4) * sympathetic;
+        this.output.right = x.right + right * hall + (ring[0] + ring[1] * 0.6 + ring[2] * 0.4) * sympathetic;
+        return this.output;
     }
 }
 
@@ -440,6 +459,7 @@ class HarshEmitter {
         this.high = new Float64Array(3);
         this.previous = new Float64Array(3);
         this.dry_delay = new Float64Array(8);
+        this.returns = new Float64Array(3);
         this.dry_cursor = 0;
         this.cursor = 0;
         this.group = 0;
@@ -521,16 +541,13 @@ class HarshEmitter {
         if (!sounding || this.stopping) this.release *= Math.exp(-1.0 / (sr * this.release_seconds));
         else this.release = 1.0;
 
-        const ratios = [1.0, 1.4983, 2.013];
-        const geometries = [
-            [1, 1.41421356, 2.71828], [1, 1.27183, 3.14159], [1, 1.61803, 2.41421],
-            [1, 1.73205, 2.64575], [1, 1.41421, 3.31662], [1, 1.13975, 1.79129], [1, 1.88775, 2.65331]
-        ];
+        const ratios = HARSH_TABLES.ratios;
+        const geometries = HARSH_TABLES.geometries;
         const geometry = clamp(this.settings.circuit || 0, 0, 6);
         const strain_target = Math.min(1.0, Math.abs(input) * 4.0 + this.energy * 0.7);
         this.strain += (strain_target - this.strain) * (1.0 - Math.exp(-1.0 / (sr * 0.006)));
 
-        const returns = [0, 0, 0];
+        const returns = this.returns;
         let sum = 0;
         const coefficient = 1.0 - Math.exp(-TAU * (600.0 + (this.settings.tone || 0.6) * 10500.0) / sr);
         const hp = Math.exp(-TAU * 35.0 / sr);
@@ -858,6 +875,7 @@ const MATERIAL_RATIOS = (function() {
 class Filter {
     constructor() {
         this.ic1 = 0; this.ic2 = 0;
+        this.output = { low: 0, mid: 0, high: 0 };
     }
     process_g(x, g, resonance) {
         const k = 2.0 - 1.94 * clamp(resonance, 0.0, 0.96);
@@ -866,7 +884,8 @@ class Filter {
         const v2 = this.ic2 + g * v1;
         this.ic1 = 2.0 * v1 - this.ic1;
         this.ic2 = 2.0 * v2 - this.ic2;
-        return { low: v2, mid: v1, high: x - k * v1 - v2 };
+        this.output.low = v2; this.output.mid = v1; this.output.high = x - k * v1 - v2;
+        return this.output;
     }
     process(x, hz, resonance, sr) {
         return this.process_g(x, Math.tan(PI * clamp(hz, 20.0, sr * 0.40) / sr), resonance);
@@ -941,6 +960,11 @@ class Voice {
         this.serial = 0;
         this.velocity = 0;
         this.p = default_params();
+        this.env_params = new Float64Array(PARAM_COUNT);
+        this.body_params = new Float64Array(PARAM_COUNT);
+        this.mod_scratch = new Float64Array(4);
+        this.seed_a = { val: 0 }; this.seed_b = { val: 0 };
+        this.live_features = default_features();
         this.target = default_params();
         this.env = new Envelope();
         this.body = new Envelope();
@@ -1085,11 +1109,13 @@ class Voice {
             for (let i = 0; i < PARAM_COUNT; i++) this.p[i] += (this.target[i] - this.p[i]) * this.smoothing;
         }
 
-        const env_p = new Float64Array(this.p);
+        const env_p = this.env_params;
+        env_p.set(this.p);
         env_p[3] *= 1.0 + (features.humanise || 0) * this.strike_attack * 0.28;
         const e = this.env.next(env_p, sr) * this.velocity;
 
-        const bp = new Float64Array(this.p);
+        const bp = this.body_params;
+        bp.set(this.p);
         bp[3] = 1.0; bp[4] = this.p[26]; bp[5] = 0.0; // ATTACK=1, DECAY=DRUMDECAY, SUSTAIN=0
         const be = this.body.next(bp, sr) * this.velocity;
 
@@ -1104,7 +1130,8 @@ class Voice {
         if (this.own && this.gate && (features.algorithm || 0) >= 10 && sfx.hold_ms < 0 && ms > (sfx.physical ? sfx.physical.gesture_ms : 650) + 250) this.note_off(sr);
 
         const base = this.base_hz;
-        const mod = new Float64Array(modulation);
+        const mod = this.mod_scratch;
+        mod.set(modulation);
         let envelope_pitch = 0, audio_fm = 0;
         if (features.routes) {
             for (let i = 0; i < features.routes.length; i++) {
@@ -1119,7 +1146,8 @@ class Voice {
                         const step_clock = clock * (r.source === 1 ? 0.47 : 2.3);
                         const a = ((Math.floor(step_clock) * 2654435761 + this.serial) | 1) >>> 0;
                         const b = (a + 2654435761) >>> 0;
-                        const seedA = { val: a }, seedB = { val: b };
+                        const seedA = this.seed_a, seedB = this.seed_b;
+                        seedA.val = a; seedB.val = b;
                         const first = random_bipolar(seedA), second = random_bipolar(seedB);
                         let blend = step_clock - Math.floor(step_clock);
                         blend = blend * blend * (3.0 - 2.0 * blend);
@@ -1442,8 +1470,8 @@ class Voice {
         const scale = 1.0 / clamp(this.sfx.vocal_size || 1.0, 0.4, 2.5);
         const retune = this.formant_clock-- <= 0;
         if (retune) this.formant_clock = 16;
-        const gains = [1.0, 0.63, 0.32, 0.18];
-        const res = [0.93, 0.92, 0.9, 0.88];
+        const gains = FORMANT_TABLES.gains;
+        const res = FORMANT_TABLES.res;
         let out = 0;
 
         for (let i = 0; i < 4; i++) {
@@ -1500,6 +1528,14 @@ class Engine {
         this.gain = 0.16;
         this.VOICES = 32;
         this.MATERIAL_BODIES = 16;
+        this.harsh_inputs = new Float64Array(this.MATERIAL_BODIES);
+        this.harsh_sounding = new Uint8Array(this.MATERIAL_BODIES);
+        this.sources = new Float64Array(3);
+        this.targets = new Float64Array(4);
+        this.unmodulated = new Float64Array(4);
+        this.bands = new Float64Array(3);
+        this.spoken = new Float64Array(2);
+        this.output = { left: 0, right: 0 };
         this.voices = Array.from({ length: this.VOICES }, () => new Voice());
         this.harsh_emitters = Array.from({ length: this.MATERIAL_BODIES }, () => new HarshEmitter());
         this.keyboard_emitters = Array.from({ length: this.VOICES }, () => new HarshEmitter());
@@ -1692,8 +1728,9 @@ class Engine {
         if (this.step_clock >= 1.0) { this.step_clock -= 1.0; this.step = random_bipolar(this.motion_random); }
         this.wander += (this.wander_target - this.wander) * (1.0 - Math.exp(-1.0 / (this.sample_rate * 0.45)));
 
-        const sources = [Math.sin(TAU * this.orbit), this.wander, this.step];
-        const targets = [0, 0, 0, 0];
+        const sources = this.sources;
+        sources[0] = Math.sin(TAU * this.orbit); sources[1] = this.wander; sources[2] = this.step;
+        const targets = this.targets; targets.fill(0);
         if (this.target_features.routes) {
             for (let i = 0; i < this.target_features.routes.length; i++) {
                 const r = this.target_features.routes[i];
@@ -1702,10 +1739,10 @@ class Engine {
         }
         for (let i = 0; i < 4; i++) this.modulation[i] += (clamp(targets[i], -1.0, 1.0) - this.modulation[i]) * smoothing;
 
-        const unmodulated = [0, 0, 0, 0];
+        const unmodulated = this.unmodulated;
         let x = 0, side_l = 0, side_r = 0, speech_l = 0, speech_r = 0;
-        const harsh_inputs = new Float64Array(this.MATERIAL_BODIES);
-        const harsh_sounding = new Uint8Array(this.MATERIAL_BODIES);
+        const harsh_inputs = this.harsh_inputs; harsh_inputs.fill(0);
+        const harsh_sounding = this.harsh_sounding; harsh_sounding.fill(0);
 
         for (let vIdx = 0; vIdx < this.VOICES; vIdx++) {
             const v = this.voices[vIdx];
@@ -1716,8 +1753,8 @@ class Engine {
             if (this.performance_palette[0] === 0 && this.performance_palette[1] === 0 && this.performance_palette[2] === 0 && this.performance_palette[3] === 0) {
                 s = v.sample(this.sample_rate, authored, v.own ? unmodulated : this.modulation);
             } else {
-                const live = Object.assign({}, authored);
-                const mapped = (orig, amount, red, inc) => orig * (1.0 - Math.max(0.0, -amount) * red) + (1.0 - orig) * Math.max(0.0, amount) * inc;
+                const live = v.live_features;
+                Object.assign(live, authored);
                 live.metal = mapped(authored.metal || 0, this.performance_palette[1], 0.9, 0.8);
                 live.rupture = mapped(authored.rupture || 0, this.performance_palette[2], 1.0, 1.0);
                 live.motion = mapped(authored.motion || 0, this.performance_palette[3], 0.85, 0.75);
@@ -1802,7 +1839,7 @@ class Engine {
         const h = this.high.process(x, 3600.0, 0.4, this.sample_rate).high;
         const m = x - l - h;
         const smooth = 1.0 - Math.exp(-1.0 / (this.sample_rate * 0.05));
-        const b = [l, m, h];
+        const b = this.bands; b[0] = l; b[1] = m; b[2] = h;
         let y = 0;
         for (let i = 0; i < 3; i++) {
             this.levels[i] += (Math.abs(b[i]) - this.levels[i]) * smooth;
@@ -1828,7 +1865,7 @@ class Engine {
             stereo.right += wet.right * Math.sin(a) * 1.41421356;
         }
 
-        const spoken = [speech_l * this.gain, speech_r * this.gain];
+        const spoken = this.spoken; spoken[0] = speech_l * this.gain; spoken[1] = speech_r * this.gain;
         for (let k = 0; k < 2; k++) {
             const blk = spoken[k] - this.speech_dc_x[k] + 0.995 * this.speech_dc_y[k];
             this.speech_dc_x[k] = spoken[k];
@@ -1836,10 +1873,9 @@ class Engine {
             spoken[k] = blk;
         }
 
-        return {
-            left: Math.tanh(stereo.left + spoken[0]),
-            right: Math.tanh(stereo.right + spoken[1])
-        };
+        this.output.left = Math.tanh(stereo.left + spoken[0]);
+        this.output.right = Math.tanh(stereo.right + spoken[1]);
+        return this.output;
     }
 }
 
@@ -1851,6 +1887,9 @@ class PerformanceCharacter {
         this.target = 0; this.value = 0; this.sample_rate = 0; this.slew = 0; this.envelope_follow = 0;
         this.tone = [0, 0]; this.envelope = 0; this.phase = 0;
         this.random = { val: 1977 };
+        this.output = { left: 0, right: 0 };
+        this.channels = new Float64Array(2);
+        this.shaped = { left: 0, right: 0 };
         this.controls = new Float64Array(7);
         this.targets = new Float64Array(7);
         this.atmosphere = new ResonantReverb();
@@ -1895,7 +1934,7 @@ class PerformanceCharacter {
         this.envelope += (Math.min(1.0, Math.max(Math.abs(input.left), Math.abs(input.right))) - this.envelope) * this.envelope_follow;
         const cutoff = 18000.0 * Math.pow(2.0, -calm * 4.0);
         const tone_follow = 1.0 - Math.exp(-TAU * Math.min(this.sample_rate * 0.4, cutoff) / this.sample_rate);
-        const channels = [input.left, input.right];
+        const channels = this.channels; channels[0] = input.left; channels[1] = input.right;
         this.phase += TAU * (23.0 + harsh * 174.0) / this.sample_rate;
         if (this.phase > TAU) this.phase -= TAU;
 
@@ -1909,13 +1948,12 @@ class PerformanceCharacter {
             channels[k] = softened * (1.0 - harsh * 0.8) + broken * harsh * 0.8 * ring * 0.7;
         }
 
-        const shaped = { left: channels[0], right: channels[1] };
+        const shaped = this.shaped; shaped.left = channels[0]; shaped.right = channels[1];
         const floating = this.atmosphere.process(shaped, space * 0.9, 0, 130.81, this.sample_rate);
         if (calm === 0 && harsh === 0 && noise_amount === 0 && space === 0) return input;
-        return {
-            left: floating.left / (1.0 + space * 0.2),
-            right: floating.right / (1.0 + space * 0.2)
-        };
+        this.output.left = floating.left / (1.0 + space * 0.2);
+        this.output.right = floating.right / (1.0 + space * 0.2);
+        return this.output;
     }
 }
 
@@ -2497,111 +2535,175 @@ class HWorld {
 // ---------------------------------------------------------------------------
 // Browser / Web Audio Host
 // ---------------------------------------------------------------------------
+// The Godot bridge keeps calling world.*; forward those calls in order to the
+// audio thread. No second synth runs on the UI thread when using the worklet.
+function applyAudioAction(world, op, args) {
+    if (op === 'muted') {
+        const [i, value] = args;
+        world.resize(i + 1);
+        world.muted[i] = Boolean(value);
+        if (value && !world.audible(i)) world.cancel(i, 20);
+    } else if (op === 'solo') {
+        const i = args[0];
+        world.solo = i;
+        world.solos.fill(false);
+        if (i >= 0) { world.resize(i + 1); world.solos[i] = true; }
+        for (let j = 0; j < world.tracks.length; j++) {
+            if (world.tracks[j].active && !world.audible(j)) world.cancel(j);
+        }
+    } else {
+        world[op](...args);
+    }
+}
+
+class AudioWorldProxy {
+    constructor(host) {
+        this.host = host;
+        this.note_counts = []; this.pulses = []; this.tracks = [];
+        this.time = 0; this.rendered = 0; this.event_count = 0;
+    }
+    send(op, args) { this.host.send(op, args); }
+    initFactions(factions) {
+        this.tracks.length = factions.length;
+        this.send('initFactions', [factions]);
+    }
+    command(...args) { this.send('command', args); }
+    sound(...args) { this.send('sound', args); }
+    patch(...args) { this.send('patch', args); }
+}
+
+const AUDIO_MODULE_URL = typeof document !== 'undefined' ? document.currentScript?.src : '';
+
 class VoidCantorWebAudio {
     constructor() {
-        this.ctx = null;
-        this.world = new HWorld();
-        this.scriptNode = null;
-        this.masterGain = null;
-        this.running = false;
-        this.peak = 0.0;
-        this.initOnGesture();
+        this.ctx = null; this.node = null; this.scriptNode = null;
+        this.masterGain = null; this.running = false; this.peak = 0;
+        this.volume = 0.7; this.backend = 'starting'; this.error = '';
+        this.queue = []; this.localWorld = null; this.port = null;
+        this.world = new AudioWorldProxy(this);
+        // Capture the URL while the script is executing, before addModule's await.
+        this.moduleURL = AUDIO_MODULE_URL;
+        const unlock = () => this.resumeIfNeeded();
+        for (const event of ['pointerdown', 'keydown', 'touchstart', 'click']) {
+            window.addEventListener(event, unlock, { passive: true, capture: true });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.resumeIfNeeded();
+        });
     }
     init() {
-        if (this.ctx) return;
-        const WAContext = window.AudioContext || window.webkitAudioContext;
-        if (!WAContext) return;
-        this.ctx = new WAContext();
-        this.world.rate = this.ctx.sampleRate;
-        this.world.engine.sample_rate = this.ctx.sampleRate;
-
-        // Use ScriptProcessorNode (512 samples = ~10.6ms latency) for universal browser support
-        // without cross-origin worklet file restrictions
-        this.scriptNode = this.ctx.createScriptProcessor(512, 0, 2);
+        if (this.initializing) return this.initializing;
+        const Context = window.AudioContext || window.webkitAudioContext;
+        if (!Context) return Promise.resolve();
+        this.ctx = new Context({ latencyHint: 'interactive' });
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
-
-        this.scriptNode.onaudioprocess = (e) => {
-            const outL = e.outputBuffer.getChannelData(0);
-            const outR = e.outputBuffer.getChannelData(1);
-            this.world.render(outL, outR, outL.length);
-            for (let i = 0; i < outL.length; i++) {
-                const mag = Math.max(Math.abs(outL[i]), Math.abs(outR[i]));
-                if (mag > this.peak) this.peak = mag;
-            }
-        };
-
-        this.scriptNode.connect(this.masterGain);
+        this.masterGain.gain.value = this.volume;
         this.masterGain.connect(this.ctx.destination);
+        this.initializing = this.start();
+        return this.initializing;
+    }
+    async start() {
+        try {
+            if (!this.ctx.audioWorklet || !window.AudioWorkletNode) throw new Error('AudioWorklet unavailable');
+            await this.ctx.audioWorklet.addModule(this.moduleURL);
+            const node = new AudioWorkletNode(this.ctx, 'void-cantor', {
+                numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2]
+            });
+            // Wait for the processor to construct successfully before discarding
+            // queued setup/notes. Missing worklet files must never silently mute.
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Audio processor startup timed out')), 10000);
+                node.onprocessorerror = () => { clearTimeout(timeout); reject(new Error('Audio processor failed')); };
+                node.port.onmessage = ({ data }) => {
+                    if (data.type === 'ready') { clearTimeout(timeout); resolve(); }
+                    else if (data.type === 'stats') this.receiveStats(data);
+                };
+            }).catch(error => { node.disconnect(); node.port.close(); throw error; });
+            this.node = node; this.port = node.port;
+            node.onprocessorerror = () => {
+                this.error = 'Audio processor stopped. Reload to restart audio.';
+                console.error(this.error);
+                window.dispatchEvent(new CustomEvent('haecceity-audio-error', { detail: this.error }));
+            };
+            for (const action of this.queue) this.port.postMessage(action);
+            this.queue.length = 0;
+            node.connect(this.masterGain);
+            this.backend = 'worklet';
+        } catch (error) {
+            console.warn('Void Cantor: using buffered audio fallback:', error);
+            this.localWorld = new HWorld();
+            this.localWorld.rate = this.localWorld.engine.sample_rate = this.ctx.sampleRate;
+            for (const action of this.queue) applyAudioAction(this.localWorld, action.op, action.args);
+            this.queue.length = 0;
+            this.node = this.scriptNode = this.ctx.createScriptProcessor(2048, 0, 2);
+            this.scriptNode.onaudioprocess = event => {
+                const left = event.outputBuffer.getChannelData(0);
+                const right = event.outputBuffer.getChannelData(1);
+                this.localWorld.render(left, right, left.length);
+                let peak = 0;
+                for (let i = 0; i < left.length; i++) peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
+                this.receiveStats({ peak, note_counts: this.localWorld.note_counts, pulses: this.localWorld.pulses,
+                    time: this.localWorld.time, rendered: this.localWorld.rendered, event_count: this.localWorld.event_count });
+            };
+            this.node.connect(this.masterGain);
+            this.backend = 'buffered';
+        }
         this.running = true;
     }
-    initOnGesture() {
-        const unlock = () => {
-            if (!this.ctx) this.init();
-            if (this.ctx && this.ctx.state === 'suspended') {
-                this.ctx.resume().then(() => {
-                    console.log("Void Cantor Web Audio resumed on user gesture");
-                });
-            }
-        };
-        window.addEventListener('pointerdown', unlock, { passive: true, capture: true });
-        window.addEventListener('keydown', unlock, { passive: true, capture: true });
-        window.addEventListener('touchstart', unlock, { passive: true, capture: true });
-        window.addEventListener('click', unlock, { passive: true, capture: true });
+    send(op, args) {
+        const action = { op, args };
+        if (this.port) this.port.postMessage(action);
+        else if (this.localWorld) applyAudioAction(this.localWorld, op, args);
+        else this.queue.push(action);
+    }
+    receiveStats(data) {
+        this.peak = Math.max(this.peak, data.peak);
+        for (const key of ['note_counts', 'pulses', 'time', 'rendered', 'event_count']) this.world[key] = data[key];
     }
     resumeIfNeeded() {
-        if (!this.ctx) this.init();
-        if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
+        this.init();
+        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume().catch(console.warn);
+    }
+    setVolume(value) {
+        this.volume = clamp(Number(value) || 0, 0, 1);
+        if (this.masterGain) this.masterGain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.01);
+    }
+    decayPeak(dt) { const peak = this.peak; this.peak = Math.max(0, peak - dt * 2.5); return peak; }
+    setMuted(i, value) { if (i >= 0) this.send('muted', [i, value]); }
+    setSolo(i) { this.send('solo', [i]); }
+    noteOn(organism, pitch, velocity) { this.resumeIfNeeded(); this.world.sound({ organism, pitch, velocity }, false); }
+    noteOff(organism, pitch) { this.world.sound({ organism, pitch, velocity: 0 }, false); }
+    preview(organism, pitch, patch) { this.resumeIfNeeded(); this.world.command(organism, 'preview', [patch, pitch]); }
+    stopPreview(organism) { this.world.command(organism, 'stop_preview', []); }
+    setPatch(organism, patch) { this.world.patch(organism, patch); }
+}
+
+// The same file is loaded by the page and the worklet, keeping the DSP identical.
+if (typeof registerProcessor === 'function') {
+    class VoidCantorProcessor extends AudioWorkletProcessor {
+        constructor() {
+            super();
+            this.world = new HWorld();
+            this.world.rate = this.world.engine.sample_rate = sampleRate;
+            this.untilStats = 0; this.peak = 0;
+            this.port.onmessage = ({ data }) => applyAudioAction(this.world, data.op, data.args);
+            this.port.postMessage({ type: 'ready' });
         }
-    }
-    setVolume(v) {
-        if (this.masterGain && this.ctx) {
-            this.masterGain.gain.setValueAtTime(clamp(Number(v) || 0, 0, 1), this.ctx.currentTime);
-        }
-    }
-    decayPeak(dt) {
-        const p = this.peak;
-        this.peak = Math.max(0.0, this.peak - dt * 2.5);
-        return p;
-    }
-    setMuted(i, v) {
-        if (i >= 0 && i < this.world.tracks.length) {
-            this.world.muted[i] = Boolean(v);
-            if (this.world.muted[i] && !this.world.audible(i)) {
-                this.world.cancel(i, 20);
+        process(inputs, outputs) {
+            const [left, right] = outputs[0];
+            this.world.render(left, right, left.length);
+            for (let i = 0; i < left.length; i++) this.peak = Math.max(this.peak, Math.abs(left[i]), Math.abs(right[i]));
+            this.untilStats -= left.length;
+            if (this.untilStats <= 0) {
+                this.untilStats = sampleRate / 20;
+                this.port.postMessage({ type: 'stats', peak: this.peak, note_counts: this.world.note_counts,
+                    pulses: this.world.pulses, time: this.world.time, rendered: this.world.rendered, event_count: this.world.event_count });
+                this.peak = 0;
             }
+            return true;
         }
     }
-    setSolo(i) {
-        this.world.solo = i;
-        this.world.solos.fill(false);
-        if (i >= 0 && i < this.world.solos.length) {
-            this.world.solos[i] = true;
-        }
-        for (let j = 0; j < this.world.tracks.length; j++) {
-            if (this.world.tracks[j].active && !this.world.audible(j)) {
-                this.world.cancel(j);
-            }
-        }
-    }
-    noteOn(organism, pitch, velocity) {
-        this.resumeIfNeeded();
-        this.world.sound({ time: this.world.time, organism: organism, pitch: pitch, velocity: velocity }, false);
-    }
-    noteOff(organism, pitch) {
-        this.world.sound({ time: this.world.time, organism: organism, pitch: pitch, velocity: 0 }, false);
-    }
-    preview(organism, pitch, patch) {
-        this.resumeIfNeeded();
-        this.world.command(organism, "preview", [patch, pitch]);
-    }
-    stopPreview(organism) {
-        this.world.command(organism, "stop_preview", []);
-    }
-    setPatch(organism, patch) {
-        this.world.patch(organism, patch);
-    }
+    registerProcessor('void-cantor', VoidCantorProcessor);
 }
 
 if (typeof window !== 'undefined') {
