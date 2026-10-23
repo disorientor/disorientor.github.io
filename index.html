@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>disorientor environments</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Departure Mono (local, embedded so it also works over file://) -->
+  <link rel="stylesheet" href="departure-mono.css">
+
+  <!-- Three.js & GLTF Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- disorientor.glb (embedded so it also loads over file://) -->
+  <script src="disorientor-glb.js"></script>
+
+  <style>
+    :root {
+      --bg: #000000;
+      --fg: #e6e6e6;
+      --phosphor-cyan: #4df2ff;
+      --mono: 'Departure Mono', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: var(--mono) !important;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg);
+      color: var(--fg);
+      font-family: var(--mono);
+      overflow: hidden;
+    }
+
+    canvas#webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 65%, rgba(0, 0, 0, 0.8) 100%);
+    }
+
+    .interactive-ui {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1.5rem;
+      will-change: transform;
+    }
+
+    /* Visual copy of the UI that fills the wrap-around gap while the page rolls */
+    .ui-ghost,
+    .ui-ghost * {
+      pointer-events: none !important;
+    }
+
+    .pointer-active {
+      pointer-events: auto;
+    }
+
+    .menu-trigger {
+      position: relative;
+      letter-spacing: 0.18em;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+      cursor: crosshair;
+    }
+
+    .menu-trigger:hover {
+      color: var(--phosphor-cyan);
+      text-shadow: 0 0 12px rgba(77, 242, 255, 0.75), 0 0 24px rgba(77, 242, 255, 0.3);
+    }
+
+    .dropdown-menu {
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-8px);
+      overflow: hidden;
+      transition: max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.35s ease,
+                  transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .menu-container:hover .dropdown-menu,
+    .menu-container:focus-within .dropdown-menu {
+      max-height: 240px;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .menu-item {
+      position: relative;
+      padding: 0.4rem 0.8rem;
+      border-left: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      cursor: pointer;
+    }
+
+    .menu-item:hover {
+      border-left: 2px solid var(--phosphor-cyan);
+      background: linear-gradient(90deg, rgba(77, 242, 255, 0.08) 0%, transparent 100%);
+      color: #ffffff;
+      transform: translateX(4px);
+      text-shadow: 0 0 10px rgba(77, 242, 255, 0.6);
+    }
+
+    .btn-action {
+      background: rgba(15, 15, 15, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      padding: 0.35rem 0.65rem;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .btn-action:hover {
+      background: rgba(77, 242, 255, 0.12);
+      border-color: var(--phosphor-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(77, 242, 255, 0.25);
+    }
+
+    /* Title stays hidden through the intro, then fades in via the WebGL mosh pass */
+    .menu-container.intro-hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Volume: blocky black & white meter that drops down on hover */
+    .audio-control {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .vol-panel {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px;
+      background: #000;
+      border: 1px solid #fff;
+      color: #fff;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity 0.15s steps(3), transform 0.15s steps(3), visibility 0s linear 0.15s;
+    }
+
+    .audio-control:hover .vol-panel,
+    .audio-control:focus-within .vol-panel {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      transition: opacity 0.15s steps(3), transform 0.15s steps(3);
+    }
+
+    .vol-readout {
+      min-width: 3ch;
+      text-align: right;
+    }
+
+    /* 12 blocks of 11px (9px block + 2px gap) */
+    .vol-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 134px;
+      height: 14px;
+      margin: 0;
+      background: transparent;
+      cursor: pointer;
+      display: block;
+    }
+
+    .vol-slider:focus { outline: none; }
+    .vol-slider:focus-visible { outline: 1px solid #fff; outline-offset: 3px; }
+
+    .vol-slider::-webkit-slider-runnable-track {
+      height: 14px;
+      border: 1px solid #fff;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 9px, #000 9px 11px),
+        linear-gradient(90deg, #fff 0 var(--vol, 33.33%), #000 var(--vol, 33.33%) 100%);
+    }
+
+    .vol-slider::-moz-range-track {
+      height: 12px;
+      border: 1px solid #fff;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 9px, #000 9px 11px),
+        linear-gradient(90deg, #fff 0 var(--vol, 33.33%), #000 var(--vol, 33.33%) 100%);
+    }
+
+    /* The fill is the indicator, so the thumb is invisible */
+    .vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 1px;
+      height: 12px;
+      background: transparent;
+      border: 0;
+    }
+
+    .vol-slider::-moz-range-thumb {
+      width: 1px;
+      height: 12px;
+      background: transparent;
+      border: 0;
+    }
+  </style>
+</head>
+<body class="bg-black text-neutral-200 select-none">
+
+  <canvas id="webgl-canvas"></canvas>
+  <div class="crt-overlay"></div>
+
+  <div class="interactive-ui" id="ui-layer">
+    <!-- TOP BAR -->
+    <header class="flex justify-end items-start w-full">
+      <div class="audio-control pointer-active">
+        <button id="sound-toggle" class="btn-action" title="Toggle CRT audio">
+          <span id="sound-icon">AUDIO: ON</span>
+        </button>
+        <div class="vol-panel">
+          <input type="range" id="volume-slider" class="vol-slider" min="0" max="12" step="1" value="4" aria-label="Volume">
+          <span id="volume-readout" class="vol-readout">33%</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CENTER / MENU -->
+    <main class="my-auto pointer-active">
+      <div class="menu-container inline-block intro-hidden">
+        <h1 id="brand-title" class="menu-trigger text-lg sm:text-xl md:text-2xl font-light tracking-widest uppercase cursor-pointer">
+          disorientor environments
+        </h1>
+
+        <div class="dropdown-menu flex flex-col gap-1.5 mt-4 ml-1">
+          <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Ex cathedra" data-action="cathedra">
+            <span class="text-neutral-600 mr-2">[01]</span><span class="item-text">Ex cathedra</span>
+          </div>
+          <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Haecceity" data-action="haecceity">
+            <span class="text-neutral-600 mr-2">[02]</span><span class="item-text">Haecceity</span>
+          </div>
+          <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="world_world" data-action="world">
+            <span class="text-neutral-600 mr-2">[03]</span><span class="item-text">world_world</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div></div>
+  </div>
+
+  <!-- Vertex Quad -->
+  <script id="vertex-quad" type="x-shader/x-vertex">
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  </script>
+
+  <!-- Shader 16: CRT Phosphor Bloom & Subpixel Aperture Grille (Untouched Original) -->
+  <script id="fs-phosphor-bloom" type="x-shader/x-fragment">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    uniform sampler2D tDiffuse;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_intensity;
+    uniform float u_mask_type;
+    uniform float u_mask_density;
+    uniform float u_bloom_radius;
+    uniform float u_scanline_depth;
+    uniform float u_phosphor_jitter;
+
+    varying vec2 vUv;
+
+    float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    void main() {
+        vec2 uv = vUv;
+
+        float j = (hash(vec2(floor(uv.y * u_resolution.y * 0.5), u_time * 24.0)) - 0.5) * u_phosphor_jitter * 0.003;
+        uv.x += j;
+
+        vec3 col = texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb;
+
+        vec3 bloom = vec3(0.0);
+        float bloomTotal = 0.0;
+        float rad = u_bloom_radius / u_resolution.y;
+        for (int y = -2; y <= 2; y++) {
+            for (int x = -2; x <= 2; x++) {
+                float dist = length(vec2(float(x), float(y)));
+                float w = exp(-0.5 * dist * dist);
+                vec2 offset = vec2(float(x), float(y)) * rad * (0.8 + 0.4 * length(col));
+                bloom += texture2D(tDiffuse, clamp(uv + offset, 0.0, 1.0)).rgb * w;
+                bloomTotal += w;
+            }
+        }
+        bloom /= bloomTotal;
+
+        col = mix(col, col + bloom * 0.7, u_intensity * 0.6);
+
+        float scanline = sin(uv.y * u_resolution.y * 3.14159265);
+        scanline = 0.5 + 0.5 * scanline;
+        scanline = pow(scanline, 1.2 + u_scanline_depth * 1.5);
+        col *= mix(1.0, scanline, u_scanline_depth * u_intensity);
+
+        vec2 pixelCoord = uv * u_resolution * u_mask_density;
+        vec3 mask = vec3(1.0);
+
+        if (u_mask_type < 0.5) {
+            float subpixel = mod(pixelCoord.x, 3.0);
+            if (subpixel < 1.0) {
+                mask = vec3(1.4, 0.2, 0.2);
+            } else if (subpixel < 2.0) {
+                mask = vec3(0.2, 1.4, 0.2);
+            } else {
+                mask = vec3(0.2, 0.2, 1.4);
+            }
+        } else if (u_mask_type < 1.5) {
+            vec2 triad = mod(pixelCoord, vec2(3.0, 2.0));
+            float rowOffset = step(1.0, triad.y) * 1.5;
+            float dotX = mod(triad.x + rowOffset, 3.0);
+            if (dotX < 1.0) mask = vec3(1.3, 0.2, 0.2);
+            else if (dotX < 2.0) mask = vec3(0.2, 1.3, 0.2);
+            else mask = vec3(0.2, 0.2, 1.3);
+        } else {
+            vec2 slot = mod(pixelCoord, vec2(3.0, 4.0));
+            float slotSub = slot.x;
+            float slotY = step(2.0, slot.y);
+            if (slotSub < 1.0) mask = vec3(1.3, 0.25, 0.25);
+            else if (slotSub < 2.0) mask = vec3(0.25, 1.3, 0.25);
+            else mask = vec3(0.25, 0.25, 1.3);
+            if (mod(slot.y, 2.0) > 1.8) mask *= 0.5;
+        }
+
+        col = mix(col, col * mask, u_intensity * 0.85);
+        gl_FragColor = vec4(col, 1.0);
+    }
+  </script>
+
+  <!-- Shader 10: Temporal Optical Feedback & Phosphor Trails (Untouched Original) -->
+  <script id="fs-temporal-feedback" type="x-shader/x-fragment">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    uniform sampler2D tDiffuse;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_intensity;
+    uniform float u_feedback_zoom;
+    uniform float u_feedback_angle;
+    uniform float u_decay_rate;
+    uniform float u_chroma_spin;
+
+    varying vec2 vUv;
+
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - 1.0, 0.0, 1.0), c.y);
+    }
+
+    mat2 rotate2D(float angle) {
+        float s = sin(angle);
+        float c = cos(angle);
+        return mat2(c, -s, s, c);
+    }
+
+    void main() {
+        vec2 uv = vUv;
+        vec2 center = vec2(0.5);
+
+        vec4 currentFrame = texture2D(tDiffuse, uv);
+        vec3 accumColor = currentFrame.rgb;
+
+        const int ECHO_TAPS = 7;
+        float zoomFactor = 1.0 + (u_feedback_zoom - 1.0) * 0.04 * u_intensity;
+        float rotAngle = (u_feedback_angle > 0.0 ? u_feedback_angle : 0.02) * u_intensity;
+        float decay = clamp(u_decay_rate > 0.0 ? u_decay_rate : 0.82, 0.5, 0.96);
+
+        vec2 echoUv = uv;
+        float currentWeight = 1.0;
+        float totalWeight = 1.0;
+
+        for (int i = 1; i <= ECHO_TAPS; i++) {
+            float fi = float(i);
+            currentWeight *= decay;
+
+            vec2 p = echoUv - center;
+            p = rotate2D(rotAngle * fi) * p;
+            p *= pow(zoomFactor, fi);
+            echoUv = p + center;
+
+            if (echoUv.x >= 0.0 && echoUv.x <= 1.0 && echoUv.y >= 0.0 && echoUv.y <= 1.0) {
+                vec3 echoSample = texture2D(tDiffuse, echoUv).rgb;
+
+                float hueShift = fi * 0.12 * u_chroma_spin;
+                float luma = dot(echoSample, vec3(0.299, 0.587, 0.114));
+                vec3 phosphorTint = hsv2rgb(vec3(fract(hueShift + luma * 0.5), 0.85, 1.0));
+
+                vec3 blendedEcho = mix(echoSample, echoSample * phosphorTint * 1.5, 0.45);
+                accumColor += blendedEcho * currentWeight * u_intensity;
+                totalWeight += currentWeight;
+            }
+        }
+
+        accumColor /= totalWeight;
+
+        float lumaBurn = max(0.0, dot(accumColor, vec3(0.299, 0.587, 0.114)) - 0.7);
+        accumColor += vec3(0.2, 0.8, 1.0) * pow(lumaBurn, 2.0) * 1.5 * u_intensity;
+
+        gl_FragColor = vec4(accumColor, currentFrame.a);
+    }
+  </script>
+
+  <!-- Shader 05: Analog CRT V-Hold Sync Roll & Beam Collapse
+       (05_crt_vhold_roll.glsl + VBI bar fades out as intensity reaches 0, so a 1.00 VBI doesn't cover the page at rest) -->
+  <script id="fs-crt-vhold-roll" type="x-shader/x-fragment">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    uniform sampler2D tDiffuse;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_intensity;
+    uniform float u_roll_speed;
+    uniform float u_vbi_thickness;
+    uniform float u_curvature;
+    uniform float u_beam_collapse;
+
+    varying vec2 vUv;
+
+    vec2 distortCurve(vec2 uv, float k) {
+        vec2 p = uv * 2.0 - 1.0;
+        vec2 offset = p.yx / vec2(4.0, 3.0);
+        p = p + p * offset * offset * k;
+        return p * 0.5 + 0.5;
+    }
+
+    float teletextPattern(vec2 uv, float time) {
+        vec2 grid = floor(uv * vec2(64.0, 8.0));
+        float n = fract(sin(dot(grid + floor(time * 60.0), vec2(12.9898, 78.233))) * 43758.5453);
+        return step(0.5, n);
+    }
+
+    void main() {
+        vec2 uv = vUv;
+
+        vec2 curvedUv = distortCurve(uv, u_curvature * (0.8 + 0.2 * u_intensity));
+
+        if (curvedUv.x < 0.0 || curvedUv.x > 1.0 || curvedUv.y < 0.0 || curvedUv.y > 1.0) {
+            gl_FragColor = vec4(0.02, 0.02, 0.03, 1.0);
+            return;
+        }
+
+        if (u_beam_collapse > 0.01) {
+            float collapseFactor = clamp(u_beam_collapse * u_intensity, 0.0, 1.0);
+            float lineDist = abs(curvedUv.y - 0.5);
+            float lineWidth = mix(0.5, 0.003, collapseFactor);
+            float beamGlow = exp(-lineDist / lineWidth);
+
+            curvedUv.y = mix(curvedUv.y, 0.5, collapseFactor * 0.98);
+            vec4 baseCol = texture2D(tDiffuse, clamp(curvedUv, 0.0, 1.0));
+
+            vec3 collapsedCol = baseCol.rgb * beamGlow * (1.0 + collapseFactor * 4.0);
+            collapsedCol += vec3(0.4, 0.8, 1.0) * exp(-lineDist / 0.002) * collapseFactor * 6.0;
+            gl_FragColor = vec4(collapsedCol, 1.0);
+            return;
+        }
+
+        float rollSpeed = u_roll_speed * (1.0 + sin(u_time * 0.3) * 0.4) * u_intensity;
+        float rollOffset = fract(u_time * rollSpeed);
+        float rolledY = fract(curvedUv.y + rollOffset);
+
+        // Blanking bar shrinks away as sync locks, so nothing is left behind at intensity 0
+        float vbiBarHeight = max(0.04, u_vbi_thickness) * clamp(u_intensity * 4.0, 0.0, 1.0);
+        bool inVbi = (rolledY < vbiBarHeight);
+
+        vec4 color = vec4(0.0);
+
+        if (inVbi) {
+            float localY = rolledY / vbiBarHeight;
+            if (localY > 0.35 && localY < 0.65) {
+                float burst = teletextPattern(vec2(curvedUv.x, localY), u_time);
+                color = vec4(vec3(burst * 0.85), 1.0);
+            } else {
+                color = vec4(0.05, 0.05, 0.07, 1.0);
+            }
+        } else {
+            float activeY = (rolledY - vbiBarHeight) / (1.0 - vbiBarHeight);
+            vec2 activeUv = vec2(curvedUv.x, activeY);
+
+            float edgeDist = min(abs(rolledY - vbiBarHeight), abs(1.0 - rolledY));
+            float hTear = sin(curvedUv.y * 120.0 + u_time * 40.0) * exp(-edgeDist * 30.0) * 0.04 * u_intensity;
+            activeUv.x += hTear;
+
+            color = texture2D(tDiffuse, clamp(activeUv, 0.0, 1.0));
+        }
+
+        float scanline = sin(curvedUv.y * u_resolution.y * 3.14159) * 0.12 * u_intensity;
+        color.rgb -= scanline;
+
+        float triadX = fract(curvedUv.x * u_resolution.x * 0.3333);
+        vec3 triadMask = vec3(
+            smoothstep(0.0, 0.33, triadX) * smoothstep(0.66, 0.33, triadX),
+            smoothstep(0.33, 0.66, triadX) * smoothstep(1.0, 0.66, triadX),
+            smoothstep(0.66, 1.0, triadX)
+        );
+        color.rgb *= mix(vec3(1.0), triadMask * 1.5, 0.15 * u_intensity);
+
+        float vig = curvedUv.x * curvedUv.y * (1.0 - curvedUv.x) * (1.0 - curvedUv.y);
+        vig = clamp(pow(16.0 * vig, 0.25), 0.0, 1.0);
+        color.rgb *= vig;
+
+        gl_FragColor = color;
+    }
+  </script>
+
+  <!-- Title fade-in: block mosh / quantize pass (as supplied), drawn additively over the screen -->
+  <script id="fs-title-mosh" type="x-shader/x-fragment">
+    precision highp float;
+    uniform sampler2D tDiffuse;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_intensity;
+    uniform float u_block_size;
+    uniform float u_hold_time;
+    uniform float u_opacity;
+    varying vec2 vUv;
+
+    float hash21(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+    vec2 hash22(vec2 p) {
+        return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+    }
+
+    void main() {
+        vec2 uv = vUv;
+        float bSize = max(4.0, u_block_size);
+        vec2 bCoord = floor(uv * u_resolution / bSize);
+        vec2 bUv = (bCoord * bSize) / u_resolution;
+        float cycle = mod(u_time * 0.7, 4.0);
+        float isMosh = step(1.0, cycle);
+        vec2 mVec = (hash22(bCoord + floor(u_time * 2.0) * 0.17) - 0.5) * 2.0;
+        vec3 cCenter = texture2D(tDiffuse, bUv).rgb;
+        vec3 cRight = texture2D(tDiffuse, bUv + vec2(bSize / u_resolution.x, 0.0)).rgb;
+        float edgeMag = length(cCenter - cRight);
+        float moshFactor = smoothstep(0.05, 0.4, edgeMag) * u_intensity * isMosh;
+        vec2 moshedUv = uv + mVec * (0.05 * moshFactor);
+        vec2 quantUv = floor(moshedUv * u_resolution / bSize) * bSize / u_resolution;
+        vec2 finalUv = mix(moshedUv, quantUv, 0.45 * u_intensity);
+        vec4 col = texture2D(tDiffuse, clamp(finalUv, 0.0, 1.0));
+        vec3 bCol = texture2D(tDiffuse, clamp(bUv + mVec * 0.02 * u_intensity, 0.0, 1.0)).rgb;
+        col.rgb = mix(col.rgb, bCol, 0.3 * isMosh);
+        gl_FragColor = vec4(col.rgb, u_opacity);
+    }
+  </script>
+
+  <script>
+    /* -------------------------------------------------------------
+     * 1. AUDIO SUBSYSTEM (Web Audio API, fully procedural)
+     *    - 60Hz transformer hum (+ mains harmonics)
+     *    - soft 15.734 kHz horizontal flyback whine
+     *    - degauss solenoid thumps
+     *    - relay sync clicks
+     *    - resonant frequency sweeps tied to mouse motion & feedback intensity
+     *    - intro pitch dive/recovery following the beam collapse & expansion
+     * ------------------------------------------------------------- */
+    class CRTAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+        this.initialized = false;
+        this.started = false;
+        this.maxGain = 0.6;   // master level at 100% volume
+        this.volume = 0.33;   // 0..1, set from the volume slider
+      }
+
+      level() {
+        return this.maxGain * this.volume;
+      }
+
+      setVolume(v) {
+        this.volume = Math.min(1, Math.max(0, v));
+        if (!this.initialized || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        this.masterGain.gain.cancelScheduledValues(now);
+        this.masterGain.gain.setTargetAtTime(this.level(), now, 0.03);
+      }
+
+      init() {
+        if (this.initialized) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const ctx = this.ctx = new AudioContext();
+          const now = ctx.currentTime;
+
+          // Master bus -> soft limiter -> out
+          this.masterGain = ctx.createGain();
+          this.masterGain.gain.setValueAtTime(0.0, now);
+          const limiter = ctx.createDynamicsCompressor();
+          limiter.threshold.setValueAtTime(-10, now);
+          limiter.knee.setValueAtTime(6, now);
+          limiter.ratio.setValueAtTime(8, now);
+          limiter.attack.setValueAtTime(0.003, now);
+          limiter.release.setValueAtTime(0.12, now);
+          this.masterGain.connect(limiter);
+          limiter.connect(ctx.destination);
+
+          // Shared white-noise buffer
+          const len = ctx.sampleRate * 2;
+          this.noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+          const data = this.noiseBuffer.getChannelData(0);
+          for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+
+          // --- 60Hz transformer hum: fundamental + 120/180Hz magnetostriction harmonics
+          this.humGain = ctx.createGain();
+          this.humGain.gain.setValueAtTime(0.05, now);
+          const humFilter = ctx.createBiquadFilter();
+          humFilter.type = 'lowpass';
+          humFilter.frequency.setValueAtTime(420, now);
+          humFilter.Q.setValueAtTime(0.7, now);
+          humFilter.connect(this.humGain);
+          this.humGain.connect(this.masterGain);
+
+          this.humOscs = [];
+          [[60, 'sawtooth', 0.55], [120, 'sine', 0.35], [180, 'triangle', 0.18]].forEach(([f, type, g]) => {
+            const o = ctx.createOscillator();
+            o.baseFreq = f;
+            this.humOscs.push(o);
+            o.type = type;
+            o.frequency.setValueAtTime(f, now);
+            const og = ctx.createGain();
+            og.gain.setValueAtTime(g, now);
+            o.connect(og);
+            og.connect(humFilter);
+            o.start(now);
+          });
+
+          // Slow loading wobble on the hum
+          const humLfo = ctx.createOscillator();
+          humLfo.frequency.setValueAtTime(0.37, now);
+          const humLfoDepth = ctx.createGain();
+          humLfoDepth.gain.setValueAtTime(0.012, now);
+          humLfo.connect(humLfoDepth);
+          humLfoDepth.connect(this.humGain.gain);
+          humLfo.start(now);
+
+          // --- 15.734 kHz horizontal flyback whine (soft, slightly unstable)
+          this.flybackOsc = ctx.createOscillator();
+          this.flybackOsc.type = 'sine';
+          this.flybackOsc.frequency.setValueAtTime(15734, now);
+          const flyVib = ctx.createOscillator();
+          flyVib.frequency.setValueAtTime(4.7, now);
+          const flyVibDepth = ctx.createGain();
+          flyVibDepth.gain.setValueAtTime(5, now);
+          flyVib.connect(flyVibDepth);
+          flyVibDepth.connect(this.flybackOsc.frequency);
+          this.flybackGain = ctx.createGain();
+          this.flybackGain.gain.setValueAtTime(0.0035, now);
+          this.flybackOsc.connect(this.flybackGain);
+          this.flybackGain.connect(this.masterGain);
+          this.flybackOsc.start(now);
+          flyVib.start(now);
+
+          // --- Resonant sweep voice: buzzy 60Hz-locked source + noise through a high-Q filter
+          this.sweepFilter = ctx.createBiquadFilter();
+          this.sweepFilter.type = 'bandpass';
+          this.sweepFilter.frequency.setValueAtTime(300, now);
+          this.sweepFilter.Q.setValueAtTime(10, now);
+          this.sweepGain = ctx.createGain();
+          this.sweepGain.gain.setValueAtTime(0.0, now);
+          this.sweepFilter.connect(this.sweepGain);
+          this.sweepGain.connect(this.masterGain);
+
+          this.sweepOsc = ctx.createOscillator();
+          this.sweepOsc.type = 'sawtooth';
+          this.sweepOsc.frequency.setValueAtTime(60, now);
+          this.sweepOsc.connect(this.sweepFilter);
+          this.sweepOsc.start(now);
+
+          const sweepNoise = ctx.createBufferSource();
+          sweepNoise.buffer = this.noiseBuffer;
+          sweepNoise.loop = true;
+          const sweepNoiseGain = ctx.createGain();
+          sweepNoiseGain.gain.setValueAtTime(0.35, now);
+          sweepNoise.connect(sweepNoiseGain);
+          sweepNoiseGain.connect(this.sweepFilter);
+          sweepNoise.start(now);
+
+          // --- Feedback ring: sine riding an octave above the sweep filter, swells with feedback
+          this.ringOsc = ctx.createOscillator();
+          this.ringOsc.type = 'sine';
+          this.ringOsc.frequency.setValueAtTime(600, now);
+          this.ringGain = ctx.createGain();
+          this.ringGain.gain.setValueAtTime(0.0, now);
+          this.ringOsc.connect(this.ringGain);
+          this.ringGain.connect(this.masterGain);
+          this.ringOsc.start(now);
+
+          // --- Intro deflection voice: buzzy tone that dives in pitch as the beam collapses
+          //     and climbs back as the picture expands (old CRT power-sag pitch bend)
+          this.introFilter = ctx.createBiquadFilter();
+          this.introFilter.type = 'lowpass';
+          this.introFilter.frequency.setValueAtTime(1800, now);
+          this.introFilter.Q.setValueAtTime(5, now);
+          this.introGain = ctx.createGain();
+          this.introGain.gain.setValueAtTime(0.0, now);
+          this.introFilter.connect(this.introGain);
+          this.introGain.connect(this.masterGain);
+          this.introOscs = [[220, 'sawtooth', 0.5], [331, 'square', 0.18], [440, 'triangle', 0.3]].map(([f, type, g]) => {
+            const o = ctx.createOscillator();
+            o.type = type;
+            o.baseFreq = f;
+            o.frequency.setValueAtTime(f, now);
+            const og = ctx.createGain();
+            og.gain.setValueAtTime(g, now);
+            o.connect(og);
+            og.connect(this.introFilter);
+            o.start(now);
+            return o;
+          });
+
+          this.initialized = true;
+        } catch(e) {
+          console.warn('Audio Context failed:', e);
+        }
+      }
+
+      // Audio is on by default. Browsers keep the context suspended until the first
+      // click/key/touch, so we resume on whichever comes first; the degauss plays once it's live.
+      autoStart() {
+        this.init();
+        if (!this.ctx) return;
+        this.enabled = true;
+        this.masterGain.gain.setValueAtTime(this.level(), this.ctx.currentTime);
+
+        const onRunning = () => {
+          if (this.ctx.state !== 'running' || this.started) return;
+          this.started = true;
+          this.playDegaussThump();
+          this.playRelayClick(true);
+        };
+        this.ctx.addEventListener('statechange', onRunning);
+        this.ctx.resume().then(onRunning).catch(() => {});
+
+        const unlock = () => {
+          if (this.ctx.state !== 'running') this.ctx.resume();
+          ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.removeEventListener(ev, unlock, true));
+        };
+        ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.addEventListener(ev, unlock, true));
+      }
+
+      toggle() {
+        if (!this.initialized) this.init();
+        if (!this.ctx) return false;
+
+        // Still waiting on the browser's autoplay unlock: this click is the unlock, keep audio on
+        if (this.enabled && !this.started) {
+          this.ctx.resume();
+          return true;
+        }
+
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+
+        this.enabled = !this.enabled;
+        const now = this.ctx.currentTime;
+        this.masterGain.gain.cancelScheduledValues(now);
+        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+        if (this.enabled) {
+          this.masterGain.gain.linearRampToValueAtTime(this.level(), now + 0.25);
+          this.playDegaussThump();
+          this.playRelayClick(true);
+        } else {
+          this.masterGain.gain.linearRampToValueAtTime(0.0, now + 0.12);
+        }
+        return this.enabled;
+      }
+
+      // Called every frame from the render loop
+      // pitch: 1 = normal, <1 = sagging (intro collapse); intro: 0..1 level of the intro voice
+      update({ mouseX, mouseY, mouseSpeed, feedback, vhold, pitch = 1, intro = 0 }) {
+        if (!this.initialized || !this.enabled) return;
+        const now = this.ctx.currentTime;
+        const k = 0.06; // smoothing time constant
+        const kp = 0.02; // pitch bend follows the picture tightly
+
+        // Intro pitch bend across the whole set (hum, flyback, buzz) plus the deflection voice
+        this.humOscs.forEach((o) => o.frequency.setTargetAtTime(o.baseFreq * pitch, now, kp));
+        this.introOscs.forEach((o) => o.frequency.setTargetAtTime(o.baseFreq * pitch, now, kp));
+        this.introFilter.frequency.setTargetAtTime(400 + 2200 * pitch, now, kp);
+        this.introGain.gain.setTargetAtTime(intro * 0.09, now, 0.04);
+
+        // Resonant sweep: mouse height picks the register, speed and feedback push it up
+        const octaves = (1.0 - mouseY) * 3.0 + Math.min(mouseSpeed, 4.0) * 0.6 + feedback * 0.7;
+        const freq = 110 * Math.pow(2, octaves);
+        this.sweepFilter.frequency.setTargetAtTime(freq, now, k);
+        this.sweepFilter.Q.setTargetAtTime(8 + feedback * 7 + mouseX * 6, now, k);
+        this.sweepGain.gain.setTargetAtTime(Math.min(0.22, mouseSpeed * 0.06 + feedback * 0.035), now, k);
+        this.sweepOsc.frequency.setTargetAtTime(60 * (1 + feedback * 0.02) * pitch, now, kp);
+
+        // Feedback ring follows the filter an octave up
+        this.ringOsc.frequency.setTargetAtTime(freq * 2.0, now, k);
+        this.ringGain.gain.setTargetAtTime(Math.min(0.03, feedback * feedback * 0.0035), now, 0.15);
+
+        // Flyback strains (and drifts) with feedback / sync loss
+        this.flybackGain.gain.setTargetAtTime(0.0035 + feedback * 0.0012 + vhold * 0.002, now, 0.1);
+        this.flybackOsc.frequency.setTargetAtTime((15734 - feedback * 18 - vhold * 40) * pitch, now, pitch < 0.999 ? kp : 0.1);
+
+        // Hum swells slightly under load
+        this.humGain.gain.setTargetAtTime(0.05 + feedback * 0.008 + vhold * 0.01, now, 0.2);
+
+        // Random relay sync chatter while the loop is pushed or sync is drifting
+        if (Math.random() < feedback * 0.006 + vhold * 0.05) this.playRelayClick(false, 0.5);
+      }
+
+      // Light white-noise hiss that fades out over `duration`, starting after `delay` (title fade-in)
+      playNoiseSwell(duration, delay = 0) {
+        if (!this.initialized || !this.enabled || !this.started) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime + delay;
+        const n = ctx.createBufferSource();
+        n.buffer = this.noiseBuffer;
+        n.loop = true;
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(1800, now);
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(9000, now);
+        lp.frequency.linearRampToValueAtTime(3500, now + duration);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0, now);
+        g.gain.linearRampToValueAtTime(0.07, now + 0.06);
+        g.gain.linearRampToValueAtTime(0.0, now + duration);
+        n.connect(hp);
+        hp.connect(lp);
+        lp.connect(g);
+        g.connect(this.masterGain);
+        n.start(now);
+        n.stop(now + duration + 0.05);
+      }
+
+      // Degauss coil: mechanical thump, then decaying 60Hz solenoid buzz with a wobbling field
+      playDegaussThump() {
+        if (!this.initialized || !this.enabled) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        const thump = ctx.createOscillator();
+        thump.type = 'sine';
+        thump.frequency.setValueAtTime(95, now);
+        thump.frequency.exponentialRampToValueAtTime(28, now + 0.3);
+        const thumpGain = ctx.createGain();
+        thumpGain.gain.setValueAtTime(0.0001, now);
+        thumpGain.gain.exponentialRampToValueAtTime(0.7, now + 0.008);
+        thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+        thump.connect(thumpGain);
+        thumpGain.connect(this.masterGain);
+        thump.start(now);
+        thump.stop(now + 0.5);
+
+        const buzzFilter = ctx.createBiquadFilter();
+        buzzFilter.type = 'lowpass';
+        buzzFilter.frequency.setValueAtTime(1400, now);
+        buzzFilter.frequency.exponentialRampToValueAtTime(140, now + 1.8);
+        buzzFilter.Q.setValueAtTime(4, now);
+        const buzzGain = ctx.createGain();
+        buzzGain.gain.setValueAtTime(0.0001, now);
+        buzzGain.gain.exponentialRampToValueAtTime(0.3, now + 0.03);
+        buzzGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.9);
+        buzzFilter.connect(buzzGain);
+        buzzGain.connect(this.masterGain);
+
+        [[60, 'sawtooth'], [120, 'square']].forEach(([f, type]) => {
+          const o = ctx.createOscillator();
+          o.type = type;
+          o.frequency.setValueAtTime(f, now);
+          o.connect(buzzFilter);
+          o.start(now);
+          o.stop(now + 2.0);
+        });
+
+        // Field wobble: fast tremolo that slows as the coil discharges
+        const wobble = ctx.createOscillator();
+        wobble.frequency.setValueAtTime(11, now);
+        wobble.frequency.exponentialRampToValueAtTime(2.5, now + 1.8);
+        const wobbleDepth = ctx.createGain();
+        wobbleDepth.gain.setValueAtTime(0.12, now);
+        wobbleDepth.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+        wobble.connect(wobbleDepth);
+        wobbleDepth.connect(buzzGain.gain);
+        wobble.start(now);
+        wobble.stop(now + 2.0);
+      }
+
+      // Relay contact: noise snap + metallic ping, optional release bounce
+      playRelayClick(double = false, level = 1.0) {
+        if (!this.initialized || !this.enabled) return;
+        const ctx = this.ctx;
+        const hit = (t, amp) => {
+          const n = ctx.createBufferSource();
+          n.buffer = this.noiseBuffer;
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(2200 + Math.random() * 1400, t);
+          bp.Q.setValueAtTime(3.5, t);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(amp, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
+          n.connect(bp);
+          bp.connect(g);
+          g.connect(this.masterGain);
+          n.start(t, Math.random() * 1.5);
+          n.stop(t + 0.02);
+
+          const ping = ctx.createOscillator();
+          ping.type = 'sine';
+          ping.frequency.setValueAtTime(3400 + Math.random() * 600, t);
+          const pg = ctx.createGain();
+          pg.gain.setValueAtTime(amp * 0.25, t);
+          pg.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+          ping.connect(pg);
+          pg.connect(this.masterGain);
+          ping.start(t);
+          ping.stop(t + 0.035);
+        };
+        const now = ctx.currentTime;
+        hit(now, 0.5 * level);
+        if (double) hit(now + 0.045 + Math.random() * 0.03, 0.28 * level);
+      }
+    }
+
+    const soundEngine = new CRTAudioEngine();
+
+    /* -------------------------------------------------------------
+     * 2. THREE.JS & MULTI-PASS POST-PROCESSING SETUP
+     * ------------------------------------------------------------- */
+    const canvas = document.getElementById('webgl-canvas');
+    let renderer, mainScene, camera;
+    let rtScene, rtBloom, rtFeedback;
+    let quadMesh, quadCamera, quadScene;
+    let matPhosphorBloom, matTemporalFeedback, matVHoldRoll;
+
+    let emblemGroup;
+
+    // Interactive State Variables
+    let mouse = new THREE.Vector2(0.5, 0.5);
+    let targetMouse = new THREE.Vector2(0.5, 0.5);
+    let mouseSpeed = 0.0;
+    let lastMoveTime = 0;
+    let isHoveringInteractive = false;
+    let temporalFeedbackIntensity = 0.0;
+    let targetFeedbackIntensity = 0.0;
+
+    // 05_crt_vhold_roll.glsl settings (Cathedral 78 lab), applied across the whole page
+    const VHOLD_ROLL_SPEED = 0.85;
+    const VHOLD_VBI_THICKNESS = 1.00;
+    const VHOLD_CURVATURE = 0.53;
+    const VHOLD_ANIMATION_SPEED = 3.00;
+
+    // Intro timeline (seconds, all linear):
+    //   master intensity climbs 0 -> 3 at 3/sec
+    //   at 0.5s beam collapse rises 0 -> 0.5 over 0.2s
+    //   once collapse is up (0.7s), the blue beam line holds for 1.0s
+    //   then intensity falls from where it is to 0 over 0.5s
+    const INTRO_RISE_RATE = 3.0;          // 0 -> 3 over 1s
+    const COLLAPSE_START = 0.5;
+    const COLLAPSE_DURATION = 0.2;
+    const COLLAPSE_TARGET = 0.5;
+    const HOLD_START = COLLAPSE_START + COLLAPSE_DURATION;
+    const HOLD_DURATION = 1.0;
+    const FALL_START = HOLD_START + HOLD_DURATION;
+    const FALL_DURATION = 0.5;
+    const FALL_FROM = INTRO_RISE_RATE * HOLD_START;
+    const INTRO_END = FALL_START + FALL_DURATION;
+
+    let introTime = 0.0;
+    let vholdIntensity = 0.0;
+    let beamCollapse = 0.0;
+    let vholdLocked = false;
+
+    function introIntensity(t) {
+      if (t < HOLD_START) return INTRO_RISE_RATE * t;
+      if (t < FALL_START) return FALL_FROM;
+      return Math.max(0.0, FALL_FROM * (1.0 - (t - FALL_START) / FALL_DURATION));
+    }
+
+    function introCollapse(t) {
+      return COLLAPSE_TARGET * Math.min(1.0, Math.max(0.0, (t - COLLAPSE_START) / COLLAPSE_DURATION));
+    }
+
+    // 10_temporal_feedback.glsl settings:
+    const FB_ZOOM = 0.50;
+    const FB_ANGLE = 0.50;
+    const FB_DECAY = 0.85;
+    const FB_CHROMA = 1.20;
+    const FB_ANIM_SPEED = 2.90;
+    const FB_TARGET_MAX = 3.00;
+
+    const clock = new THREE.Clock();
+
+    // Page-wide roll: the HTML UI rolls in step with the shader, with a ghost copy filling the wrap
+    let uiLayer, uiGhost;
+
+    // Title fade-in after the intro: mosh shader intensity ramps down while the title fades up
+    const TITLE_FADE_DURATION = 1.2;
+    const TITLE_MOSH_START = 1.5;     // starting u_intensity, ramps linearly to 0
+    const TITLE_MOSH_BLOCK = 12.0;
+    const TITLE_DOM_HANDOFF = 0.75;   // last 25% crossfades from the WebGL copy to the real text
+    const TITLE_NOISE_DELAY = 0.5;    // white noise fires this long after the fade starts
+    let matTitleMosh, titleTexture = null;
+    let titleFadeTime = -1;           // < 0 = not running
+
+    function initWebGL() {
+      renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.autoClear = false;
+
+      mainScene = new THREE.Scene();
+      mainScene.background = new THREE.Color(0x000000);
+
+      camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 0, 4.6);
+
+      const w = window.innerWidth * renderer.getPixelRatio();
+      const h = window.innerHeight * renderer.getPixelRatio();
+      const renderTargetOptions = {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: THREE.HalfFloatType
+      };
+
+      rtScene = new THREE.WebGLRenderTarget(w, h, renderTargetOptions);
+      rtBloom = new THREE.WebGLRenderTarget(w, h, renderTargetOptions);
+      rtFeedback = new THREE.WebGLRenderTarget(w, h, renderTargetOptions);
+
+      // Load disorientor.glb
+      setupEmblem();
+
+      // Screen Quad Setup
+      quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      quadScene = new THREE.Scene();
+      const quadGeom = new THREE.PlaneGeometry(2, 2);
+      const resUniform = new THREE.Vector2(window.innerWidth, window.innerHeight);
+
+      // 1. Pass: Phosphor Bloom (16_crt_phosphor_bloom.glsl)
+      matPhosphorBloom = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vertex-quad').textContent,
+        fragmentShader: document.getElementById('fs-phosphor-bloom').textContent,
+        uniforms: {
+          tDiffuse: { value: null },
+          u_resolution: { value: resUniform },
+          u_time: { value: 0 },
+          u_intensity: { value: 1.0 },
+          u_mask_type: { value: 0.0 }, // Trinitron Aperture Grille
+          u_mask_density: { value: 1.0 },
+          u_bloom_radius: { value: 2.8 },
+          u_scanline_depth: { value: 0.45 },
+          u_phosphor_jitter: { value: 0.25 }
+        }
+      });
+
+      // 2. Pass: Temporal Feedback (10_temporal_feedback.glsl)
+      matTemporalFeedback = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vertex-quad').textContent,
+        fragmentShader: document.getElementById('fs-temporal-feedback').textContent,
+        uniforms: {
+          tDiffuse: { value: null },
+          u_resolution: { value: resUniform },
+          u_time: { value: 0 },
+          u_intensity: { value: 0.0 },
+          u_feedback_zoom: { value: FB_ZOOM },
+          u_feedback_angle: { value: FB_ANGLE },
+          u_decay_rate: { value: FB_DECAY },
+          u_chroma_spin: { value: FB_CHROMA }
+        }
+      });
+
+      // 3. Pass: CRT V-Hold Roll (05_crt_vhold_roll.glsl)
+      matVHoldRoll = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vertex-quad').textContent,
+        fragmentShader: document.getElementById('fs-crt-vhold-roll').textContent,
+        uniforms: {
+          tDiffuse: { value: null },
+          u_resolution: { value: resUniform },
+          u_time: { value: 0 },
+          u_intensity: { value: 0.0 },
+          u_roll_speed: { value: VHOLD_ROLL_SPEED },
+          u_vbi_thickness: { value: VHOLD_VBI_THICKNESS },
+          u_curvature: { value: VHOLD_CURVATURE },
+          u_beam_collapse: { value: 0.0 }
+        }
+      });
+
+      // 4. Title fade-in pass (block mosh), composited additively on top of the CRT output
+      matTitleMosh = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vertex-quad').textContent,
+        fragmentShader: document.getElementById('fs-title-mosh').textContent,
+        uniforms: {
+          tDiffuse: { value: null },
+          u_resolution: { value: resUniform },
+          u_time: { value: 0 },
+          u_intensity: { value: TITLE_MOSH_START },
+          u_block_size: { value: TITLE_MOSH_BLOCK },
+          u_hold_time: { value: 0 },
+          u_opacity: { value: 0 }
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        depthWrite: false
+      });
+
+      quadMesh = new THREE.Mesh(quadGeom, matVHoldRoll);
+      quadScene.add(quadMesh);
+
+      window.addEventListener('resize', onWindowResize, false);
+      window.addEventListener('mousemove', onMouseMove, false);
+      window.addEventListener('touchmove', onTouchMove, { passive: true });
+    }
+
+    /* -------------------------------------------------------------
+     * 3. EMBLEM LOADING: disorientor.glb
+     * ------------------------------------------------------------- */
+    function applyEmblemStyling(model) {
+      while (emblemGroup.children.length > 0) {
+        emblemGroup.remove(emblemGroup.children[0]);
+      }
+
+      // 1. Orient model to face camera
+      const initialBox = new THREE.Box3().setFromObject(model);
+      const initSize = initialBox.getSize(new THREE.Vector3());
+      if (initSize.y < initSize.z * 0.35) {
+        // Flat on XZ plane; rotate -90° on X to face front camera
+        model.rotation.x = -Math.PI / 2;
+      }
+
+      // 2. Center at (0, 0, 0)
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+
+      // 3. Scale normalization
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0.001) {
+        model.scale.setScalar(2.4 / maxDim);
+      }
+
+      // 4. Phosphor Material (self-lit glow) & Glowing Wireframe Edges
+      const facetedMat = new THREE.MeshStandardMaterial({
+        color: 0x1f3a44,
+        emissive: 0x2fbfd4,
+        emissiveIntensity: 0.45,
+        roughness: 0.30,
+        metalness: 0.18,
+        side: THREE.DoubleSide
+      });
+
+      const brightEdgesMat = new THREE.LineBasicMaterial({
+        color: 0x9ff8ff,
+        transparent: true,
+        opacity: 1.0
+      });
+
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.material = facetedMat;
+          const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(child.geometry, 24),
+            brightEdgesMat
+          );
+          child.add(edges);
+        }
+      });
+
+      emblemGroup.add(model);
+    }
+
+    function base64ToArrayBuffer(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    function setupEmblem() {
+      emblemGroup = new THREE.Group();
+      mainScene.add(emblemGroup);
+
+      // Lights
+      const keyLight = new THREE.DirectionalLight(0x73f3ff, 2.5);
+      keyLight.position.set(3, 4, 5);
+      mainScene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight(0xff5533, 1.4);
+      rimLight.position.set(-4, -3, 2);
+      mainScene.add(rimLight);
+
+      const ambientLight = new THREE.AmbientLight(0x1c2f38, 1.6);
+      mainScene.add(ambientLight);
+
+      const loader = new THREE.GLTFLoader();
+      const onLoaded = (gltf) => applyEmblemStyling(gltf.scene || gltf.scenes[0]);
+      const onError = (err) => console.warn('disorientor.glb failed to load:', err);
+
+      // Embedded copy works everywhere (including file://); fall back to fetching the file
+      if (window.DISORIENTOR_GLB_B64) {
+        loader.parse(base64ToArrayBuffer(window.DISORIENTOR_GLB_B64), '', onLoaded, onError);
+      } else {
+        loader.load('disorientor.glb', onLoaded, undefined, onError);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * 4. PAGE-WIDE V-HOLD ROLL (HTML layer mirrors the shader roll)
+     * ------------------------------------------------------------- */
+    function setupPageRoll() {
+      uiLayer = document.getElementById('ui-layer');
+      uiGhost = uiLayer.cloneNode(true);
+      uiGhost.removeAttribute('id');
+      uiGhost.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+      uiGhost.classList.add('ui-ghost');
+      uiGhost.setAttribute('aria-hidden', 'true');
+      uiLayer.after(uiGhost);
+    }
+
+    function updatePageRoll(rollOffset) {
+      // Shader samples y + offset, so content moves down the screen by offset * height
+      const h = window.innerHeight;
+      uiLayer.style.transform = `translate3d(0, ${rollOffset * h}px, 0)`;
+      uiGhost.style.transform = `translate3d(0, ${(rollOffset - 1) * h}px, 0)`;
+    }
+
+    function updatePageCollapse(collapseFactor) {
+      // Shader pinches sampling toward the centre (a vertical stretch) and masks it to a thin glowing line
+      const h = window.innerHeight;
+      const stretch = 1.0 / Math.max(0.02, 1.0 - collapseFactor * 0.98);
+      const lineWidth = 0.5 + (0.003 - 0.5) * collapseFactor;   // mix(0.5, 0.003, f)
+      const visibleHalf = Math.min(0.5, lineWidth * 2.5) * h / stretch;
+      const inset = Math.max(0, h / 2 - visibleHalf);
+      uiLayer.style.transform = `scaleY(${stretch})`;
+      uiLayer.style.clipPath = `inset(${inset}px 0 ${inset}px 0)`;
+      uiLayer.style.filter = `brightness(${1.0 + collapseFactor * 4.0})`;
+      if (uiGhost) uiGhost.style.visibility = 'hidden';
+    }
+
+    // Draw the title onto a full-screen canvas exactly where the DOM text sits
+    function buildTitleTexture() {
+      const title = document.getElementById('brand-title');
+      const dpr = renderer.getPixelRatio();
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      const g = c.getContext('2d');
+      g.scale(dpr, dpr);
+
+      const cs = getComputedStyle(title);
+      const letterSpacing = parseFloat(cs.letterSpacing) || 0;
+      const r = title.getBoundingClientRect();
+      g.font = `${cs.fontWeight} ${cs.fontSize} 'Departure Mono', monospace`;
+      g.fillStyle = cs.color;
+      g.textBaseline = 'middle';
+      let x = r.left;
+      const y = r.top + r.height / 2;
+      for (const ch of title.textContent.trim().toUpperCase()) {
+        g.fillText(ch, x, y);
+        x += g.measureText(ch).width + letterSpacing;
+      }
+
+      if (titleTexture) titleTexture.dispose();
+      titleTexture = new THREE.CanvasTexture(c);
+      titleTexture.minFilter = THREE.LinearFilter;
+      titleTexture.magFilter = THREE.LinearFilter;
+    }
+
+    function startTitleFade() {
+      buildTitleTexture();
+      titleFadeTime = 0;
+      soundEngine.playNoiseSwell(TITLE_FADE_DURATION, TITLE_NOISE_DELAY);
+    }
+
+    function updateTitleFade(delta) {
+      if (titleFadeTime < 0) return;
+      titleFadeTime += Math.min(delta, 0.05);
+      const p = Math.min(1.0, titleFadeTime / TITLE_FADE_DURATION);
+      const menu = document.querySelector('#ui-layer .menu-container');
+      const handoff = Math.max(0.0, (p - TITLE_DOM_HANDOFF) / (1.0 - TITLE_DOM_HANDOFF));
+
+      matTitleMosh.uniforms.u_intensity.value = TITLE_MOSH_START * (1.0 - p);
+      // Offset keeps the shader's 4-step cycle inside its mosh window for the whole fade
+      matTitleMosh.uniforms.u_time.value = 1.6 + titleFadeTime;
+      matTitleMosh.uniforms.u_opacity.value = p * (1.0 - handoff);
+
+      if (handoff > 0.0) {
+        menu.classList.remove('intro-hidden');
+        menu.style.opacity = handoff;
+      }
+
+      if (p >= 1.0) {
+        titleFadeTime = -1;
+        menu.style.opacity = '';
+        if (titleTexture) {
+          titleTexture.dispose();
+          titleTexture = null;
+        }
+      }
+    }
+
+    function endPageRoll() {
+      uiLayer.style.transform = '';
+      uiLayer.style.clipPath = '';
+      uiLayer.style.filter = '';
+      if (uiGhost) {
+        uiGhost.remove();
+        uiGhost = null;
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * 5. ANIMATION LOOP & PASS EXECUTION
+     * ------------------------------------------------------------- */
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // 1. Slow, continuous emblem rotation
+      if (emblemGroup) {
+        emblemGroup.rotation.y = time * 0.32;
+        emblemGroup.rotation.x = Math.sin(time * 0.2) * 0.22;
+        emblemGroup.rotation.z = Math.cos(time * 0.15) * 0.12;
+
+        mouse.x += (targetMouse.x - mouse.x) * 0.05;
+        mouse.y += (targetMouse.y - mouse.y) * 0.05;
+        emblemGroup.position.x = (mouse.x - 0.5) * 0.5;
+        emblemGroup.position.y = -(mouse.y - 0.5) * 0.4;
+      }
+
+      // 2. V-Hold intro timeline (delta clamped so a slow first frame can't skip it)
+      const vholdTime = time * VHOLD_ANIMATION_SPEED;
+      if (!vholdLocked) {
+        introTime += Math.min(delta, 0.05);
+        vholdIntensity = introIntensity(introTime);
+        beamCollapse = introCollapse(introTime);
+
+        if (introTime >= INTRO_END) {
+          vholdLocked = true;
+          vholdIntensity = 0.0;
+          beamCollapse = 0.0; // release collapse once sync locks
+          endPageRoll();
+          soundEngine.playRelayClick(true);
+          startTitleFade();
+        } else if (beamCollapse > 0.01) {
+          updatePageCollapse(Math.min(1.0, beamCollapse * vholdIntensity));
+        } else {
+          const rollSpeed = VHOLD_ROLL_SPEED * (1.0 + Math.sin(vholdTime * 0.3) * 0.4) * vholdIntensity;
+          const rollOffset = (vholdTime * rollSpeed) % 1.0;
+          updatePageRoll(rollOffset);
+        }
+        matVHoldRoll.uniforms.u_intensity.value = vholdIntensity;
+        matVHoldRoll.uniforms.u_beam_collapse.value = beamCollapse;
+      }
+
+      // 3. Temporal Feedback Ramping up to 3.00 on mouseover
+      targetFeedbackIntensity = isHoveringInteractive ? FB_TARGET_MAX : targetFeedbackIntensity;
+      temporalFeedbackIntensity += (targetFeedbackIntensity - temporalFeedbackIntensity) * Math.min(1.0, delta * 4.5);
+      matTemporalFeedback.uniforms.u_intensity.value = temporalFeedbackIntensity;
+      matTemporalFeedback.uniforms.u_time.value = time * FB_ANIM_SPEED;
+
+      // 4. Audio follows mouse motion, feedback and sync state
+      mouseSpeed *= Math.pow(0.02, delta); // fast decay when the mouse stops
+      // Pitch dives two octaves as the beam collapses, climbs back as the picture expands
+      const collapsed = vholdLocked ? 0.0 : Math.min(1.0, beamCollapse * vholdIntensity);
+      soundEngine.update({
+        mouseX: mouse.x,
+        mouseY: mouse.y,
+        mouseSpeed: mouseSpeed,
+        feedback: temporalFeedbackIntensity,
+        vhold: vholdIntensity,
+        pitch: Math.pow(2, -2.0 * collapsed),
+        intro: vholdLocked ? 0.0 : Math.min(1.0, vholdIntensity / 2.1)
+      });
+
+      updateTitleFade(delta);
+
+      // Shader clocks
+      matPhosphorBloom.uniforms.u_time.value = time;
+      matVHoldRoll.uniforms.u_time.value = vholdTime;
+
+      // PASS A: Render 3D Scene into rtScene
+      renderer.setRenderTarget(rtScene);
+      renderer.clear();
+      renderer.render(mainScene, camera);
+
+      // PASS B: Phosphor Bloom (Shader 16) into rtBloom
+      quadMesh.material = matPhosphorBloom;
+      matPhosphorBloom.uniforms.tDiffuse.value = rtScene.texture;
+      renderer.setRenderTarget(rtBloom);
+      renderer.clear();
+      renderer.render(quadScene, quadCamera);
+
+      // PASS C: Temporal Feedback (Shader 10) into rtFeedback
+      quadMesh.material = matTemporalFeedback;
+      matTemporalFeedback.uniforms.tDiffuse.value = rtBloom.texture;
+      renderer.setRenderTarget(rtFeedback);
+      renderer.clear();
+      renderer.render(quadScene, quadCamera);
+
+      // PASS D: Analog CRT V-Hold Roll (Shader 05) to screen canvas
+      quadMesh.material = matVHoldRoll;
+      matVHoldRoll.uniforms.tDiffuse.value = rtFeedback.texture;
+      renderer.setRenderTarget(null);
+      renderer.clear();
+      renderer.render(quadScene, quadCamera);
+
+      // PASS E: Title fade-in (block mosh) added on top while it runs
+      if (titleTexture && matTitleMosh.uniforms.u_opacity.value > 0.0) {
+        quadMesh.material = matTitleMosh;
+        matTitleMosh.uniforms.tDiffuse.value = titleTexture;
+        renderer.render(quadScene, quadCamera);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * 6. RESIZE & MOUSE INTERACTION
+     * ------------------------------------------------------------- */
+    function onWindowResize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const dpr = renderer.getPixelRatio();
+
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(w, h);
+      rtScene.setSize(w * dpr, h * dpr);
+      rtBloom.setSize(w * dpr, h * dpr);
+      rtFeedback.setSize(w * dpr, h * dpr);
+
+      const res = new THREE.Vector2(w, h);
+      matPhosphorBloom.uniforms.u_resolution.value.copy(res);
+      matTemporalFeedback.uniforms.u_resolution.value.copy(res);
+      matVHoldRoll.uniforms.u_resolution.value.copy(res);
+    }
+
+    function trackPointer(x, y) {
+      const nx = x / window.innerWidth;
+      const ny = y / window.innerHeight;
+      const now = performance.now();
+      const dt = Math.max(1, now - lastMoveTime) / 1000;
+      // Screen-widths per second, smoothed
+      const v = Math.hypot(nx - targetMouse.x, ny - targetMouse.y) / dt;
+      mouseSpeed = mouseSpeed * 0.7 + Math.min(v, 8.0) * 0.3;
+      lastMoveTime = now;
+      targetMouse.x = nx;
+      targetMouse.y = ny;
+    }
+
+    function onMouseMove(e) {
+      trackPointer(e.clientX, e.clientY);
+
+      if (!isHoveringInteractive && targetFeedbackIntensity < 0.25) {
+        targetFeedbackIntensity = 0.25;
+        clearTimeout(window.feedbackDecayTimeout);
+        window.feedbackDecayTimeout = setTimeout(() => {
+          if (!isHoveringInteractive) targetFeedbackIntensity = 0.0;
+        }, 320);
+      }
+    }
+
+    function onTouchMove(e) {
+      if (e.touches.length > 0) {
+        trackPointer(e.touches[0].clientX, e.touches[0].clientY);
+        targetFeedbackIntensity = 1.5;
+        clearTimeout(window.feedbackDecayTimeout);
+        window.feedbackDecayTimeout = setTimeout(() => {
+          targetFeedbackIntensity = 0.0;
+        }, 500);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * 7. UI INTERACTION & DEPARTURE MONO GLITCH
+     * ------------------------------------------------------------- */
+    document.addEventListener('DOMContentLoaded', () => {
+      setupPageRoll();
+      initWebGL();
+      animate();
+
+      const menuContainer = document.querySelector('#ui-layer .menu-container');
+      const menuItems = document.querySelectorAll('#ui-layer .menu-item');
+      const soundBtn = document.getElementById('sound-toggle');
+      const soundIcon = document.getElementById('sound-icon');
+
+      // Volume slider: 12 blocks, defaults to 4/12 (33%); remembered per browser
+      const volSlider = document.getElementById('volume-slider');
+      const volReadout = document.getElementById('volume-readout');
+      const applyVolume = () => {
+        const v = Number(volSlider.value) / Number(volSlider.max);
+        volSlider.style.setProperty('--vol', `${v * 100}%`);
+        volReadout.textContent = `${Math.round(v * 100)}%`;
+        soundEngine.setVolume(v);
+        try { localStorage.setItem('disorientor-volume', volSlider.value); } catch (e) {}
+      };
+      try {
+        const saved = localStorage.getItem('disorientor-volume');
+        if (saved !== null) volSlider.value = saved;
+      } catch (e) {}
+      applyVolume();
+      volSlider.addEventListener('input', applyVolume);
+
+      soundEngine.autoStart();
+      soundBtn.style.borderColor = "var(--phosphor-cyan)";
+      soundBtn.style.color = "#ffffff";
+
+      soundBtn.addEventListener('click', () => {
+        const on = soundEngine.toggle();
+        soundIcon.textContent = on ? "AUDIO: ON" : "AUDIO: OFF";
+        soundBtn.style.borderColor = on ? "var(--phosphor-cyan)" : "rgba(255, 255, 255, 0.18)";
+        soundBtn.style.color = on ? "#ffffff" : "inherit";
+      });
+
+      // Mouseover text/menu: Ramp 10_temporal_feedback to 3.00
+      menuContainer.addEventListener('mouseenter', () => {
+        isHoveringInteractive = true;
+        soundEngine.playRelayClick(false, 0.7);
+      });
+
+      menuContainer.addEventListener('mouseleave', () => {
+        isHoveringInteractive = false;
+        targetFeedbackIntensity = 0.0;
+        soundEngine.playRelayClick(false, 0.5);
+      });
+
+      // Menu Scramble
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/*!#<>";
+      menuItems.forEach((item) => {
+        const originalText = item.getAttribute('data-label');
+        const textSpan = item.querySelector('.item-text');
+
+        item.addEventListener('mouseenter', () => {
+          soundEngine.playRelayClick(false, 0.4);
+          let iterations = 0;
+          clearInterval(item.scrambleInterval);
+          item.scrambleInterval = setInterval(() => {
+            textSpan.textContent = originalText
+              .split("")
+              .map((char, index) => {
+                if (index < iterations) return originalText[index];
+                return chars[Math.floor(Math.random() * chars.length)];
+              })
+              .join("");
+
+            if (iterations >= originalText.length) {
+              clearInterval(item.scrambleInterval);
+              textSpan.textContent = originalText;
+            }
+            iterations += 1 / 2;
+          }, 30);
+        });
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          soundEngine.playRelayClick(true);
+          soundEngine.playDegaussThump();
+        });
+      });
+    });
+  </script>
+</body>
+</html>
