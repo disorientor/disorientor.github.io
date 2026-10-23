@@ -118,10 +118,16 @@
 
     .menu-item {
       position: relative;
+      display: block;
+      text-decoration: none;
       padding: 0.4rem 0.8rem;
       border-left: 1px solid rgba(255, 255, 255, 0.15);
       transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
       cursor: pointer;
+    }
+
+    .menu-item:visited {
+      color: inherit;
     }
 
     .menu-item:hover {
@@ -271,9 +277,9 @@
           <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Ex cathedra" data-action="cathedra">
             <span class="text-neutral-600 mr-2">[01]</span><span class="item-text">Ex cathedra</span>
           </div>
-          <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Haecceity" data-action="haecceity">
+          <a href="haecceity/index.html" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Haecceity" data-action="haecceity">
             <span class="text-neutral-600 mr-2">[02]</span><span class="item-text">Haecceity</span>
-          </div>
+          </a>
           <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="world_world" data-action="world">
             <span class="text-neutral-600 mr-2">[03]</span><span class="item-text">world_world</span>
           </div>
@@ -1627,6 +1633,14 @@
           e.stopPropagation();
           soundEngine.playRelayClick(true);
           soundEngine.playDegaussThump();
+
+          const href = item.getAttribute('href');
+          if (href && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+            e.preventDefault();
+            setTimeout(() => {
+              window.location.href = href;
+            }, 120);
+          }
         });
       });
     });
