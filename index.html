@@ -455,7 +455,7 @@
   </script>
 
   <!-- Shader 05: Analog CRT V-Hold Sync Roll & Beam Collapse
-       (05_crt_vhold_roll.glsl + VBI bar fades out as intensity reaches 0, so a 1.00 VBI doesn't cover the page at rest) -->
+       (05_crt_vhold_roll.glsl + VBI bar switched off once sync locks, so a 1.00 VBI doesn't cover the page at rest) -->
   <script id="fs-crt-vhold-roll" type="x-shader/x-fragment">
     #ifdef GL_ES
     precision highp float;
@@ -469,6 +469,7 @@
     uniform float u_vbi_thickness;
     uniform float u_curvature;
     uniform float u_beam_collapse;
+    uniform float u_vbi_visible;
 
     varying vec2 vUv;
 
@@ -514,8 +515,8 @@
         float rollOffset = fract(u_time * rollSpeed);
         float rolledY = fract(curvedUv.y + rollOffset);
 
-        // Blanking bar shrinks away as sync locks, so nothing is left behind at intensity 0
-        float vbiBarHeight = max(0.04, u_vbi_thickness) * clamp(u_intensity * 4.0, 0.0, 1.0);
+        // Blanking bar shows until sync locks (u_vbi_visible -> 0), so nothing is left behind afterwards
+        float vbiBarHeight = max(0.04, u_vbi_thickness) * u_vbi_visible;
         bool inVbi = (rolledY < vbiBarHeight);
 
         vec4 color = vec4(0.0);
@@ -1020,6 +1021,7 @@
     const FALL_FROM = INTRO_RISE_RATE * HOLD_START;
     const INTRO_END = FALL_START + FALL_DURATION;
 
+    let introStarted = false;         // page holds at the intro start settings until the first click
     let introTime = 0.0;
     let vholdIntensity = 0.0;
     let beamCollapse = 0.0;
@@ -1141,7 +1143,8 @@
           u_roll_speed: { value: VHOLD_ROLL_SPEED },
           u_vbi_thickness: { value: VHOLD_VBI_THICKNESS },
           u_curvature: { value: VHOLD_CURVATURE },
-          u_beam_collapse: { value: 0.0 }
+          u_beam_collapse: { value: 0.0 },
+          u_vbi_visible: { value: 1.0 }
         }
       });
 
@@ -1395,7 +1398,7 @@
 
       // 2. V-Hold intro timeline (delta clamped so a slow first frame can't skip it)
       const vholdTime = time * VHOLD_ANIMATION_SPEED;
-      if (!vholdLocked) {
+      if (!vholdLocked && introStarted) {
         introTime += Math.min(delta, 0.05);
         vholdIntensity = introIntensity(introTime);
         beamCollapse = introCollapse(introTime);
@@ -1404,6 +1407,7 @@
           vholdLocked = true;
           vholdIntensity = 0.0;
           beamCollapse = 0.0; // release collapse once sync locks
+          matVHoldRoll.uniforms.u_vbi_visible.value = 0.0;
           endPageRoll();
           soundEngine.playRelayClick(true);
           startTitleFade();
@@ -1567,6 +1571,9 @@
       volSlider.addEventListener('input', applyVolume);
 
       soundEngine.autoStart();
+
+      // Hold at the intro start settings until the first click/tap anywhere
+      window.addEventListener('pointerdown', () => { introStarted = true; }, { once: true });
       soundBtn.style.borderColor = "var(--phosphor-cyan)";
       soundBtn.style.color = "#ffffff";
 
