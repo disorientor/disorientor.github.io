@@ -122,7 +122,7 @@
       text-decoration: none;
       padding: 0.4rem 0.8rem;
       border-left: 1px solid rgba(255, 255, 255, 0.15);
-      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+      transition: color 0.2s ease, background 0.2s ease, text-shadow 0.2s ease;
       cursor: pointer;
     }
 
@@ -134,7 +134,6 @@
       border-left: 2px solid var(--phosphor-cyan);
       background: linear-gradient(90deg, rgba(77, 242, 255, 0.08) 0%, transparent 100%);
       color: #ffffff;
-      transform: translateX(4px);
       text-shadow: 0 0 10px rgba(77, 242, 255, 0.6);
     }
 
@@ -508,8 +507,11 @@
             float lineWidth = mix(0.5, 0.003, collapseFactor);
             float beamGlow = exp(-lineDist / lineWidth);
 
-            curvedUv.y = mix(curvedUv.y, 0.5, collapseFactor * 0.98);
+            // Compress the picture into the beam, then expand it as sync recovers.
+            float pictureHeight = max(0.006, 1.0 - collapseFactor);
+            curvedUv.y = (curvedUv.y - 0.5) / pictureHeight + 0.5;
             vec4 baseCol = texture2D(tDiffuse, clamp(curvedUv, 0.0, 1.0));
+            baseCol.rgb *= step(0.0, curvedUv.y) * step(curvedUv.y, 1.0);
 
             vec3 collapsedCol = baseCol.rgb * beamGlow * (1.0 + collapseFactor * 4.0);
             collapsedCol += vec3(0.4, 0.8, 1.0) * exp(-lineDist / 0.002) * collapseFactor * 6.0;
@@ -1248,6 +1250,7 @@
 
     function setupEmblem() {
       emblemGroup = new THREE.Group();
+      emblemGroup.visible = false;
       mainScene.add(emblemGroup);
 
       // Lights
@@ -1295,14 +1298,10 @@
     }
 
     function updatePageCollapse(collapseFactor) {
-      // Shader pinches sampling toward the centre (a vertical stretch) and masks it to a thin glowing line
-      const h = window.innerHeight;
-      const stretch = 1.0 / Math.max(0.02, 1.0 - collapseFactor * 0.98);
-      const lineWidth = 0.5 + (0.003 - 0.5) * collapseFactor;   // mix(0.5, 0.003, f)
-      const visibleHalf = Math.min(0.5, lineWidth * 2.5) * h / stretch;
-      const inset = Math.max(0, h / 2 - visibleHalf);
-      uiLayer.style.transform = `scaleY(${stretch})`;
-      uiLayer.style.clipPath = `inset(${inset}px 0 ${inset}px 0)`;
+      // Match the shader's picture compression into the central beam.
+      const pictureHeight = Math.max(0.006, 1.0 - collapseFactor);
+      uiLayer.style.transform = `scaleY(${pictureHeight})`;
+      uiLayer.style.clipPath = '';
       uiLayer.style.filter = `brightness(${1.0 + collapseFactor * 4.0})`;
       if (uiGhost) uiGhost.style.visibility = 'hidden';
     }
@@ -1427,6 +1426,9 @@
         matVHoldRoll.uniforms.u_intensity.value = vholdIntensity;
         matVHoldRoll.uniforms.u_beam_collapse.value = beamCollapse;
       }
+
+      // The logo first appears inside the collapsed blue beam as it opens.
+      if (emblemGroup) emblemGroup.visible = introTime >= FALL_START;
 
       // 3. Temporal Feedback Ramping up to 3.00 on mouseover
       targetFeedbackIntensity = isHoveringInteractive ? FB_TARGET_MAX : targetFeedbackIntensity;
@@ -1634,13 +1636,8 @@
           soundEngine.playRelayClick(true);
           soundEngine.playDegaussThump();
 
-          const href = item.getAttribute('href');
-          if (href && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
-            e.preventDefault();
-            setTimeout(() => {
-              window.location.href = href;
-            }, 120);
-          }
+          // Let anchors follow their destination on this first click, including
+          // the browser's normal keyboard and modified-click behavior.
         });
       });
     });
