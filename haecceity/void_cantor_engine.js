@@ -50,6 +50,7 @@ function default_harsh_settings(s) {
         articulation: s.articulation != null ? s.articulation : 0.9
     };
 }
+const HARSH_DEFAULTS = Object.freeze(default_harsh_settings());
 function default_features(f) {
     f = f || {};
     return {
@@ -67,27 +68,22 @@ function default_features(f) {
         routes: Array.isArray(f.routes) ? f.routes : []
     };
 }
+// Every Sfx field with its native default (sfx.hpp), so voices never read undefined.
+const SFX_DEFAULTS = {
+    hardness: 0.6, position: 0.27, decay: 1.5, spread: 0.3, tension: 0, clang: 0, warp: 0, bounce_ms: 160, bounce_ratio: 0.72, scrape_rate: 600, bow: 0,
+    reverse_envelope: 0, chamber: 0, formant_motion: 0, carrier_ring: 0, flutter: 0, fragment: 0, reverse_mix: 0, reverse_ms: 35,
+    vocal_size: 1, roughness: 0.1, subharmonic: 0, breath: 0.08, voicing: 1, vowel: 0,
+    boom: 0.8, crackle: 0.3, rumble: 0.4, noise_amount: 0.6, boom_ms: -1, hp: 0, soft_clip: 0, noise_color: 0, sample: -1, start_ms: 0,
+    gain: 1, pitch_from: 0, pitch_to: 0, pitch_ms: 0, pitch_curve: 1, cutoff_from: 0, cutoff_to: 0, cutoff_ms: 0, pan: 0, hold_ms: -1,
+    sustain_syllable: false, phoneme_count: 0
+};
 function default_sfx(s) {
     s = s || {};
-    return {
-        hold_ms: s.hold_ms != null ? s.hold_ms : -1,
-        gain: s.gain != null ? s.gain : 1.0,
-        pan: s.pan != null ? s.pan : 0.0,
-        hardness: s.hardness != null ? s.hardness : 0.5,
-        decay: s.decay != null ? s.decay : 0.5,
-        pitch_from: s.pitch_from != null ? s.pitch_from : 0,
-        pitch_to: s.pitch_to != null ? s.pitch_to : 0,
-        pitch_ms: s.pitch_ms != null ? s.pitch_ms : 0,
-        pitch_curve: s.pitch_curve != null ? s.pitch_curve : 1.0,
-        cutoff_from: s.cutoff_from != null ? s.cutoff_from : 0,
-        cutoff_to: s.cutoff_to != null ? s.cutoff_to : 0,
-        cutoff_ms: s.cutoff_ms != null ? s.cutoff_ms : 0,
-        bow: s.bow != null ? s.bow : 0,
-        hp: s.hp != null ? s.hp : 0,
-        soft_clip: s.soft_clip != null ? s.soft_clip : 0,
-        position: s.position != null ? s.position : 0.27,
-        physical: default_physical_settings(s.physical)
-    };
+    const out = {};
+    for (const k in SFX_DEFAULTS) out[k] = s[k] != null ? s[k] : SFX_DEFAULTS[k];
+    out.phonemes = s.phonemes || [];
+    out.physical = default_physical_settings(s.physical);
+    return out;
 }
 
 const PI = Math.PI;
@@ -936,6 +932,7 @@ class Envelope {
 // Voice: 32 polyphonic voices running full 35-parameter Void Cantor DSP
 // ---------------------------------------------------------------------------
 const PARAM_COUNT = 35;
+const MAX_PHONEMES = 96;
 function default_params() {
     return new Float64Array([1, 2000, 0.3, 5, 150, 0.7, 400, 0, 2, 0.1, 1.5, 0, 0.5, 8, 0.1, 0.02, 180, 0, 0, 0, 0, 0, 0.7, 0, 58, 0, 90, 0, 1, 0.5, 0.4, 0.3, 4, 0.6, 0]);
 }
@@ -945,6 +942,49 @@ function sfx_default_params() {
     p[9] = 0; p[10] = 1; p[14] = 0; p[15] = 0; p[27] = 0; p[28] = 0; p[30] = 0; p[31] = 0;
     return p;
 }
+
+// AudioWorkletGlobalScope has no structuredClone, so plain data is copied by hand.
+function deep_clone(x) {
+    if (x === null || typeof x !== 'object') return x;
+    if (ArrayBuffer.isView(x)) return x.slice();
+    if (Array.isArray(x)) return x.map(deep_clone);
+    const out = {};
+    for (const k in x) out[k] = deep_clone(x[k]);
+    return out;
+}
+function is_state(x) { return ArrayBuffer.isView(x) || (x !== null && typeof x === 'object' && !Array.isArray(x) && Object.getPrototypeOf(x) !== Object.prototype); }
+// Rebuilds target as a copy of a freshly constructed source without allocating DSP buffers: typed arrays are
+// copied in place and class instances (filters, envelopes, bodies) recurse; plain data, which may be shared with
+// patches, is replaced by a fresh copy rather than written into.
+function reset_like(target, source) {
+    for (const key in source) {
+        const from = source[key], to = target[key];
+        if (from === to) continue;
+        if (ArrayBuffer.isView(from) && ArrayBuffer.isView(to) && to.length === from.length) to.set(from);
+        else if (is_state(from) && to !== null && typeof to === 'object' && Object.getPrototypeOf(from) === Object.getPrototypeOf(to)) reset_like(to, from);
+        else if (Array.isArray(from) && Array.isArray(to) && from.length === to.length && from.length > 0 && from.every(is_state)) reset_like(to, from);
+        else target[key] = deep_clone(from);
+    }
+}
+// harsh.hpp SpeechADSR: per-syllable envelope for articulated material speech.
+class SpeechADSR {
+    constructor() { this.stage = 0; this.value = 0; this.release_step = 0; }
+    off(ms, sr) { if (this.stage !== 0 && this.stage !== 4) { this.stage = 4; this.release_step = this.value / Math.max(1, ms * sr * .001); } }
+    next(s, held, onset, sr) {
+        if (onset && held) { this.stage = 1; this.value = 0; }
+        if (!held) this.off(s.release_ms, sr);
+        switch (this.stage) {
+            case 1: this.value += 1 / Math.max(1, s.attack_ms * sr * .001); if (this.value >= 1) { this.value = 1; this.stage = 2; } break;
+            case 2: this.value -= (1 - s.sustain) / Math.max(1, s.decay_ms * sr * .001); if (this.value <= s.sustain) { this.value = s.sustain; this.stage = 3; } break;
+            case 3: this.value = s.sustain; break;
+            case 4: this.value -= this.release_step; if (this.value <= 1e-12) { this.value = 0; this.stage = 0; } break;
+            default: this.value = 0;
+        }
+        return this.value;
+    }
+}
+let PRISTINE_VOICE = null;
+function pristine_voice() { return PRISTINE_VOICE || (PRISTINE_VOICE = new Voice()); }
 
 class Voice {
     constructor() {
@@ -993,6 +1033,8 @@ class Voice {
         this.has_harsh = false;
         this.render_clock = 0;
         this.material_phoneme = -1;
+        this.material_amplitude = 1;
+        this.syllable_adsr = new SpeechADSR();
         this.keyboard_profile = false;
         this.keyboard_slot = -1;
 
@@ -1064,12 +1106,14 @@ class Voice {
         return 2.0 * t - 1.0 - Voice.blep(t, dt);
     }
     start(note, vel, id, seed) {
+        // Native rebuilds the voice in place (engine.hpp Voice::start); copy a pristine voice instead of allocating.
+        reset_like(this, pristine_voice());
+        this.physical.seed(seed ? (seed | 1) >>> 0 : (id | 1) >>> 0);
         this.pitch = note;
         this.velocity = clamp(vel / 127.0, 0.0, 1.0);
         this.gate = true;
         this.serial = id;
         this.random = seed ? (seed | 1) >>> 0 : (Math.floor(id * 747796405 + note * 2891336453) | 1) >>> 0;
-        this.physical.seed(this.random);
         this.env.on();
         this.body.on();
         const seedObj = { val: (this.random ^ 0x9e3779b9) >>> 0 };
@@ -1077,15 +1121,14 @@ class Voice {
         this.strike_brightness = random_bipolar(seedObj);
         this.strike_attack = random_bipolar(seedObj);
         this.strike_gain = random_bipolar(seedObj);
-        this.base_hz = 440.0 * Math.pow(2.0, (note - 69.0) / 12.0);
-        this.age = 0;
-        this.tail = 0;
-        this.modes_seeded = false;
-        this.formants_ready = false;
     }
     note_off(sr) {
         this.gate = false;
-        const release_ms = this.target[6]; // RELEASE
+        let release_ms = this.target[6]; // RELEASE
+        if (this.material && !this.material_sfx && this.material.settings.speech_adsr) {
+            release_ms = Math.max(release_ms, this.material.settings.release_ms);
+            this.syllable_adsr.off(this.material.settings.release_ms, sr);
+        }
         this.env.off(release_ms, sr);
         this.body.off(35.0, sr);
     }
@@ -1121,14 +1164,14 @@ class Voice {
 
         const ms = this.age * 1000.0;
         const sfx = this.sfx || {};
-        const contour_pitch = (this.fine || 0) + (sfx.pitch_from || 0) +
-            (sfx.pitch_ms > 0 ? (sfx.pitch_to - sfx.pitch_from) * Math.pow(clamp(ms / sfx.pitch_ms, 0.0, 1.0), Math.max(0.05, sfx.pitch_curve || 1.0)) : 0);
-        const contour_cutoff = (sfx.cutoff_from || 0) +
+        const contour_pitch = (this.fine || 0) + sfx.pitch_from +
+            (sfx.pitch_ms > 0 ? (sfx.pitch_to - sfx.pitch_from) * Math.pow(clamp(ms / sfx.pitch_ms, 0.0, 1.0), Math.max(0.05, sfx.pitch_curve)) : 0);
+        const contour_cutoff = sfx.cutoff_from +
             (sfx.cutoff_ms > 0 ? (sfx.cutoff_to - sfx.cutoff_from) * clamp(ms / sfx.cutoff_ms, 0.0, 1.0) : 0);
 
         if (this.own && this.gate && sfx.hold_ms >= 0 && ms >= sfx.hold_ms) this.note_off(sr);
-        if (this.own && this.gate && (features.algorithm || 0) >= 10 && sfx.hold_ms < 0 && ms > (sfx.physical ? sfx.physical.gesture_ms : 650) + 250) this.note_off(sr);
-
+        if (this.own && this.gate && features.algorithm >= 10 && sfx.hold_ms < 0 && ms > sfx.physical.gesture_ms + 250 + 800 * (1 - sfx.physical.damping)) this.note_off(sr);
+        if (this.base_hz === 0) this.base_hz = 440.0 * Math.pow(2.0, (this.pitch - 69.0) / 12.0);
         const base = this.base_hz;
         const mod = this.mod_scratch;
         mod.set(modulation);
@@ -1213,11 +1256,11 @@ class Voice {
         const struck = this.engine_weights[5] <= 0.00001 && this.engine_weights[6] <= 0.00001 ? 0 :
             base * Math.pow(2.0, (contour_pitch + (features.humanise || 0) * this.strike_pitch * 0.075 + modulation[1] * 0.7 + envelope_pitch * 12.0) / 12.0);
         if (this.engine_weights[5] > 0.00001) source += this.modal_bank(orig, struck, features, sr, true) * this.engine_weights[5];
-        if (this.engine_weights[6] > 0.00001) source += this.modal_bank(orig * (sfx.bow || 0), struck, features, sr, false) * this.engine_weights[6];
+        if (this.engine_weights[6] > 0.00001) source += this.modal_bank(orig * sfx.bow, struck, features, sr, false) * this.engine_weights[6];
         if (this.engine_weights[7] > 0.00001) source += this.formant_voice(frequency, sr) * this.engine_weights[7];
         if (this.engine_weights[8] > 0.00001) source += this.blast(frequency, sr) * this.engine_weights[8];
-        if (this.engine_weights[10] > 0.00001) source += this.physical.process(frequency, sr, false, this.gate, sfx.physical || {}, sfx.position || 0.27, this.keyboard_profile && sfx.physical && sfx.physical.gesture === 1) * this.engine_weights[10];
-        if (this.engine_weights[11] > 0.00001) source += this.physical.process(frequency, sr, true, this.gate, sfx.physical || {}, sfx.position || 0.27, this.keyboard_profile && sfx.physical && sfx.physical.gesture === 1) * this.engine_weights[11];
+        if (this.engine_weights[10] > 0.00001) source += this.physical.process(frequency, sr, false, this.gate, sfx.physical || {}, sfx.position, this.keyboard_profile && sfx.physical && sfx.physical.gesture === 1) * this.engine_weights[10];
+        if (this.engine_weights[11] > 0.00001) source += this.physical.process(frequency, sr, true, this.gate, sfx.physical || {}, sfx.position, this.keyboard_profile && sfx.physical && sfx.physical.gesture === 1) * this.engine_weights[11];
 
         let src = source + this.noise() * this.p[9] + (lean && (features.body || 0) === 0 ? 0 : Math.sin(TAU * this.anchorphase) * (features.body || 0) * 0.28);
         if (this.material && this.material_sfx) {
@@ -1302,13 +1345,13 @@ class Voice {
         const material = clamp(features.material || 0, 0, 7);
         if (!this.modes_seeded) {
             const seedObj = { val: (this.random ^ 0x85ebca6b) >>> 0 };
-            const spread = musical ? 0 : (this.sfx.spread || 0.3);
+            const spread = musical ? 0 : this.sfx.spread;
             for (let k = 0; k < 24; k++) {
                 this.mode_detune[k] = spread * 0.012 * random_bipolar(seedObj);
                 this.mode_jitter[k] = Math.max(0.15, 1.0 + spread * 0.45 * random_bipolar(seedObj));
             }
             this.clash_time = 0.003 + 0.009 * Math.abs(random_bipolar(seedObj));
-            this.bounce_interval = (this.sfx.bounce_ms || 160) * 0.001 * (1.0 + spread * 0.25 * random_bipolar(seedObj));
+            this.bounce_interval = this.sfx.bounce_ms * 0.001 * (1.0 + spread * 0.25 * random_bipolar(seedObj));
             this.bounce_next = 0;
             this.bounce_amp = 1.0;
             this.modes_seeded = true;
@@ -1322,23 +1365,23 @@ class Voice {
             for (let k = 0; k < 24; k++) {
                 let ratio;
                 if (musical) ratio = MATERIAL_RATIOS[0][k] * Math.pow(MATERIAL_RATIOS[1][k] / MATERIAL_RATIOS[0][k], features.metal || 0);
-                else if (material === 7) ratio = Math.pow(k + 1.0, 1.0 + (this.sfx.warp || 0) * 0.6) * (1.0 + 0.05 * Math.sin((k + 1.0) * (1.0 + (this.sfx.warp || 0) * 7.0)));
+                else if (material === 7) ratio = Math.pow(k + 1.0, 1.0 + this.sfx.warp * 0.6) * (1.0 + 0.05 * Math.sin((k + 1.0) * (1.0 + this.sfx.warp * 7.0)));
                 else ratio = MATERIAL_RATIOS[material][k] * (1.0 + (features.metal || 0) * 0.012 * k);
                 ratio *= 1.0 + this.mode_detune[k];
 
-                const f = hz * ratio * (1.0 + (this.sfx.tension || 0) * level * 0.06 * (musical ? 0 : 1));
+                const f = hz * ratio * (1.0 + this.sfx.tension * level * 0.06 * (musical ? 0 : 1));
                 if (f > sr * 0.45 || f < 15.0) {
                     this.mode_a1[k] = this.mode_a2[k] = this.mode_gain[k] = this.mode_drive[k] = 0;
                     continue;
                 }
                 let t60 = musical ? (0.35 + (features.body || 0) * 3.6) / (1.0 + k * (0.45 - (features.body || 0) * 0.25)) :
-                    (this.sfx.decay || 1.5) * (1.0 + (features.body || 0)) * Math.pow(Math.max(1.0, ratio / first), -MATERIAL_SLOPE[material]);
+                    this.sfx.decay * (1.0 + (features.body || 0)) * Math.pow(Math.max(1.0, ratio / first), -MATERIAL_SLOPE[material]);
                 t60 = Math.max(0.004, t60);
                 const r = Math.exp(-6.907755 / (t60 * sr));
                 const w = TAU * f / sr;
                 const s = Math.sin(w);
                 const amplitude = musical ? Math.pow(k + 1.0, -(0.35 + (features.body || 0) * 0.6)) :
-                    Math.pow(k + 1.0, -(0.2 + (1.0 - (this.sfx.hardness || 0.6)) * 1.3)) * (0.15 + 0.85 * Math.abs(Math.sin((k + 1.0) * PI * (this.sfx.position || 0.27)))) * this.mode_jitter[k];
+                    Math.pow(k + 1.0, -(0.2 + (1.0 - this.sfx.hardness) * 1.3)) * (0.15 + 0.85 * Math.abs(Math.sin((k + 1.0) * PI * this.sfx.position))) * this.mode_jitter[k];
 
                 this.mode_a1[k] = 2.0 * r * Math.cos(w);
                 this.mode_a2[k] = r * r;
@@ -1355,8 +1398,8 @@ class Voice {
             const exciter = clamp(features.exciter || 0, 0, 4);
             switch (exciter) {
                 case 0: { // MALLET
-                    const length = 0.0008 + (1.0 - (this.sfx.hardness || 0.6)) * 0.006;
-                    if (this.age < length) excitation = (0.5 - 0.5 * Math.cos(TAU * this.age / length)) * (1.0 + this.noise() * (this.sfx.hardness || 0.6) * 0.5) * 0.8;
+                    const length = 0.0008 + (1.0 - this.sfx.hardness) * 0.006;
+                    if (this.age < length) excitation = (0.5 - 0.5 * Math.cos(TAU * this.age / length)) * (1.0 + this.noise() * this.sfx.hardness * 0.5) * 0.8;
                     break;
                 }
                 case 1: // HAMMER
@@ -1364,7 +1407,7 @@ class Voice {
                     break;
                 case 2: // SCRAPE
                     if (this.gate) {
-                        this.scrape_clock += (this.sfx.scrape_rate || 600) * (1.0 + 0.6 * this.noise()) / sr;
+                        this.scrape_clock += this.sfx.scrape_rate * (1.0 + 0.6 * this.noise()) / sr;
                         if (this.scrape_clock >= 1.0) { this.scrape_clock -= 1.0; excitation += this.noise() * 0.9; }
                         const n = this.noise();
                         this.hiss += (n - this.hiss) * 0.3;
@@ -1376,7 +1419,7 @@ class Voice {
                     if (this.age >= this.bounce_next && this.bounce_amp > 0.03 && this.bounce_interval > 0.006) {
                         strike(1.2 * this.bounce_amp, 0.0004);
                         this.bounce_next += this.bounce_interval;
-                        this.bounce_interval *= this.sfx.bounce_ratio || 0.72;
+                        this.bounce_interval *= this.sfx.bounce_ratio;
                         const sObj = { val: (this.random ^ Math.floor(this.bounce_next * 1e6)) >>> 0 };
                         this.bounce_amp *= 0.55 + 0.25 * Math.abs(random_bipolar(sObj));
                     }
@@ -1408,83 +1451,104 @@ class Voice {
         if (!musical && this.sfx.clang > 0) out = out * (1.0 - this.sfx.clang) + Math.tanh(out * (1.0 + this.sfx.clang * 8.0)) * this.sfx.clang * 0.6;
         return clamp(out * (musical ? 0.3 : 0.28), -3.0, 3.0);
     }
+    // Line-for-line port of Voice::formant_voice (native/engine.hpp).
     formant_voice(hz, sr) {
-        let targets = VOWEL_FORMANTS[clamp(this.sfx.vowel || 0, 0, 9)];
-        let pitch_target = 0, amp_target = 1, voicing = 1, fricative = 0, burst = 0;
-        let syllable_ms = 0, syllable_fraction = 0, consonant_length = 0;
+        const sfx = this.sfx, material = this.material;
+        let pitch_target = 0, amp_target = 1, voicing = 1, fricative = 0, burst = 0, syllable_ms = 0, syllable_fraction = 0, consonant_length = 0;
         let speaking = true;
-
-        if (this.sfx.phoneme_count > 0 && this.phoneme < this.sfx.phoneme_count) {
-            const ph = this.sfx.phonemes[this.phoneme];
-            const t = this.phoneme_time * 1000.0;
-            syllable_ms = t;
-            syllable_fraction = clamp(t / Math.max(1.0, ph.ms), 0.0, 1.0);
-            targets = VOWEL_FORMANTS[clamp(ph.vowel || 0, 0, 9)];
-            pitch_target = ph.pitch || 0;
-            amp_target = ph.amp || 1.0;
-            const consonant_ms = ph.consonant === 1 ? 28 : (ph.consonant === 2 ? 65 : (ph.consonant === 3 ? 55 : (ph.consonant === 4 ? 40 : 0)));
-            consonant_length = consonant_ms;
-
-            if (ph.consonant === 5) { // PAUSE
-                voicing = 0; amp_target = 0; speaking = false;
-            } else if (t < consonant_ms) {
-                switch (ph.consonant) {
-                    case 1: voicing = 0; amp_target = 1; burst = t > 18 ? 1 : 0; break;
-                    case 2: voicing = 0.12; fricative = 1; break;
-                    case 3: targets = NASAL_FORMANTS; amp_target *= 0.55; break;
-                    case 4: targets = LIQUID_FORMANTS; break;
+        const current_phoneme = this.phoneme;
+        let targets = VOWEL_FORMANTS[clamp(sfx.vowel, 0, 9)];
+        if (sfx.phoneme_count > 0) {
+            if (this.phoneme < sfx.phoneme_count) {
+                const ph = sfx.phonemes[this.phoneme];
+                const t = this.phoneme_time * 1000;
+                syllable_ms = t; syllable_fraction = clamp(t / Math.max(1, ph.ms), 0, 1);
+                targets = VOWEL_FORMANTS[clamp(ph.vowel, 0, 9)]; pitch_target = ph.pitch; amp_target = ph.amp;
+                const consonant_ms = ph.consonant === 1 ? 28 : ph.consonant === 2 ? 65 : ph.consonant === 3 ? 55 : ph.consonant === 4 ? 40 : 0;
+                consonant_length = consonant_ms;
+                if (ph.consonant === 5) { voicing = 0; amp_target = 0; speaking = false; }
+                else if (t < consonant_ms) {
+                    switch (ph.consonant) {
+                        case 1: voicing = 0; amp_target = 1; burst = t > 18 ? 1 : 0; break;
+                        case 2: voicing = .12; fricative = 1; break;
+                        case 3: targets = NASAL_FORMANTS; amp_target *= .55; break;
+                        case 4: targets = LIQUID_FORMANTS; break;
+                    }
                 }
-            }
-            if (!this.sfx.sustain_syllable && (!this.material || !this.material.settings.speech_adsr) && (ph.consonant !== 1 || t >= consonant_ms)) {
-                amp_target *= clamp(Math.min(t / 10.0, (ph.ms - t) / 18.0), 0.0, 1.0);
-            }
-            this.phoneme_time += 1.0 / sr;
-            if (this.phoneme_time * 1000.0 >= ph.ms) {
-                if (this.sfx.sustain_syllable && this.phoneme === this.sfx.phoneme_count - 1) {
-                    this.phoneme_time = Math.max(70.0, ph.ms - 20.0) / 1000.0;
-                } else {
-                    this.phoneme++;
-                    this.phoneme_time = 0;
+                // Dip between syllables so the stream articulates instead of smearing.
+                if (!sfx.sustain_syllable && (!material || !material.settings.speech_adsr) && (ph.consonant !== 1 || t >= consonant_ms)) amp_target *= clamp(Math.min(t / 10, (ph.ms - t) / 18), 0, 1);
+                if (!sfx.sustain_syllable && material && speaking && !material.settings.speech_adsr) {
+                    // Impact-shaped vowel energy: fast attack, short decay, then an actual gap.
+                    const decay_ms = 18 + ph.ms * (.32 - .21 * material.settings.articulation);
+                    amp_target *= Math.exp(-Math.max(0, t - consonant_ms) / decay_ms);
                 }
-            }
+                this.phoneme_time += 1 / sr;
+                if (this.phoneme_time * 1000 >= ph.ms) {
+                    if (sfx.sustain_syllable && this.phoneme === sfx.phoneme_count - 1) this.phoneme_time = Math.max(70, ph.ms - 20) / 1000;
+                    else { this.phoneme++; this.phoneme_time = 0; }
+                }
+            } else { voicing = 0; amp_target = 0; speaking = false; if (this.gate) this.note_off(sr); }
         }
-
+        const custom_adsr = Boolean(material && material.settings.speech_adsr);
+        const syllable_onset = Boolean(material) && current_phoneme !== this.material_phoneme;
+        if (custom_adsr) {
+            if (speaking) this.material_amplitude = amp_target; else pitch_target = this.voice_pitch;
+            amp_target = this.material_amplitude * this.syllable_adsr.next(material.settings, speaking && this.gate, syllable_onset, sr);
+        }
+        if (sfx.reverse_envelope > 0) amp_target *= 1 - sfx.reverse_envelope + sfx.reverse_envelope * syllable_fraction * syllable_fraction;
         this.voice_pitch += (pitch_target - this.voice_pitch) * this.pitch_follow;
-        this.voice_amp += (amp_target - this.voice_amp) * this.amp_follow;
-        this.jitter += (this.noise() - this.jitter) * 0.002;
-
-        const f0 = clamp(hz * Math.pow(2.0, this.voice_pitch / 12.0) * (1.0 + (this.sfx.roughness || 0.1) * 0.04 * this.jitter), 20.0, sr * 0.4);
-        const dt = f0 / sr;
+        this.voice_amp += (amp_target - this.voice_amp) * (material ? 1 - Math.exp(-1 / (sr * .0015)) : this.amp_follow);
+        this.jitter += (this.noise() - this.jitter) * .002;
+        const f0 = clamp(hz * Math.pow(2, this.voice_pitch / 12) * (1 + sfx.roughness * .04 * this.jitter), 20, sr * .4), dt = f0 / sr;
         let pulse = -Voice.saw(this.voice_phase, dt);
-        if (this.voice_phase + dt >= 1.0) {
-            this.shimmer = 1.0 + (this.sfx.roughness || 0.1) * 0.5 * this.noise();
-            this.sub_flip = !this.sub_flip;
-        }
+        if (this.voice_phase + dt >= 1) { this.shimmer = 1 + sfx.roughness * .5 * this.noise(); this.sub_flip = !this.sub_flip; }
         Voice.advance(this, 'voice_phase', f0, sr);
-        pulse *= this.shimmer * (this.sub_flip ? 1.0 - (this.sfx.subharmonic || 0) * 0.7 : 1.0);
-        this.glottis += (pulse - this.glottis) * 0.35;
-
-        const excitation = this.glottis * voicing * (this.sfx.voicing != null ? this.sfx.voicing : 1.0) +
-            this.noise() * (this.sfx.breath != null ? this.sfx.breath : 0.08) * 0.6 * (voicing > 0.5 ? 1.0 : 0.4);
-
-        const scale = 1.0 / clamp(this.sfx.vocal_size || 1.0, 0.4, 2.5);
-        const retune = this.formant_clock-- <= 0;
-        if (retune) this.formant_clock = 16;
-        const gains = FORMANT_TABLES.gains;
-        const res = FORMANT_TABLES.res;
+        pulse *= this.shimmer * (this.sub_flip ? 1 - sfx.subharmonic * .7 : 1);
+        this.glottis += (pulse - this.glottis) * .35;
+        let excitation;
+        if (material) {
+            const onset = syllable_onset && (!custom_adsr || speaking); this.material_phoneme = current_phoneme;
+            const hit = Math.exp(-syllable_ms / (2.5 + (1 - material.settings.articulation) * 8));
+            const friction = Math.exp(-Math.max(0, syllable_ms - consonant_length) / 35);
+            const source_open = custom_adsr ? this.syllable_adsr.value > 0 : speaking;
+            const excite = source_open ? this.noise() * ((speaking ? hit : 0) * .8 + (custom_adsr ? 1 : friction) * (.045 + sfx.breath * .12)) : 0;
+            excitation = material.source(excite, custom_adsr ? this.syllable_adsr.value : (speaking ? amp_target : 0), onset, Math.pow(2, this.voice_pitch / 12), this.render_clock, sr) * 3;
+        } else excitation = this.glottis * voicing * sfx.voicing + this.noise() * sfx.breath * .6 * (voicing > .5 ? 1 : .4);
+        // Character treatments act on the synthesized carrier before vocal filtering and final articulation.
+        if (sfx.carrier_ring > 0) excitation *= 1 - sfx.carrier_ring + sfx.carrier_ring * Math.sin(2 * PI * this.voice_phase * 3);
+        if (sfx.flutter > 0) excitation *= 1 - sfx.flutter * .5 + sfx.flutter * .5 * Math.sin(this.age * 2 * PI * 17.3);
+        if (sfx.fragment > 0) { const step = Math.floor(this.age * (23 + sfx.fragment * 157)); const mask = Math.sin(step * 12.9898 + this.pitch * 7.23); excitation *= mask > sfx.fragment * .45 ? 1 : .04; }
+        if (sfx.reverse_mix > 0) {
+            // Double-buffered, windowed reverse grains. Only engine-generated audio enters this memory.
+            const size = clamp(Math.trunc(sr * sfx.reverse_ms * .001), 16, 4096);
+            this.reverse_grain[this.reverse_bank][this.reverse_cursor] = excitation;
+            const reversed = this.reverse_ready ? this.reverse_grain[1 - this.reverse_bank][size - 1 - this.reverse_cursor] : 0;
+            let window = Math.sin(PI * (this.reverse_cursor + .5) / size); window *= window;
+            excitation = excitation * (1 - sfx.reverse_mix) + reversed * window * sfx.reverse_mix;
+            if (++this.reverse_cursor >= size) { this.reverse_cursor = 0; this.reverse_bank = 1 - this.reverse_bank; this.reverse_ready = true; }
+        }
+        if (sfx.chamber > 0) {
+            // Small inharmonic chamber in the carrier path, gated by the final syllable envelope.
+            const line = this.chamber_line, c0 = this.chamber_cursor;
+            const a = clamp(Math.trunc(sr * .019), 1, 8191), b = clamp(Math.trunc(sr * .0317), 1, 8191), c = clamp(Math.trunc(sr * .0423), 1, 8191);
+            const reflected = (line[(c0 - a + 8192) % 8192] + line[(c0 - b + 8192) % 8192] * .71 - line[(c0 - c + 8192) % 8192] * .43) * .467;
+            line[c0] = Math.tanh(excitation + reflected * .64); this.chamber_cursor = (c0 + 1) % 8192;
+            excitation = excitation * (1 - sfx.chamber * .4) + reflected * sfx.chamber;
+        }
+        const scale = 1 / clamp(sfx.vocal_size, .4, 2.5), follow = this.formant_follow;
+        const retune = this.formant_clock-- <= 0; if (retune) this.formant_clock = 16;
+        const gains = FORMANT_TABLES.gains, res = FORMANT_TABLES.res;
         let out = 0;
-
         for (let i = 0; i < 4; i++) {
-            const target = targets[i] * scale * (1.0 + (this.sfx.formant_motion || 0) * 0.32 * Math.sin(this.age * (3.1 + i * 1.7) + i * 1.2));
-            this.formant_hz[i] = this.formants_ready ? this.formant_hz[i] + (target - this.formant_hz[i]) * this.formant_follow : target;
-            if (retune || !this.formants_ready) this.formant_g[i] = Math.tan(PI * clamp(this.formant_hz[i], 20.0, sr * 0.4) / sr);
-            out += this.formant[i].process_g(excitation, this.formant_g[i], res[i]).mid * (2.0 - 1.94 * res[i]) * gains[i];
+            const target = custom_adsr && !speaking && this.formants_ready ? this.formant_hz[i] : targets[i] * scale * (1 + sfx.formant_motion * .32 * Math.sin(this.age * (3.1 + i * 1.7) + i * 1.2));
+            this.formant_hz[i] = this.formants_ready ? this.formant_hz[i] + (target - this.formant_hz[i]) * follow : target;
+            if (retune || !this.formants_ready) this.formant_g[i] = Math.tan(PI * clamp(this.formant_hz[i], 20, sr * .4) / sr);
+            out += this.formant[i].process_g(excitation, this.formant_g[i], res[i]).mid * (2 - 1.94 * res[i]) * gains[i];
         }
         this.formants_ready = true;
-        const n = this.noise();
-        this.hiss += (n - this.hiss) * 0.2;
-        out += (n - this.hiss) * fricative * 0.35 + burst * this.noise() * 0.5;
-        return clamp(out * this.voice_amp * 2.2, -3.0, 3.0);
+        const n = this.noise(); this.hiss += (n - this.hiss) * .2;
+        if (material) out += excitation * (fricative * .45 + burst * .65); else out += (n - this.hiss) * fricative * .35 + burst * this.noise() * .5;
+        return clamp(out * this.voice_amp * 2.2, -3, 3);
     }
     blast(hz, sr) {
         const n = this.noise();
@@ -1494,7 +1558,7 @@ class Voice {
             this.rumble_target = 0.3 + 0.7 * Math.abs(this.noise());
         }
         this.rumble_am += (this.rumble_target - this.rumble_am) * this.rumble_follow;
-        if (Math.abs(this.noise()) < (this.sfx.crackle || 0.3) * 900.0 * Math.exp(-this.age * 2.5) / sr) {
+        if (Math.abs(this.noise()) < this.sfx.crackle * 900.0 * Math.exp(-this.age * 2.5) / sr) {
             this.crack = (0.4 + 0.6 * Math.abs(this.noise())) * (this.noise() > 0 ? 1 : -1);
         }
         const debris = this.crack * this.noise();
@@ -1515,13 +1579,203 @@ class Voice {
             this.brown = (this.brown + 0.02 * n) / 1.02;
             air = this.brown * 3.5;
         }
-        return air * (this.sfx.noise_amount || 0.6) * 0.45 + this.rumble * this.rumble_am * (this.sfx.rumble || 0.4) * 3.2 + debris * 0.8 + boom * (this.sfx.boom || 0.8) * 0.9;
+        return air * this.sfx.noise_amount * 0.45 + this.rumble * this.rumble_am * this.sfx.rumble * 3.2 + debris * 0.8 + boom * this.sfx.boom * 0.9;
     }
 }
 
 // ---------------------------------------------------------------------------
 // Void Cantor Engine (engine.hpp)
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Stage effects (native/effects.hpp): per-organism insert chains played from the stage.
+// A track gains a TrackFx bus only while it carries a chain; buffers are sized when a slot is created.
+// ---------------------------------------------------------------------------
+const FX_PARAM_NAMES = ["wet","amount","x","y","motion","held","p0","p1","p2","p3","p4","p5","p6","p7"];
+const FX_WET = 0, FX_AMOUNT = 1, FX_X = 2, FX_Y = 3, FX_MOTION = 4, FX_HELD = 5, FX_P0 = 6, FX_P1 = 7, FX_P2 = 8, FX_P3 = 9, FX_P4 = 10, FX_P5 = 11, FX_P6 = 12, FX_P7 = 13, FX_PARAMS = 14;
+const FX_KINDS = ["tape","distort","reverb","repeat"];
+function fx_random(seed) { let v = seed.val; v ^= v << 13; v >>>= 0; v ^= v >>> 17; v ^= v << 5; v >>>= 0; seed.val = v; return v; }
+function fx_noise(seed) { return fx_random(seed) / 2147483648 - 1; }
+// Continuous stereo recording with Catmull-Rom reads behind the write head.
+class FxHistory {
+    constructor(frames) { this.size = frames; this.l = new Float32Array(frames); this.r = new Float32Array(frames); this.cursor = 0; this.out = { left: 0, right: 0 }; }
+    write(x) { this.l[this.cursor] = x.left; this.r[this.cursor] = x.right; this.cursor = (this.cursor + 1) % this.size; }
+    // lag in samples behind the newest frame (0 = newest).
+    read(lag, out = this.out) {
+        let pos = this.cursor - 1 - clamp(lag, 0, this.size - 4); while (pos < 0) pos += this.size;
+        const i = Math.trunc(pos), f = pos - i, n = this.size;
+        const cubic = b => { const a = b[((i - 1) % n + n) % n], c0 = b[i % n], c1 = b[(i + 1) % n], d = b[(i + 2) % n];
+            return c0 + .5 * f * (c1 - a + f * (2 * a - 5 * c0 + 4 * c1 - d + f * (3 * (c0 - c1) + d - a))); };
+        out.left = cubic(this.l); out.right = cubic(this.r); return out;
+    }
+}
+// Varispeed tape. Slowing lets the read head fall behind live audio; a recovered motor crossfades back to live.
+class TapeUnit {
+    constructor(sr) { this.history = new FxHistory(Math.trunc(sr * 8)); this.speed = 1; this.lag = 0; this.old_lag = 0; this.fade = 1; this.fade_step = 0; this.wow = 0; this.flutter = 0; this.flutter_target = 0; this.flutter_clock = 0; this.seed = { val: 0x9e3779b9 }; this.state = 1; this.before = { left: 0, right: 0 }; this.result = { left: 0, right: 0 }; }
+    clear() { this.speed = 1; this.lag = this.old_lag = 0; this.fade = 1; }
+    jump(to, ms, sr) { this.old_lag = this.lag; this.lag = to; this.fade = 0; this.fade_step = 1 / Math.max(1, ms * sr * .001); }
+    process(x, p, model, sr) {
+        this.history.write(x);
+        const limit = model === 0 ? .5 - .45 * clamp(p[FX_P0], 0, 1) : 1.25 + 1.75 * clamp(p[FX_P0], 0, 1);
+        const target = 1 + (limit - 1) * clamp(p[FX_AMOUNT], 0, 1);
+        this.speed += (target - this.speed) * (1 - Math.exp(-1 / (sr * (.03 + 1.97 * clamp(p[FX_P1], 0, 1)))));
+        // Wow is slow capstan wobble, deepened by mouse movement; flutter is fast smoothed noise.
+        this.wow += 6.283185307179586 * (.35 + .9 * p[FX_MOTION]) / sr; if (this.wow > 6.283185307179586) this.wow -= 6.283185307179586;
+        this.flutter_clock += (4 + 26 * clamp(p[FX_P5], 0, 1)) / sr; if (this.flutter_clock >= 1) { this.flutter_clock -= 1; this.flutter_target = fx_noise(this.seed); }
+        this.flutter += (this.flutter_target - this.flutter) * .002;
+        const rate = this.speed * (1 + Math.sin(this.wow) * (.002 + .03 * p[FX_MOTION]) * clamp(p[FX_P3], 0, 1) * 2 + this.flutter * .006 * clamp(p[FX_P4], 0, 1));
+        const recover_ms = 20 + 380 * clamp(p[FX_P2], 0, 1), window = sr * .35, limit_lag = this.history.size - 8;
+        this.lag += 1 - rate; this.old_lag += 1 - rate;
+        if (this.fade >= 1) {
+            if (rate > 1 && this.lag <= 1) this.jump(Math.min(window, limit_lag), recover_ms, sr);
+            else if (this.lag >= limit_lag) this.jump(0, recover_ms, sr);
+            else if (p[FX_AMOUNT] < .002 && Math.abs(this.speed - 1) < .01 && this.lag > 1) this.jump(0, recover_ms, sr);
+        }
+        this.lag = clamp(this.lag, 0, limit_lag); this.old_lag = clamp(this.old_lag, 0, limit_lag);
+        const now = this.history.read(this.lag, this.result);
+        if (this.fade < 1) {
+            const before = this.history.read(this.old_lag, this.before); const g = Math.sin(this.fade * 1.5707963267948966); this.fade = Math.min(1, this.fade + this.fade_step);
+            const h = Math.cos(Math.asin(g));
+            now.left = now.left * g + before.left * h; now.right = now.right * g + before.right * h;
+        }
+        this.state = rate; return now;
+    }
+}
+// Circuit models: 0 germanium fuzz, 1 silicon clip, 2 tube, 3 diode rectifier, 4 bitcrusher, 5 wavefolder, 6 broken speaker.
+class DistortUnit {
+    constructor() { this.shape = [new Nonlinear(), new Nonlinear()]; this.tone = [new Filter(), new Filter()]; this.cone = [new Filter(), new Filter()]; this.delay = [new Float64Array(8), new Float64Array(8)];
+        this.cursor = 0; this.env = 0; this.sag = 0; this.gate = 1; this.cut = 1; this.cut_clock = 0; this.seed = { val: 0x2545f491 }; this.state = 1; this.settings = default_harsh_settings(); this.v = [0, 0]; this.out = [0, 0]; this.result = { left: 0, right: 0 }; }
+    clear() { for (const d of this.delay) d.fill(0); this.env = this.sag = 0; this.gate = this.cut = 1; }
+    process(x, p, model, sr) {
+        const amount = clamp(p[FX_AMOUNT], 0, 1), drive = clamp(.15 + amount * (.35 + .65 * clamp(p[FX_P0], 0, 1)), 0, 1);
+        const starve = clamp(Math.abs(p[FX_X]), 0, 1) * clamp(p[FX_P1], 0, 1);
+        const input = Math.max(Math.abs(x.left), Math.abs(x.right)); this.env += (input - this.env) * (input > this.env ? .01 : .0005);
+        this.sag += (this.env * drive - this.sag) * .0003;
+        const s = Object.assign(this.settings, HARSH_DEFAULTS); s.drive = drive;
+        s.circuit = [1, 2, 0, 4, 6, 3, 1][clamp(model, 0, 6)];
+        const bias = clamp(p[FX_P4], 0, 1);
+        if (model === 0) s.bias = .15 + .45 * bias + starve * .5 - this.sag * .6;
+        else if (model === 2) s.bias = .05 + .3 * bias - this.sag * .8;
+        else if (model === 6) s.bias = .25 + starve * .4;
+        if (model === 4) s.drive = clamp(drive * (.4 + .6 * clamp(p[FX_P5], 0, 1)), 0, 1);
+        const pre = model === 5 ? 1 + clamp(p[FX_P6], 0, 1) * 5 : 1;
+        // Starved circuits close below a rising threshold and sputter out in short random bursts.
+        const threshold = starve * .12; this.gate += ((this.env > threshold ? 1 : 0) - this.gate) * (this.env > threshold ? .02 : .004);
+        this.cut_clock -= 1;
+        if (this.cut_clock <= 0) { this.cut_clock = sr * (.004 + .03 * fx_noise(this.seed) * fx_noise(this.seed)); const odds = starve * .6 + (model === 6 ? .15 * clamp(p[FX_P7], 0, 1) : 0); this.cut = (fx_noise(this.seed) * .5 + .5) < odds ? 0 : 1; }
+        const hz = 800 + 17200 * clamp(p[FX_P2], 0, 1) * (model === 6 ? .35 : 1), trim = .25 + .75 * clamp(p[FX_P3], 0, 1);
+        this.v[0] = x.left; this.v[1] = x.right;
+        for (let c = 0; c < 2; c++) {
+            this.delay[c][this.cursor] = this.v[c];
+            let y = this.shape[c].process(this.v[c] * pre, s, sr);
+            if (model === 6) { y = this.cone[c].process(y, 900, .55, sr).mid * 2.2; if (Math.abs(y) > .35 * (1 - .5 * clamp(p[FX_P7], 0, 1))) y += fx_noise(this.seed) * .25 * clamp(p[FX_P7], 0, 1) * Math.abs(y); }
+            y = this.tone[c].process(y, hz, .1, sr).low * trim * this.gate * this.cut;
+            this.out[c] = y;
+        }
+        this.cursor = (this.cursor + 1) % 8; const wet = clamp(p[FX_WET], 0, 1);
+        // The 2x oversampler delays the wet path 8 samples; the dry path is delayed to match.
+        this.state = drive;
+        this.result.left = this.delay[0][this.cursor] * (1 - wet) + this.out[0] * wet; this.result.right = this.delay[1][this.cursor] * (1 - wet) + this.out[1] * wet;
+        return this.result;
+    }
+}
+// Models: 0 spring, 1 plate, 2 cathedral, 3 resonant tube, 4 feedback cavity. Wet is the send, so a released tail keeps ringing.
+class ReverbUnit {
+    constructor() { this.hall = new ResonantReverb(); this.comb_size = 8192; this.spring_size = 8192; this.pre_size = 24000;
+        this.comb = [new Float64Array(8192), new Float64Array(8192)]; this.comb_damp = [0, 0]; this.comb_cursor = 0;
+        this.spring_ap = Array.from({ length: 6 }, () => new Float64Array(512)); this.spring_cursor = [0, 0, 0, 0, 0, 0]; this.spring_line = new Float64Array(8192); this.spring_cursor_line = 0; this.spring_damp = 0; this.drip = 0;
+        this.pre_l = new Float64Array(24000); this.pre_r = new Float64Array(24000); this.pre_cursor = 0; this.band = new Filter(); this.state = 1; this.send = { left: 0, right: 0 }; this.result = { left: 0, right: 0 }; }
+    clear() { this.hall.clear(); for (const c of this.comb) c.fill(0); for (const a of this.spring_ap) a.fill(0); this.spring_line.fill(0); this.comb_damp[0] = this.comb_damp[1] = 0; }
+    comb_read(c, delay) { let pos = this.comb_cursor - clamp(delay, 2, this.comb_size - 4); while (pos < 0) pos += this.comb_size; const i = Math.trunc(pos), f = pos - i; return this.comb[c][i] * (1 - f) + this.comb[c][(i + 1) % this.comb_size] * f; }
+    process(x, p, model, sr) {
+        const wet = clamp(p[FX_WET], 0, 1), amount = clamp(p[FX_AMOUNT], 0, 1);
+        const size = .25 + .75 * clamp(p[FX_P0], 0, 1), ceiling = .3 + .7 * clamp(p[FX_P1], 0, 1), damping = clamp(p[FX_P2], 0, 1);
+        const range = 1 + 3 * clamp(p[FX_P3], 0, 1), root = 110 * Math.pow(2, clamp(p[FX_X], -1, 1) * range);
+        const feedback = clamp(.5 + .5 * p[FX_Y], 0, 1) * (.5 + .5 * clamp(p[FX_P4], 0, 1));
+        const pre = Math.trunc(clamp(p[FX_P5], 0, 1) * (this.pre_size - 2));
+        this.pre_l[this.pre_cursor] = x.left * wet; this.pre_r[this.pre_cursor] = x.right * wet;
+        const read = (this.pre_cursor - pre + this.pre_size) % this.pre_size; this.pre_cursor = (this.pre_cursor + 1) % this.pre_size;
+        const send = this.send; send.left = this.pre_l[read]; send.right = this.pre_r[read];
+        let tl = 0, tr = 0;
+        if (model === 1 || model === 2) {
+            const space = model === 1 ? (.15 + .45 * amount) * size : (.45 + .55 * amount) * size;
+            const sl = send.left, sr_ = send.right;
+            const r = this.hall.process(send, clamp(space * ceiling * 1.4, 0, 1), clamp(feedback, 0, 1), root, sr);
+            tl = (r.left - sl) * 1.6; tr = (r.right - sr_) * 1.6;
+        } else if (model === 0) {
+            // Spring: dispersive allpass chain feeding a short bouncing delay, with a slow "drip" wobble.
+            let v0 = (send.left + send.right) * .5;
+            const lengths = [37, 53, 71, 97, 131, 173];
+            for (let k = 0; k < 6; k++) { const a = this.spring_ap[k], n = lengths[k], c = this.spring_cursor[k], r = (c - n + 512) % 512; const d = a[r], v = v0 + d * .62; a[c] = v; v0 = d - v * .62; this.spring_cursor[k] = (c + 1) % 512; }
+            this.drip += 6.283185307179586 * 1.7 / sr; const delay = sr * (.028 + .012 * size) + Math.sin(this.drip) * 14;
+            let pos = this.spring_cursor_line - delay; while (pos < 0) pos += this.spring_size; const i = Math.trunc(pos), f = pos - i;
+            const y = this.spring_line[i % this.spring_size] * (1 - f) + this.spring_line[(i + 1) % this.spring_size] * f;
+            this.spring_damp += (y - this.spring_damp) * (.15 + .6 * (1 - damping));
+            const fb = clamp(.45 + .5 * amount * ceiling + .04 * feedback, 0, .97);
+            this.spring_line[this.spring_cursor_line] = Math.tanh(v0 + this.spring_damp * fb); this.spring_cursor_line = (this.spring_cursor_line + 1) % this.spring_size;
+            tl = this.spring_damp * 1.4; tr = -this.spring_damp * 1.3 + y * .2;
+        } else {
+            // Tube: one tuned comb; cavity: two cross-fed combs at the root and fifth with soft-clipped feedback that can sustain.
+            const period = sr / clamp(root, 20, 4000), excite = this.band.process((send.left + send.right) * .5, root, .6, sr).mid;
+            const fb = clamp(.6 + .39 * amount * ceiling + .1 * feedback, 0, model === 4 ? 1.04 : .995), c = 1 - (.15 + .7 * damping);
+            // A closed tube is a half-period line with inverting feedback: odd harmonics over the root.
+            const a = this.comb_read(0, model === 3 ? period * .5 : period), b = this.comb_read(1, period / 1.5);
+            this.comb_damp[0] += (a - this.comb_damp[0]) * c; this.comb_damp[1] += (b - this.comb_damp[1]) * c;
+            if (model === 3) { this.comb[0][this.comb_cursor] = clamp(excite - this.comb_damp[0] * fb, -3, 3); this.comb_cursor = (this.comb_cursor + 1) % this.comb_size; tl = tr = this.comb_damp[0]; }
+            else { this.comb[0][this.comb_cursor] = Math.tanh(excite + this.comb_damp[1] * fb); this.comb[1][this.comb_cursor] = Math.tanh(excite * .7 + this.comb_damp[0] * fb);
+                this.comb_cursor = (this.comb_cursor + 1) % this.comb_size; tl = this.comb_damp[0] * .9 + this.comb_damp[1] * .35; tr = this.comb_damp[1] * .9 + this.comb_damp[0] * .35; }
+        }
+        this.state = amount; this.result.left = x.left + tl; this.result.right = x.right + tr; return this.result;
+    }
+}
+// Captures a fragment on the press and loops it; a fresh unit plays dry until the capture length has been recorded.
+class RepeatUnit {
+    constructor(sr) { this.history = new FxHistory(Math.trunc(sr * 4)); this.loop_l = new Float32Array(Math.trunc(sr * 2.5)); this.loop_r = new Float32Array(Math.trunc(sr * 2.5));
+        this.captured = 0; this.filled = 0; this.waiting = false; this.pos = 0; this.last_held = 0; this.state = 0; this.frame = { left: 0, right: 0 }; this.result = { left: 0, right: 0 }; }
+    clear() {}
+    capture(seconds, sr) { this.captured = clamp(Math.trunc(seconds * sr), 64, this.loop_l.length);
+        for (let k = 0; k < this.captured; k++) { const f = this.history.read(this.captured - 1 - k, this.frame); this.loop_l[k] = f.left; this.loop_r[k] = f.right; } this.pos = 0; }
+    process(x, p, model, sr) {
+        this.history.write(x); this.filled = Math.min(this.filled + 1, this.history.size);
+        const capture_s = .06 + 1.94 * clamp(p[FX_P0], 0, 1);
+        if (p[FX_HELD] > .5 && this.last_held <= .5) this.waiting = true;
+        if (this.waiting && this.filled >= Math.trunc(capture_s * sr)) { this.capture(capture_s, sr); this.waiting = false; }
+        this.last_held = p[FX_HELD];
+        if (!this.captured) { this.state = 0; return x; }
+        const minimum = sr * (.001 + .049 * clamp(p[FX_P1], 0, 1));
+        const base = clamp(this.captured * Math.pow(2, clamp(p[FX_X], -1, 1) * 1.5), minimum, this.captured);
+        const shorten = clamp(p[FX_AMOUNT], 0, 1) * (.4 + .6 * clamp(p[FX_P2], 0, 1)), length = Math.max(minimum, base * Math.pow(minimum / base, shorten));
+        let speed = Math.pow(2, clamp(p[FX_Y], -1, 1) * (.5 + 2.5 * clamp(p[FX_P3], 0, 1))); if (model === 1) speed = -speed;
+        this.pos += speed; while (this.pos >= length) this.pos -= length; while (this.pos < 0) this.pos += length;
+        // Start the loop at the end of the capture so a shortened loop is the newest material.
+        const at = this.captured - length + this.pos, i = Math.trunc(at), f = at - i, j = Math.min(this.captured - 1, i + 1);
+        const l = this.loop_l[i] * (1 - f) + this.loop_l[j] * f, r = this.loop_r[i] * (1 - f) + this.loop_r[j] * f;
+        const fade = Math.max(2, Math.min(length * .25, sr * .0005 + sr * .03 * clamp(p[FX_P4], 0, 1)));
+        let g = Math.min(1, Math.min(this.pos / fade, (length - this.pos) / fade)); g = g * g * (3 - 2 * g);
+        const wet = clamp(p[FX_WET], 0, 1); this.state = length / sr;
+        this.result.left = x.left * (1 - wet) + l * g * wet; this.result.right = x.right * (1 - wet) + r * g * wet; return this.result;
+    }
+}
+function make_fx_unit(kind, sr) { return kind === 0 ? new TapeUnit(sr) : kind === 1 ? new DistortUnit() : kind === 2 ? new ReverbUnit() : new RepeatUnit(sr); }
+// One organism's insert chain, run in slot order.
+class TrackFx {
+    constructor() { this.slots = []; this.input = { left: 0, right: 0 }; this.peak = 0; this.frame = { left: 0, right: 0 }; }
+    find(id) { for (const s of this.slots) if (s.id === id) return s; return null; }
+    process(sr) {
+        let y = this.frame; y.left = this.input.left; y.right = this.input.right; this.input.left = this.input.right = 0;
+        const k = 1 - Math.exp(-1 / (sr * .015));
+        for (const s of this.slots) {
+            for (let i = 0; i < FX_PARAMS; i++) s.value[i] = (i === FX_HELD || !s.primed) ? s.target[i] : s.value[i] + (s.target[i] - s.value[i]) * k;
+            s.primed = true;
+            y = s.unit.process(y, s.value, s.model, sr);
+        }
+        // Bounded so a sustaining cavity or dense stack never overwhelms the master.
+        const left = Math.tanh(y.left * .9) / .9, right = Math.tanh(y.right * .9) / .9;
+        this.peak = Math.max(Math.max(Math.abs(left), Math.abs(right)), this.peak * .9997);
+        this.frame.left = left; this.frame.right = right; return this.frame;
+    }
+}
+function pan_into(bus, s, pan) { const a = (clamp(pan, -1, 1) + 1) * PI / 4; bus.left += s * Math.cos(a) * 1.41421356; bus.right += s * Math.sin(a) * 1.41421356; }
+
 class Engine {
     constructor() {
         this.sample_rate = 48000;
@@ -1541,6 +1795,7 @@ class Engine {
         this.keyboard_emitters = Array.from({ length: this.VOICES }, () => new HarshEmitter());
         this.pending = Array.from({ length: 64 }, () => ({ trigger: null, delay: 0, used: false }));
         this.channel_spatial = new Map();
+        this.track_fx = new Map();
 
         this.features = { algorithm: 0, material: 0, exciter: 0, body: 0, metal: 0, rupture: 0, motion: 0, space: 0, humanise: 0, reverb: 0, resonance: 0, routes: [] };
         this.target_features = Object.assign({}, this.features);
@@ -1679,8 +1934,38 @@ class Engine {
             }
         }
     }
+    fx_bus(track) { return this.track_fx.size === 0 || track < 0 ? null : (this.track_fx.get(track) || null); }
+    // HWorld::track_effects: replaces an organism's chain [{slots:[{id,kind,model,params}]}]; slots keep their running
+    // state across reorders by id. An empty list removes the bus.
+    set_track_fx(i, o, sr) {
+        const list = o && Array.isArray(o.slots) ? o.slots.slice(0, 4) : [];
+        if (list.length === 0) { this.track_fx.delete(i); return; }
+        let bus = this.track_fx.get(i);
+        if (!bus) { bus = new TrackFx(); this.track_fx.set(i, bus); }
+        const next = [];
+        for (const e of list) {
+            const kind = FX_KINDS.indexOf(String(e && e.kind)); if (kind < 0) continue;
+            const id = Math.trunc(Number(e.id)) || 0;
+            const old = bus.find(id);
+            const slot = old && old.kind === kind ? old : { id: id, kind: kind, model: 0, target: new Float64Array(FX_PARAMS), value: new Float64Array(FX_PARAMS), unit: make_fx_unit(kind, sr), primed: false };
+            const model = Number(e.model); slot.model = Number.isFinite(model) ? clamp(Math.trunc(model), 0, 7) : 0;
+            const params = e.params || {};
+            for (let k = 0; k < FX_PARAMS; k++) { const v = Number(params[FX_PARAM_NAMES[k]]); if (Number.isFinite(v)) slot.target[k] = v; }
+            next.push(slot);
+        }
+        if (next.length === 0) { this.track_fx.delete(i); return; }
+        bus.slots = next;
+    }
+    set_fx_param(i, id, name, value) {
+        const bus = this.track_fx.get(i); const v = Number(value); if (!bus || !Number.isFinite(v)) return;
+        const k = FX_PARAM_NAMES.indexOf(name); if (k < 0) return;
+        const slot = bus.find(id); if (slot) slot.target[k] = v;
+    }
+    // [track, slot id, unit state, bus peak] for every active slot.
+    fx_state() { const out = []; for (const [track, bus] of this.track_fx) for (const slot of bus.slots) out.push([track, slot.id, slot.unit.state, bus.peak]); return out; }
     panic() {
-        this.channel_spatial.clear();
+        for (const fx of this.channel_spatial.values()) { fx.echoes.clear(); fx.hall.clear(); fx.input = fx.dc_x = fx.dc_y = 0; }
+        for (const bus of this.track_fx.values()) { bus.input.left = bus.input.right = 0; for (const slot of bus.slots) slot.unit.clear(); }
         this.speech_dc_x[0] = this.speech_dc_x[1] = this.speech_dc_y[0] = this.speech_dc_y[1] = 0;
         for (let i = 0; i < this.MATERIAL_BODIES; i++) this.harsh_emitters[i].clear();
         for (let i = 0; i < this.VOICES; i++) {
@@ -1694,6 +1979,11 @@ class Engine {
         this.dc_x = 0; this.dc_y = 0;
         this.low = new Filter(); this.high = new Filter();
         this.space.clear(); this.reverb.clear();
+    }
+    channel_wet(fx) {
+        const dry = fx.input * this.gain, blocked = dry - fx.dc_x + .995 * fx.dc_y;
+        fx.dc_x = dry; fx.dc_y = blocked;
+        return fx.hall.process(fx.echoes.process(blocked, fx.space, this.sample_rate), fx.reverb, fx.resonance, fx.root, this.sample_rate);
     }
     sample_stereo() {
         ++this.render_clock;
@@ -1777,7 +2067,14 @@ class Engine {
                 const e = this.keyboard_emitters[v.keyboard_slot];
                 if (!e.source_mode) s = e.process(s, true, this.sample_rate);
             }
-            if (v.keyboard_profile) s *= (v.sfx.gain != null ? v.sfx.gain : 1.0);
+            if (v.keyboard_profile) s *= v.sfx.gain;
+
+            const bus = this.fx_bus(v.track_owner);
+            if (bus && !(v.channel_spatial && this.channel_spatial.has(v.track_owner)) && (emitter < 0 || (v.material && !v.keyboard_profile))) {
+                if (emitter >= 0) harsh_sounding[emitter] = 1;
+                pan_into(bus.input, s * this.gain, v.sfx.pan + v.track_pan);
+                continue;
+            }
 
             if (v.channel_spatial && (emitter < 0 || (v.material && !v.keyboard_profile))) {
                 const fx = this.channel_spatial.get(v.track_owner);
@@ -1819,6 +2116,15 @@ class Engine {
             }
             const s = e.process(harsh_inputs[k], Boolean(harsh_sounding[k]), this.sample_rate);
             let routed = false;
+            if (this.track_fx.size > 0) for (let vIdx = 0; vIdx < this.VOICES; vIdx++) {
+                const v = this.voices[vIdx];
+                if (v.own && v.group === e.group) {
+                    const bus = this.fx_bus(v.track_owner);
+                    if (bus && !(v.channel_spatial && this.channel_spatial.has(v.track_owner))) { pan_into(bus.input, s * this.gain, e.pan); routed = true; }
+                    break;
+                }
+            }
+            if (routed) continue;
             for (let vIdx = 0; vIdx < this.VOICES; vIdx++) {
                 const v = this.voices[vIdx];
                 if (v.channel_spatial && v.group === e.group) {
@@ -1852,14 +2158,18 @@ class Engine {
         spaced.left += side_l * this.gain;
         spaced.right += side_r * this.gain;
 
+        // Effected organisms: their echo/hall feeds the bus, then the chain, then the master reverb.
+        for (const [track, bus] of this.track_fx) {
+            const cs = this.channel_spatial.get(track);
+            if (cs) { const wet = this.channel_wet(cs); const a = (clamp(cs.pan, -1, 1) + 1) * PI / 4; bus.input.left += wet.left * Math.cos(a) * 1.41421356; bus.input.right += wet.right * Math.sin(a) * 1.41421356; }
+            const out = bus.process(this.sample_rate); spaced.left += out.left; spaced.right += out.right;
+        }
         const revAmt = this.target_features.reverb === 0 && (this.features.reverb || 0) < 0.00001 ? 0 : (this.features.reverb || 0);
         const stereo = this.reverb.process(spaced, revAmt, this.features.resonance || 0, this.reverb_root, this.sample_rate);
 
-        for (const fx of this.channel_spatial.values()) {
-            const dry = fx.input * this.gain;
-            const blk = dry - fx.dc_x + 0.995 * fx.dc_y;
-            fx.dc_x = dry; fx.dc_y = blk;
-            const wet = fx.hall.process(fx.echoes.process(blk, fx.space, this.sample_rate), fx.reverb, fx.resonance, fx.root, this.sample_rate);
+        for (const [track, fx] of this.channel_spatial) {
+            if (this.fx_bus(track)) continue;
+            const wet = this.channel_wet(fx);
             const a = (clamp(fx.pan, -1.0, 1.0) + 1.0) * PI / 4.0;
             stereo.left += wet.left * Math.cos(a) * 1.41421356;
             stereo.right += wet.right * Math.sin(a) * 1.41421356;
@@ -1960,241 +2270,445 @@ class PerformanceCharacter {
 // ---------------------------------------------------------------------------
 // Faction Sound Profiles (faction_sounds.hpp)
 // ---------------------------------------------------------------------------
-const FACTION_RELEASES = [120, 320, 620, 200, 650, 900, 60, 400, 120, 90, 70, 250, 230, 350, 1100, 50, 35];
+const FACTION_RELEASES = [120, 320, 620, 200, 650, 900, 60, 400, 120, 90, 70, 250, 230, 350, 1100, 50, 35]; // native faction_release_ms
 
+// Generated from native/faction_sounds.hpp (tools/export_web.py checks it stays in sync).
 function faction_trigger(i, pitch, velocity) {
-    const t = {
-        pitch: pitch,
-        velocity: velocity,
-        group: i * 128 + pitch,
-        seed: (1977 + i * 104729 + pitch * 1009) >>> 0,
-        params: sfx_default_params(),
-        features: { algorithm: 0, material: 0, exciter: 0, body: 0, metal: 0, rupture: 0, motion: 0, space: 0, humanise: 0, reverb: 0, resonance: 0, routes: [] },
-        sfx: { hold_ms: 15000, gain: 1, pan: 0 }
-    };
-    t.params[5] = 0.5; // SUSTAIN
-
-    switch (i % 17) {
-        case 0:
-            t.features.algorithm = 10; t.features.material = 3;
-            t.params[3] = 1; t.params[4] = 180; t.params[6] = 120; t.params[1] = 3200; t.params[9] = 0;
-            t.features.body = 0.04; t.features.metal = 0.1;
-            t.sfx.pan = -0.8; t.sfx.gain = 1.201619; t.sfx.hardness = 0.98; t.sfx.decay = 0.25;
-            t.sfx.pitch_from = -12; t.sfx.pitch_to = -24; t.sfx.pitch_ms = 100;
-            t.sfx.physical = { gesture: 0, pressure: 0.95, friction: 0.3, damping: 0.7, inharmonicity: 0.85, fracture: 0.15, gesture_ms: 180 };
-            break;
-        case 1:
-            t.features.algorithm = 3; t.features.material = 1;
-            t.params[3] = 1; t.params[4] = 260; t.params[6] = 320; t.params[1] = 7800; t.params[9] = 0; t.params[5] = 0.0;
-            t.features.body = 0.89; t.features.metal = 0.04;
-            t.sfx.pan = -0.7; t.sfx.gain = 0.918236; t.sfx.hold_ms = 380;
-            break;
-        case 2:
-            t.features.algorithm = 7; t.features.material = 0;
-            t.params[3] = 160; t.params[4] = 800; t.params[6] = 620; t.params[1] = 7200; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = -0.6; t.sfx.gain = 0.743338; t.sfx.vowel = 2; t.sfx.vocal_size = 0.5;
-            t.sfx.breath = 0.28; t.sfx.voicing = 0.8; t.sfx.formant_motion = 0.65; t.sfx.chamber = 0.6; t.sfx.reverse_mix = 0.18;
-            break;
-        case 3:
-            t.features.algorithm = 6; t.features.material = 6;
-            t.params[3] = 5; t.params[4] = 950; t.params[6] = 200; t.params[1] = 2800; t.params[9] = 0;
-            t.params[18] = 0.7; t.params[13] = 13; t.params[14] = 0.5;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = -0.5; t.sfx.gain = 2.112719; t.features.exciter = 2;
-            t.sfx.hardness = 0.35; t.sfx.scrape_rate = 160; t.sfx.decay = 0.095; t.sfx.clang = 0.65; t.sfx.bow = 0.35; t.sfx.hp = 180;
-            break;
-        case 4:
-            t.features.algorithm = 11; t.features.material = 0;
-            t.params[3] = 1; t.params[4] = 420; t.params[6] = 650; t.params[1] = 5400; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = -0.4; t.sfx.gain = 0.950796;
-            t.sfx.physical = { gesture: 2, pressure: 0.8, friction: 0.45, contact_speed: 0.3, coupling: 0.45, damping: 0.45, stress: 0.7, elasticity: 0.35, inharmonicity: 0.7, fracture: 0.35, material_feedback: 0.35, gesture_ms: 600 };
-            break;
-        case 5:
-            t.features.algorithm = 4; t.features.material = 0;
-            t.params[3] = 60; t.params[4] = 650; t.params[6] = 900; t.params[1] = 9200; t.params[9] = 0;
-            t.features.body = 0.65; t.features.metal = 0.32;
-            t.sfx.pan = -0.3; t.sfx.gain = 0.949399;
-            break;
-        case 6:
-            t.features.algorithm = 2; t.features.material = 5;
-            t.params[3] = 1; t.params[4] = 120; t.params[6] = 60; t.params[1] = 12000; t.params[9] = 0;
-            t.features.body = 0.25; t.features.metal = 0.95;
-            t.sfx.pan = -0.2; t.sfx.gain = 1.054452; t.sfx.hardness = 0.95; t.sfx.decay = 0.12; t.sfx.clang = 0.85;
-            break;
-        case 7:
-            t.features.algorithm = 5; t.features.material = 0;
-            t.params[3] = 1; t.params[4] = 480; t.params[6] = 400; t.params[1] = 11000; t.params[9] = 0;
-            t.features.body = 0.75; t.features.metal = 0.25;
-            t.sfx.pan = -0.1; t.sfx.gain = 0.884144;
-            break;
-        case 8:
-            t.features.algorithm = 8; t.features.material = 0;
-            t.params[3] = 1; t.params[4] = 300; t.params[6] = 120; t.params[1] = 6200; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.0; t.sfx.gain = 0.791559; t.sfx.boom = 1.2; t.sfx.crackle = 0.45; t.sfx.rumble = 0.85; t.sfx.noise_amount = 0.35;
-            break;
-        case 9:
-            t.features.algorithm = 1; t.features.material = 0;
-            t.params[3] = 2; t.params[4] = 180; t.params[6] = 90; t.params[1] = 8400; t.params[9] = 0;
-            t.features.body = 0.1; t.features.metal = 0.8; t.features.rupture = 0.55;
-            t.sfx.pan = 0.1; t.sfx.gain = 0.825867;
-            break;
-        case 10:
-            t.features.algorithm = 6; t.features.material = 4;
-            t.params[3] = 1; t.params[4] = 250; t.params[6] = 70; t.params[1] = 4200; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.2; t.sfx.gain = 1.348963; t.features.exciter = 1;
-            t.sfx.hardness = 0.9; t.sfx.decay = 0.22; t.sfx.tension = 0.35; t.sfx.clang = 0.4;
-            break;
-        case 11:
-            t.features.algorithm = 10; t.features.material = 5;
-            t.params[3] = 1; t.params[4] = 320; t.params[6] = 250; t.params[1] = 4600; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.3; t.sfx.gain = 1.054452;
-            t.sfx.physical = { gesture: 0, pressure: 0.85, friction: 0.5, damping: 0.55, inharmonicity: 0.65, fracture: 0.2, gesture_ms: 300 };
-            break;
-        case 12:
-            t.features.algorithm = 7; t.features.material = 0;
-            t.params[3] = 80; t.params[4] = 400; t.params[6] = 230; t.params[1] = 6800; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.4; t.sfx.gain = 0.743338; t.sfx.vowel = 6; t.sfx.vocal_size = 0.85; t.sfx.voicing = 0.9; t.sfx.subharmonic = 0.35;
-            break;
-        case 13:
-            t.features.algorithm = 0; t.features.material = 0;
-            t.params[3] = 4; t.params[4] = 280; t.params[6] = 350; t.params[1] = 6500; t.params[9] = 0;
-            t.features.body = 0.45; t.features.metal = 0.15;
-            t.sfx.pan = 0.5; t.sfx.gain = 0.851138;
-            break;
-        case 14:
-            t.features.algorithm = 4; t.features.material = 0;
-            t.params[3] = 120; t.params[4] = 900; t.params[6] = 1100; t.params[1] = 8800; t.params[9] = 0;
-            t.features.body = 0.85; t.features.metal = 0.15;
-            t.sfx.pan = 0.6; t.sfx.gain = 0.884144;
-            break;
-        case 15:
-            t.features.algorithm = 8; t.features.material = 0;
-            t.params[3] = 1; t.params[4] = 140; t.params[6] = 50; t.params[1] = 9800; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.7; t.sfx.gain = 0.950796; t.sfx.boom = 0.4; t.sfx.crackle = 0.95; t.sfx.noise_amount = 0.85; t.sfx.noise_color = 1;
-            break;
-        case 16:
-            t.features.algorithm = 6; t.features.material = 2;
-            t.params[3] = 1; t.params[4] = 90; t.params[6] = 35; t.params[1] = 14000; t.params[9] = 0;
-            t.features.body = 0; t.features.metal = 0;
-            t.sfx.pan = 0.8; t.sfx.gain = 1.488358; t.features.exciter = 0;
-            t.sfx.hardness = 0.98; t.sfx.decay = 0.08; t.sfx.clang = 0.9;
-            break;
-    }
+    const t = { pitch: pitch, velocity: velocity, group: i * 128 + pitch, seed: (1977 + i * 104729 + pitch * 1009) >>> 0, fine: 0, body_slot: 0, channel_spatial: false,
+        params: sfx_default_params(), features: default_features(), sfx: default_sfx(), harsh: default_harsh_settings() };
+    t.features.routes = DEFAULT_ROUTES.map(r => ({ source: r[0], destination: r[1], amount: r[2] }));
+    t.params[5] = .5; t.sfx.hold_ms = 15000; t.features.body = 0; t.features.metal = 0;
+    // BEGIN GENERATED FACTIONS
+    switch(i){
+case 0:
+t.features.algorithm=10;t.features.material=3;
+t.params[3]=1;
+t.params[4]=180;
+t.params[6]=120;
+t.params[1]=3200;
+t.params[9]=0;
+t.features.body=0.04;
+t.features.metal=0.1;
+t.sfx.pan=-0.8;t.sfx.gain=1.201619;
+t.sfx.hardness=0.98;
+t.sfx.decay=0.25;
+t.sfx.pitch_from=-12;
+t.sfx.pitch_to=-24;
+t.sfx.pitch_ms=100;
+t.sfx.physical.gesture=0;
+t.sfx.physical.pressure=0.95;
+t.sfx.physical.friction=0.3;
+t.sfx.physical.damping=0.7;
+t.sfx.physical.inharmonicity=0.85;
+t.sfx.physical.fracture=0.15;
+t.sfx.physical.gesture_ms=180;
+break;
+case 1:
+t.features.algorithm=3;t.features.material=1;
+t.params[3]=1;
+t.params[4]=260;
+t.params[6]=320;
+t.params[1]=7800;
+t.params[9]=0;
+t.params[5]=0.0;
+t.features.body=0.89;
+t.features.metal=0.04;
+t.sfx.pan=-0.7000000000000001;t.sfx.gain=0.918236;
+t.sfx.hold_ms=380;
+break;
+case 2:
+t.features.algorithm=7;t.features.material=0;
+t.params[3]=160;
+t.params[4]=800;
+t.params[6]=620;
+t.params[1]=7200;
+t.params[9]=0;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=-0.6000000000000001;t.sfx.gain=0.743338;
+t.sfx.vowel=2;
+t.sfx.vocal_size=0.5;
+t.sfx.breath=0.28;
+t.sfx.voicing=0.8;
+t.sfx.formant_motion=0.65;
+t.sfx.chamber=0.6;
+t.sfx.reverse_mix=0.18;
+break;
+case 3:
+t.features.algorithm=6;t.features.material=6;
+t.params[3]=5;
+t.params[4]=950;
+t.params[6]=200;
+t.params[1]=2800;
+t.params[9]=0;
+t.params[18]=0.7;
+t.params[13]=13;
+t.params[14]=0.5;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=-0.5;t.sfx.gain=2.112719;
+t.features.exciter=2;
+t.sfx.hardness=0.35;
+t.sfx.scrape_rate=160;
+t.sfx.decay=0.095;
+t.sfx.clang=0.65;
+t.sfx.bow=0.35;
+t.sfx.hp=180;
+break;
+case 4:
+t.features.algorithm=5;t.features.material=7;
+t.params[3]=2;
+t.params[4]=500;
+t.params[6]=650;
+t.params[1]=9500;
+t.params[9]=0;
+t.params[27]=0.4;
+t.params[28]=0.2;
+t.params[34]=0.65;
+t.params[32]=145;
+t.params[33]=0.6;
+t.params[17]=0.28;
+t.params[16]=7;
+t.features.body=0.72;
+t.features.metal=0.05;
+t.sfx.pan=-0.4;t.sfx.gain=0.396408;
+break;
+case 5:
+t.features.algorithm=7;t.features.material=1;
+t.params[3]=240;
+t.params[4]=1300;
+t.params[6]=900;
+t.params[1]=1800;
+t.params[9]=0;
+t.params[5]=0.72;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=-0.30000000000000004;t.sfx.gain=0.288773;
+t.sfx.vowel=4;
+t.sfx.vocal_size=2.3;
+t.sfx.subharmonic=0.85;
+t.sfx.breath=0.03;
+t.sfx.voicing=1;
+t.sfx.roughness=0.6;
+t.sfx.chamber=0.95;
+t.sfx.pitch_from=-12;
+t.sfx.pitch_to=-12;
+break;
+case 6:
+t.features.algorithm=11;t.features.material=5;
+t.params[3]=1;
+t.params[4]=90;
+t.params[6]=60;
+t.params[1]=13500;
+t.params[9]=0;
+t.params[5]=0.0;
+t.features.body=0;
+t.features.metal=0.1;
+t.sfx.pan=-0.19999999999999996;t.sfx.gain=4.99513;
+t.sfx.hp=1700;
+t.sfx.pitch_from=12;
+t.sfx.pitch_to=7;
+t.sfx.pitch_ms=80;
+t.sfx.physical.gesture=3;
+t.sfx.physical.pressure=0.85;
+t.sfx.physical.friction=0.95;
+t.sfx.physical.contact_speed=0.9;
+t.sfx.physical.damping=0.8;
+t.sfx.physical.fracture=0.9;
+t.sfx.physical.gesture_ms=110;
+break;
+case 7:
+t.features.algorithm=6;t.features.material=7;
+t.params[3]=1;
+t.params[4]=650;
+t.params[6]=400;
+t.params[1]=14000;
+t.params[9]=0;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=-0.09999999999999998;t.sfx.gain=0.490169;
+t.sfx.hardness=1;
+t.sfx.decay=0.75;
+t.sfx.position=0.18;
+t.sfx.warp=0.82;
+t.sfx.clang=0.1;
+t.sfx.hp=2100;
+t.features.exciter=4;
+t.sfx.pitch_from=12;
+t.sfx.pitch_to=12;
+break;
+case 8:
+t.features.algorithm=8;t.features.material=3;
+t.params[3]=1;
+t.params[4]=210;
+t.params[6]=120;
+t.params[1]=3600;
+t.params[9]=0;
+t.params[5]=0.03;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.0;t.sfx.gain=0.829546;
+t.sfx.boom=1.4;
+t.sfx.boom_ms=180;
+t.sfx.rumble=0.75;
+t.sfx.crackle=0.9;
+t.sfx.noise_amount=0.8;
+t.sfx.noise_color=1;
+t.sfx.pitch_from=7;
+t.sfx.pitch_to=-24;
+t.sfx.pitch_ms=160;
+break;
+case 9:
+t.features.algorithm=7;t.features.material=2;
+t.params[3]=4;
+t.params[4]=260;
+t.params[6]=90;
+t.params[1]=2100;
+t.params[9]=0;
+t.params[19]=0.7;
+t.params[20]=1;
+t.params[5]=0.2;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.09999999999999998;t.sfx.gain=6.6;
+t.sfx.vowel=3;
+t.sfx.vocal_size=1.8;
+t.sfx.voicing=0;
+t.sfx.breath=1;
+t.sfx.fragment=0.9;
+t.sfx.flutter=0.8;
+t.sfx.hp=650;
+break;
+case 10:
+t.features.algorithm=1;t.features.material=3;
+t.params[3]=2;
+t.params[4]=170;
+t.params[6]=70;
+t.params[1]=10500;
+t.params[9]=0.02;
+t.params[27]=0.3;
+t.params[28]=1;
+t.params[29]=0.13;
+t.params[30]=0.85;
+t.params[31]=0;
+t.params[7]=250;
+t.params[8]=31;
+t.params[18]=0.9;
+t.params[13]=31;
+t.params[14]=0.95;
+t.features.body=0;
+t.features.metal=0.9;
+t.features.rupture=0.8;
+t.sfx.pan=0.19999999999999996;t.sfx.gain=0.095155;
+t.harsh.enabled=true;
+t.harsh.circuit=6;
+t.harsh.drive=0.7;
+t.harsh.mix=0.8;
+t.harsh.feedback=0.15;
+t.harsh.trim=0.19;
+break;
+case 11:
+t.features.algorithm=0;t.features.material=1;
+t.params[3]=70;
+t.params[4]=420;
+t.params[6]=250;
+t.params[1]=1050;
+t.params[9]=0.015;
+t.params[27]=1;
+t.params[12]=0;
+t.params[28]=0;
+t.params[5]=0.6;
+t.params[17]=0.06;
+t.params[16]=3.5;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.30000000000000004;t.sfx.gain=0.249337;
+break;
+case 12:
+t.features.algorithm=4;t.features.material=7;
+t.params[3]=15;
+t.params[4]=320;
+t.params[6]=230;
+t.params[1]=12500;
+t.params[9]=0;
+t.params[5]=0.35;
+t.params[17]=0.95;
+t.params[16]=189;
+t.params[34]=0.35;
+t.params[32]=11.7;
+t.params[33]=0.7;
+t.features.body=0.97;
+t.features.metal=0.9;
+t.features.motion=0.3;
+t.sfx.pan=0.40000000000000013;t.sfx.gain=1.243281;
+t.sfx.hp=900;
+break;
+case 13:
+t.features.algorithm=6;t.features.material=0;
+t.params[3]=1;
+t.params[4]=120;
+t.params[6]=350;
+t.params[1]=6500;
+t.params[9]=0;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.5;t.sfx.gain=0.808132;
+t.features.exciter=3;
+t.sfx.hardness=0.75;
+t.sfx.decay=0.48;
+t.sfx.position=0.63;
+t.sfx.bounce_ms=120;
+t.sfx.bounce_ratio=0.48;
+t.sfx.clang=0.12;
+t.sfx.pitch_from=-5;
+t.sfx.pitch_to=-5;
+break;
+case 14:
+t.features.algorithm=0;t.features.material=2;
+t.params[3]=320;
+t.params[4]=1500;
+t.params[6]=1100;
+t.params[1]=240;
+t.params[9]=0;
+t.params[27]=1;
+t.params[12]=0;
+t.params[28]=0;
+t.params[5]=0.9;
+t.params[2]=0.05;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.6000000000000001;t.sfx.gain=0.222027;
+t.sfx.pitch_from=-24;
+t.sfx.pitch_to=-24;
+t.sfx.hp=20;
+break;
+case 15:
+t.features.algorithm=0;t.features.material=0;
+t.params[3]=1;
+t.params[4]=80;
+t.params[6]=50;
+t.params[1]=16000;
+t.params[9]=0;
+t.params[27]=1;
+t.params[12]=0;
+t.params[28]=0;
+t.params[5]=0;
+t.features.body=0;
+t.features.metal=0;
+t.sfx.pan=0.7;t.sfx.gain=0.697199;
+t.sfx.pitch_from=12;
+t.sfx.pitch_to=24;
+t.sfx.pitch_ms=75;
+t.sfx.hold_ms=115;
+break;
+case 16:
+t.features.algorithm=2;t.features.material=1;
+t.params[3]=1;
+t.params[4]=28;
+t.params[6]=35;
+t.params[1]=7200;
+t.params[9]=0;
+t.params[5]=0;
+t.params[7]=0;
+t.features.body=0;
+t.features.metal=0.98;
+t.sfx.pan=0.8;t.sfx.gain=0.786813;
+t.sfx.pitch_from=-7;
+t.sfx.pitch_to=-7;
+t.sfx.hold_ms=45;
+t.sfx.hp=500;
+break;
+}
+    // END GENERATED FACTIONS
     return t;
 }
 
 // ---------------------------------------------------------------------------
 // Patch Parser (patch.hpp)
 // ---------------------------------------------------------------------------
+const PARAM_NAMES = ["mode","cutoff","res","attack","decay","sustain","release","fm","fmrate","noise","drive","detune","shape","glitchRate","glitchDepth","drift","ringRate","ringDepth","chopDepth","filterBlend","bandMix","pitchEnv","warpRate","warpDepth","drumBodyHz","drumBodyGain","drumBodyDecay","legacyGain","synthCoreGain","pulseWidth","pulseMix","subMix","padDelayMs","padFeedback","padWet"];
+// PatchReader::num: missing/null/non-finite -> fallback, otherwise clamped.
+function pnum(o, k, fallback, lo, hi) {
+    if (!o || typeof o !== 'object') return fallback;
+    const v = o[k];
+    if (v === undefined || v === null) return fallback;
+    const n = typeof v === 'boolean' ? (v ? 1 : 0) : Number(v);
+    return Number.isFinite(n) ? clamp(n, lo, hi) : fallback;
+}
+function pobj(o, k) { return o && o[k] && typeof o[k] === 'object' ? o[k] : null; }
+const SFX_RANGES = [["gain",0,4],["pan",-1,1],["vocal_size",.4,2.5],["roughness",0,1],["subharmonic",0,1],["breath",0,1],["voicing",0,1],
+    ["hardness",0,1],["position",0,1],["decay",.005,30],["spread",0,1],["tension",-1,1],["clang",0,1],["warp",0,1],["bounce_ms",8,2000],["bounce_ratio",.2,.97],["scrape_rate",10,8000],["bow",0,1],
+    ["reverse_envelope",0,1],["chamber",0,1],["formant_motion",0,1],["carrier_ring",0,1],["flutter",0,1],["fragment",0,1],["reverse_mix",0,1],["reverse_ms",2,85],
+    ["boom",0,2],["crackle",0,1],["rumble",0,2],["noise_amount",0,2],["hold_ms",-1,60000],["hp",0,20000],["soft_clip",0,1],["pitch_from",-96,96],["pitch_to",-96,96],["pitch_ms",0,30000],["pitch_curve",.05,20],["cutoff_from",-10,10],["cutoff_to",-10,10],["cutoff_ms",0,30000]];
+const PHYS_RANGES = [["pressure",0,1],["friction",0,1],["contact_speed",0,1],["coupling",0,1],["damping",0,1],["stress",0,1],["elasticity",0,1],["inharmonicity",0,1],["fracture",0,1],["material_feedback",0,1],["gesture_ms",20,10000]];
+const HARSH_RANGES = [["drive",0,1],["bias",-1,1],["mix",0,1],["feedback",0,1],["tension",0,1],["tone",0,1],["root",20,4000],["trim",0,4],["holes",0,1],["articulation",0,1],["attack_ms",.1,10000],["decay_ms",1,10000],["sustain",0,1],["release_ms",1,20000],["tail_ms",-1,20000]];
+const DEFAULT_ROUTES = [[0,0,.7],[1,1,.15],[2,2,.25],[0,3,.12]];
+function parse_phoneme(o) {
+    return { vowel: Math.trunc(pnum(o,"vowel",7,0,9)), consonant: Math.trunc(pnum(o,"consonant",0,0,5)), ms: pnum(o,"ms",140,5,20000), pitch: pnum(o,"pitch",0,-48,48), amp: pnum(o,"amp",1,0,2) };
+}
+// Line-for-line PatchReader::trigger (native/patch.hpp).
 function parse_trigger(o) {
-    const vals = o.values || o;
+    const pitchValue = pnum(o, "pitch", 60, 0, 127);
     const t = {
-        pitch: Math.round(Number(vals.pitch != null ? vals.pitch : 60)),
-        velocity: Math.round(Number(vals.velocity != null ? vals.velocity : 100)),
-        features: {
-            algorithm: Math.round(Number(o.engine != null ? o.engine : (vals.engine != null ? vals.engine : 0))),
-            material: Math.round(Number(o.material != null ? o.material : (vals.material != null ? vals.material : 0))),
-            exciter: Math.round(Number(o.exciter != null ? o.exciter : (vals.exciter != null ? vals.exciter : 0))),
-            body: Number(vals.body != null ? vals.body : (o.features && o.features.body != null ? o.features.body : 0)),
-            metal: Number(vals.metal != null ? vals.metal : (o.features && o.features.metal != null ? o.features.metal : 0)),
-            rupture: Number(vals.rupture != null ? vals.rupture : (o.features && o.features.rupture != null ? o.features.rupture : 0)),
-            motion: Number(vals.motion != null ? vals.motion : (o.features && o.features.motion != null ? o.features.motion : 0)),
-            humanise: Number(vals.humanise != null ? vals.humanise : (o.features && o.features.humanise != null ? o.features.humanise : 0)),
-            space: Number(vals.space != null ? vals.space : (o.features && o.features.space != null ? o.features.space : 0)),
-            reverb: Number(vals.reverb != null ? vals.reverb : (o.features && o.features.reverb != null ? o.features.reverb : 0)),
-            resonance: Number(vals.resonance != null ? vals.resonance : (o.features && o.features.resonance != null ? o.features.resonance : 0)),
-            routes: []
-        },
-        channel_spatial: Number(o.channel_spatial || vals.channel_spatial) > 0,
-        params: sfx_default_params(),
-        sfx: {
-            gain: Number(vals.gain != null ? vals.gain : 1.0),
-            pan: Number(vals.pan != null ? vals.pan : 0.0),
-            decay: Number(vals.decay != null ? vals.decay : 1.5),
-            hardness: Number(vals.hardness != null ? vals.hardness : 0.6),
-            position: Number(vals.position != null ? vals.position : 0.27),
-            hold_ms: Number(vals.hold_ms != null ? vals.hold_ms : -1),
-            pitch_from: Number(vals.pitch_from || 0),
-            pitch_to: Number(vals.pitch_to || 0),
-            pitch_ms: Number(vals.pitch_ms || 0),
-            pitch_curve: Number(vals.pitch_curve || 1.0),
-            cutoff_from: Number(vals.cutoff_from || 0),
-            cutoff_to: Number(vals.cutoff_to || 0),
-            cutoff_ms: Number(vals.cutoff_ms || 0),
-            hp: Number(vals.hp || 0),
-            soft_clip: Number(vals.soft_clip || 0),
-            physical: o.physical || vals.physical ? Object.assign({}, o.physical || vals.physical) : null,
-            phonemes: o.phonemes ? o.phonemes.slice() : (vals.phonemes ? vals.phonemes.slice() : []),
-            phoneme_count: o.phonemes ? o.phonemes.length : (vals.phonemes ? vals.phonemes.length : 0)
-        },
-        harsh: o.harsh || vals.harsh ? Object.assign({}, o.harsh || vals.harsh) : null,
-        fine: Number(vals.fine != null ? vals.fine : (o.fine || 0)) || 0,
-        body_slot: Number(o.body_slot || vals.body_slot || 0),
-        seed: (Number(o.seed || vals.seed || 1) >>> 0)
+        pitch: Math.trunc(pitchValue), fine: 0, velocity: Math.trunc(pnum(o, "velocity", 100, 1, 127)),
+        features: default_features({ algorithm: Math.trunc(pnum(o,"engine",0,0,11)), material: Math.trunc(pnum(o,"material",0,0,7)), exciter: Math.trunc(pnum(o,"exciter",0,0,4)) }),
+        channel_spatial: pnum(o, "channel_spatial", 0, 0, 1) > 0,
+        params: sfx_default_params(), sfx: default_sfx(), harsh: default_harsh_settings(), body_slot: 0, seed: 1
     };
-
-    const PARAM_NAMES = ["mode","cutoff","res","attack","decay","sustain","release","fm","fmrate","noise","drive","detune","shape","glitchRate","glitchDepth","drift","ringRate","ringDepth","chopDepth","filterBlend","bandMix","pitchEnv","warpRate","warpDepth","drumBodyHz","drumBodyGain","drumBodyDecay","legacyGain","synthCoreGain","pulseWidth","pulseMix","subMix","padDelayMs","padFeedback","padWet"];
-    const pSrc = o.params || vals.params || o.parameters;
-    if (pSrc) {
-        for (let i = 0; i < PARAM_COUNT; i++) {
-            const val = pSrc[PARAM_NAMES[i]];
-            if (val != null) t.params[i] = Number(val);
-        }
+    t.fine = pitchValue - t.pitch;
+    const f = pobj(o, "features");
+    for (const k of ["body","metal","rupture","motion","humanise","space","reverb","resonance"]) t.features[k] = pnum(o, k, pnum(f, k, t.features[k], 0, 1), 0, 1);
+    const p = pobj(o, "params");
+    for (let i = 0; i < PARAM_COUNT; i++) t.params[i] = pnum(p, PARAM_NAMES[i], t.params[i], -20000, 20000);
+    t.params[29] = clamp(t.params[29], .02, .98); t.params[33] = clamp(t.params[33], 0, .85); t.params[3] = clamp(t.params[3], .2, 10000); t.params[6] = clamp(t.params[6], 1, 20000); t.params[5] = clamp(t.params[5], 0, 1);
+    t.features.routes = DEFAULT_ROUTES.map(r => ({ source: r[0], destination: r[1], amount: r[2] }));
+    const routes = Array.isArray(o.routes) ? o.routes : [];
+    for (let i = 0; i < Math.min(4, routes.length); i++) t.features.routes[i] = { source: Math.trunc(pnum(routes[i],"source",0,0,5)), destination: Math.trunc(pnum(routes[i],"destination",0,0,3)), amount: pnum(routes[i],"amount",0,-1,1) };
+    for (const [k, lo, hi] of SFX_RANGES) t.sfx[k] = pnum(o, k, t.sfx[k], lo, hi);
+    t.sfx.vowel = Math.trunc(pnum(o, "vowel", 0, 0, 9));
+    const physical = pobj(o, "physical");
+    for (const [k, lo, hi] of PHYS_RANGES) t.sfx.physical[k] = pnum(o, k, pnum(physical, k, t.sfx.physical[k], lo, hi), lo, hi);
+    t.sfx.physical.gesture = Math.trunc(pnum(o, "gesture", pnum(physical, "gesture", 0, 0, 4), 0, 4));
+    const h = pobj(o, "harsh");
+    if (h) {
+        t.harsh.enabled = true;
+        for (const [k, lo, hi] of HARSH_RANGES) t.harsh[k] = pnum(h, k, t.harsh[k], lo, hi);
+        t.harsh.circuit = Math.trunc(pnum(h, "circuit", 0, 0, 6)); t.harsh.speech_adsr = pnum(h, "speech_adsr", 0, 0, 1) > 0; t.harsh.source_sfx = pnum(h, "source_sfx", 0, 0, 1) > 0;
     }
-    const rSrc = o.routes || vals.routes;
-    if (rSrc && Array.isArray(rSrc)) {
-        t.features.routes = rSrc.map(r => ({
-            source: Number(r.source || 0),
-            destination: Number(r.destination || 0),
-            amount: Number(r.amount || 0)
-        }));
-    }
+    const ph = Array.isArray(o.phonemes) ? o.phonemes : [];
+    t.sfx.phoneme_count = Math.min(MAX_PHONEMES, ph.length);
+    t.sfx.phonemes = ph.slice(0, t.sfx.phoneme_count).map(parse_phoneme);
+    t.body_slot = Math.trunc(pnum(o, "body_slot", 0, 0, 3)); t.seed = pnum(o, "seed", 1, 1, 4294967295) >>> 0;
     return t;
 }
 
+// Key zone: the layer sounds only for notes in [key_lo,key_hi] (modulo key_cycle when set); key_track scales transposition.
+class PatchChunk {
+    constructor(trigger, delay) { this.trigger = trigger; this.delay = delay; this.key_lo = 0; this.key_hi = 127; this.key_cycle = 0; this.key_track = 1; }
+    plays(pitch) { const k = this.key_cycle > 0 ? pitch % this.key_cycle : pitch; return k >= this.key_lo && k <= this.key_hi; }
+    pitch_for(note) { return clamp(Math.round(this.trigger.pitch + (note - 60) * this.key_track), 0, 127); }
+}
+function ptext(o, k, fallback = "") { return o && typeof o[k] === 'string' ? o[k] : fallback; }
+// Line-for-line InstrumentPatch::read (native/patch.hpp).
 function parse_patch(o) {
-    if (!o) return { kind: "synth", layers: [], gain: 1, pan: 0 };
-    const patch = {
-        kind: String(o.kind || "synth"),
-        gain: Number(o.gain != null ? o.gain : 1.0),
-        pan: Number(o.pan != null ? o.pan : 0.0),
-        layers: [],
-        syllables: o.syllables ? o.syllables.slice() : [],
-        mode: o.speech ? String(o.speech.mode || "syllable") : "syllable",
-        gated: o.speech ? Number(o.speech.gate) > 0 : true,
-        polyphony: o.speech ? Number(o.speech.polyphony || 4) : 4,
-        cursor: 0,
-        last_onset: -1e9
-    };
-
-    const list = o.triggers || o.layers || (o.sound ? [o.sound] : []);
-    for (let i = 0; i < list.length; i++) {
-        const l = list[i];
-        const vals = l.values || l;
-        const trig = parse_trigger(l);
-        patch.layers.push({
-            trigger: trig,
-            delay: Number(l.delay_ms || vals.delay_ms || 0),
-            key_lo: Number(vals.key_lo != null ? vals.key_lo : (l.key_lo != null ? l.key_lo : 0)),
-            key_hi: Number(vals.key_hi != null ? vals.key_hi : (l.key_hi != null ? l.key_hi : 127)),
-            key_cycle: Number(vals.key_cycle != null ? vals.key_cycle : (l.key_cycle || 0)),
-            key_track: Number(vals.key_track != null ? vals.key_track : (l.key_track != null ? l.key_track : 1.0)),
-            plays: function(pitch) {
-                const k = this.key_cycle > 0 ? pitch % this.key_cycle : pitch;
-                return k >= this.key_lo && k <= this.key_hi;
-            },
-            pitch_for: function(note) {
-                return clamp(Math.round(this.trigger.pitch + (note - 60) * this.key_track), 0, 127);
-            }
-        });
+    const patch = { layers: [], syllables: [], kind: "synth", mode: "syllable", text: "", key: "", gain: 1, pan: 0, reference: 60, contour: 1, rate: 1, beats: 4,
+        gated: true, overlap: false, random: false, sync: false, polyphony: 4, cursor: 0, last_onset: -1e9 };
+    if (!o || typeof o !== 'object') return patch;
+    patch.kind = ptext(o, "kind", "synth"); patch.gain = pnum(o, "gain", 1, 0, 2); patch.pan = pnum(o, "pan", 0, -1, 1);
+    const layers = Array.isArray(o.triggers) ? o.triggers : [];
+    for (let i = 0; i < Math.min(64, layers.length); i++) {
+        const l = layers[i] || {};
+        const c = new PatchChunk(parse_trigger(l), pnum(l, "delay_ms", 0, 0, 600000));
+        c.key_lo = Math.trunc(pnum(l, "key_lo", 0, 0, 127)); c.key_hi = Math.trunc(pnum(l, "key_hi", 127, 0, 127)); c.key_cycle = Math.trunc(pnum(l, "key_cycle", 0, 0, 127)); c.key_track = pnum(l, "key_track", 1, 0, 2);
+        patch.layers.push(c);
     }
+    const speech = pobj(o, "speech");
+    patch.mode = ptext(speech, "mode", "syllable"); patch.text = ptext(speech, "text"); patch.reference = pnum(speech, "reference", 60, 0, 127); patch.contour = pnum(speech, "contour", 1, 0, 2);
+    patch.rate = pnum(speech, "rate", 1, .25, 4); patch.beats = pnum(speech, "beats", 4, .25, 64); patch.gated = pnum(speech, "gate", 1, 0, 1) > 0; patch.overlap = pnum(speech, "overlap", 0, 0, 1) > 0;
+    patch.random = pnum(speech, "random", 0, 0, 1) > 0; patch.sync = pnum(speech, "sync", 0, 0, 1) > 0; patch.polyphony = Math.trunc(pnum(speech, "polyphony", 4, 1, 8));
+    patch.key = patch.text + patch.mode + ptext(speech, "profile");
+    const syllables = Array.isArray(o.syllables) ? o.syllables : [];
+    for (let i = 0; i < Math.min(1024, syllables.length); i++) patch.syllables.push(parse_phoneme(syllables[i] || {}));
     return patch;
 }
 
@@ -2241,13 +2755,8 @@ class HWorld {
             this.pulses.push(0.0);
         }
     }
-    initFactions(factions) {
-        this.resize(factions.length);
-        for (let i = 0; i < factions.length; i++) {
-            const f = factions[i];
-            if (f.patch) this.patch(i, f.patch);
-        }
-    }
+    // HWorld::setup sizes the roster only; the app sends every track's patch itself.
+    initFactions(factions) { this.resize(factions.length); }
     group_alive(g) {
         if (!g) return false;
         for (let i = 0; i < this.engine.voices.length; i++) {
@@ -2314,13 +2823,26 @@ class HWorld {
         this.tracks[i].tokens.clear();
         for (let p = 0; p < 128; p++) this.tracks[i].held[p] = [];
     }
+    // HWorld::patch: structural changes cancel sounding notes; matching speech keeps its syllable cursor;
+    // sounding voices glide to the new gain, pan and synth parameters.
     patch(i, patchData) {
         if (i < 0) return;
         this.resize(i + 1);
-        const parsed = parse_patch(patchData);
-        if (parsed.layers.length === 0 && parsed.kind !== "mumble") return;
-        this.tracks[i].patch = parsed;
-        this.tracks[i].custom = true;
+        const next = parse_patch(patchData);
+        if (next.layers.length === 0 && next.kind !== "mumble") return;
+        const track = this.tracks[i], old = track.patch;
+        let structural = old.kind !== next.kind || old.layers.length !== next.layers.length;
+        if (!structural) for (let k = 0; k < old.layers.length; k++) if (old.layers[k].trigger.features.algorithm !== next.layers[k].trigger.features.algorithm) structural = true;
+        if ((structural || old.key !== next.key) && track.custom) this.cancel(i, 25);
+        if (old.key === next.key) { next.cursor = old.cursor; next.last_onset = old.last_onset; }
+        track.patch = next; track.custom = true;
+        const spatial = this.engine.channel_spatial.get(i);
+        if (spatial && next.layers.length > 0) { const f = next.layers[0].trigger.features; spatial.space = f.space; spatial.reverb = f.reverb; spatial.resonance = f.resonance; spatial.pan = next.pan; }
+        for (const q of this.engine.pending) if (q.used && q.trigger.track_owner === i) { q.trigger.track_gain = next.gain; q.trigger.track_pan = next.pan; }
+        for (const v of this.engine.voices) if (v.active() && v.track_owner === i) {
+            v.target_track_gain = next.gain; v.target_track_pan = next.pan;
+            if (next.kind === "synth" && v.layer_index < next.layers.length) { const t = next.layers[v.layer_index].trigger; v.target = new Float64Array(t.params); v.smooth_params = true; v.own_features = t.features; }
+        }
     }
     sound(e, audition = false) {
         const i = e.organism;
@@ -2336,18 +2858,15 @@ class HWorld {
                 g = track.held[e.pitch].shift();
             }
             if (g && (!track.custom || track.patch.kind !== "mumble" || track.patch.gated)) {
-                const rel = track.custom ? (track.patch.layers.length === 0 ? 100 : (track.patch.layers[0].trigger.params[6] || 250)) : FACTION_RELEASES[i % 17];
+                const rel = track.custom ? (track.patch.layers.length === 0 ? 100 : track.patch.layers[0].trigger.params[6]) : FACTION_RELEASES[i % 17];
                 this.engine.stop_group(g, rel);
             }
             return;
         }
 
+        // Native counts every model note-on as it is processed, audible or not (world.hpp render).
+        if (!audition && !this.drone_launch) { this.event_count++; this.note_counts[i]++; this.pulses[i] = 1.0; }
         if ((!this.audible(i) && !audition) || (track.custom && track.patch.layers.length === 0)) return;
-        this.event_count++;
-        if (i >= 0 && i < this.note_counts.length) {
-            this.note_counts[i]++;
-            this.pulses[i] = 1.0;
-        }
         const group = this.next_group++;
         if (this.next_group >= 2000000000) this.next_group = 100000;
 
@@ -2360,7 +2879,8 @@ class HWorld {
         }
 
         const p = track.patch;
-        const limit = track.custom && p.kind === "mumble" ? (p.polyphony || 4) : 32;
+        const limit = track.custom && p.kind === "mumble" ? p.polyphony : 32;
+        if (track.custom && p.kind === "mumble" && p.mode === "phrase" && !p.overlap) { for (const g of track.groups) this.engine.stop_group(g, 20); track.groups = []; }
         while (track.groups.length >= limit) {
             this.engine.stop_group(track.groups.shift(), 15);
         }
@@ -2411,111 +2931,131 @@ class HWorld {
             }
             return;
         }
-    }
-    command(i, name, args) {
-        if (name === "performance_palette") {
-            if (args && args[0]) {
-                const o = args[0];
-                const keys = ["tone", "metal", "grit", "motion", "space", "noise", "distortion"];
-                for (let k = 0; k < 7; k++) {
-                    if (o[keys[k]] != null) this.character.set_control(k, Number(o[keys[k]]));
-                }
+        if (p.mode === "syllable") {
+            if (p.syllables.length === 0) return;
+            if (e.time - p.last_onset > 4) {
+                if (p.last_onset > -1e8) p.cursor = p.random ? Number((BigInt(group >>> 0) * 2654435761n) & 0xffffffffn) % p.syllables.length : (p.cursor + 1) % p.syllables.length;
+                p.last_onset = e.time;
             }
+            const t = Object.assign({}, p.layers[0].trigger);
+            t.sfx = Object.assign({}, t.sfx); t.params = new Float64Array(t.params);
+            t.pitch = e.pitch; t.fine = 0; t.sfx.phoneme_count = 1;
+            const syllable = Object.assign({}, p.syllables[p.cursor % p.syllables.length]);
+            syllable.pitch *= p.contour; syllable.ms = Math.max(100, syllable.ms / p.rate);
+            t.sfx.phonemes = [syllable]; t.sfx.sustain_syllable = p.gated; t.sfx.hold_ms = -1; t.params[5] = 1;
+            if (t.harsh.enabled && p.gated) { t.harsh = Object.assign({}, t.harsh); t.harsh.sustain = .8; }
+            if (!launch(t, 0, 0)) this.engine.stop_group(group, 5);
             return;
         }
-        if (name === "performance_character") {
-            if (args && args[0] != null) this.character.set(Number(args[0]));
+        let duration = 1;
+        for (const c of p.layers) { let end = c.delay; for (let k = 0; k < c.trigger.sfx.phoneme_count; k++) end += c.trigger.sfx.phonemes[k].ms; duration = Math.max(duration, end); }
+        const scale = p.sync ? (p.beats * 60000 / this.tempo / duration) : 1 / p.rate;
+        for (let k = 0; k < p.layers.length; k++) {
+            const t = Object.assign({}, p.layers[k].trigger);
+            t.sfx = Object.assign({}, t.sfx);
+            const base = t.pitch + t.fine + e.pitch - p.reference;
+            t.pitch = Math.floor(clamp(base, 0, 127)); t.fine = base - t.pitch;
+            t.sfx.phonemes = t.sfx.phonemes.slice(0, t.sfx.phoneme_count).map(ph => Object.assign({}, ph, { pitch: ph.pitch * p.contour, ms: ph.ms * scale }));
+            t.sfx.hold_ms = -1;
+            if (!launch(t, p.layers[k].delay * scale, k)) { this.engine.stop_group(group, 5); break; }
+        }
+    }
+    // HWorld::command (native/world.hpp), including its gating of inactive tracks.
+    command(i, name, args) {
+        args = args || [];
+        if (name === "performance_palette") {
+            const o = args[0] || {};
+            const keys = ["tone", "metal", "grit", "motion", "space", "noise", "distortion"];
+            for (let k = 0; k < 7; k++) this.character.set_control(k, Number(o[keys[k]]));
             return;
         }
+        if (name === "performance_character") { this.character.set(Number(args[0])); return; }
         if (name === "track_add") {
-            this.resize(Math.max(this.tracks.length, i + 1));
+            if (i < 0 || i > 100000) return;
+            const before = this.tracks.length;
+            this.resize(Math.max(before, i + 1));
+            for (let k = before; k < this.tracks.length; k++) this.tracks[k].active = false;
             this.tracks[i].active = true;
             return;
         }
-        if (name === "preview" && i >= 0) {
-            this.resize(i + 1);
+        if (i >= this.tracks.length || i < -1) return;
+        const track = i >= 0 ? this.tracks[i] : null;
+        if (name === "preview") {
+            if (!track || !track.active) return;
             const temporary = parse_patch(args[0]);
             if (temporary.layers.length === 0) return;
-            const old = this.tracks[i].patch;
-            const custom = this.tracks[i].custom;
+            const old = track.patch, custom = track.custom;
             temporary.gated = false;
-            for (const c of temporary.layers) {
-                if (temporary.kind === "synth") c.trigger.sfx.hold_ms = 400;
-            }
-            this.tracks[i].patch = temporary;
-            this.tracks[i].custom = true;
-            const pitch = clamp(Math.round(Number(args[1] || 60)), 0, 127);
+            if (temporary.kind === "synth") for (const c of temporary.layers) c.trigger.sfx.hold_ms = 400;
+            track.patch = temporary; track.custom = true;
+            const pitch = clamp(Math.trunc(Number(args[1])) || 0, 0, 127);
             this.sound({ time: this.time, organism: i, pitch: pitch, velocity: 100 }, true);
-            if (this.tracks[i].held[pitch].length > 0) this.tracks[i].held[pitch].pop();
-            this.tracks[i].previews.push(this.next_group - 1);
-            while (this.tracks[i].previews.length > 32) this.tracks[i].previews.shift();
-            this.tracks[i].patch = old;
-            this.tracks[i].custom = custom;
+            if (track.held[pitch].length > 0) track.held[pitch].pop();
+            track.previews.push(this.next_group - 1);
+            while (track.previews.length > 32) track.previews.shift();
+            track.patch = old; track.custom = custom;
             return;
         }
-        if (name === "stop_preview" && i >= 0 && this.tracks[i]) {
-            for (const g of this.tracks[i].previews) this.engine.stop_group(g, 15);
-            this.tracks[i].previews = [];
+        if (name === "stop_preview") {
+            if (!track) return;
+            for (const g of track.previews) this.engine.stop_group(g, 15);
+            track.previews = [];
             return;
         }
-        if (name === "set_patch") {
-            if (i >= 0) this.patch(i, args[0]);
-            return;
-        }
-        if (name === "track_solo" && i >= 0) {
-            this.resize(i + 1);
-            this.solos[i] = Boolean(args[0]);
-            for (let j = 0; j < this.tracks.length; j++) {
-                if (this.tracks[j].active && !this.audible(j)) this.cancel(j);
+        if (name === "set_patch") { if (track && track.active) this.patch(i, args[0]); return; }
+        if (name === "track_fx") { if (track && track.active) this.engine.set_track_fx(i, args[0], this.rate); return; }
+        if (name === "track_solo") {
+            if (track && track.active) {
+                this.solos[i] = Boolean(args[0]);
+                for (let j = 0; j < this.tracks.length; j++) if (this.tracks[j].active && !this.audible(j)) this.cancel(j);
             }
             return;
         }
-        if (name === "drone" && i >= 0) {
-            this.resize(i + 1);
-            const track = this.tracks[i];
-            const release = track.custom && track.patch.layers.length > 0 ? (track.patch.layers[0].trigger.params[6] || 200) : 200;
-            for (const d of track.drones) {
-                if (d.group) this.engine.stop_group(d.group, release);
+        if (name === "drone") {
+            if (!track || !track.active) return;
+            const release = track.custom && track.patch.layers.length > 0 ? track.patch.layers[0].trigger.params[6] : 200;
+            for (const d of track.drones) if (d.group) {
+                this.engine.stop_group(d.group, release);
+                const at = track.groups.indexOf(d.group); if (at >= 0) track.groups.splice(at, 1);
             }
             track.drones = [];
-            const list = args[0] || [];
-            track.drone_velocity = clamp(Math.round(Number(args[1] || 96)), 1, 127);
-            for (let k = 0; k < list.length; k++) {
-                const pitch = clamp(Math.round(Number(list[k])), 0, 127);
-                track.drones.push({ pitch: pitch, group: 0, retry: -1e9 });
+            const list = Array.isArray(args[0]) ? args[0] : [];
+            const velocity = Math.trunc(Number(args[1]));
+            track.drone_velocity = clamp(Number.isFinite(velocity) ? velocity : 1, 1, 127);
+            for (let k = 0; k < Math.min(16, list.length); k++) {
+                const pitch = clamp(Math.trunc(Number(list[k])) || 0, 0, 127);
+                if (!track.drones.some(d => d.pitch === pitch)) track.drones.push({ pitch: pitch, group: 0, retry: -1e9 });
             }
             return;
         }
-        if (name === "input_note" && i >= 0) {
-            const p = clamp(Math.round(Number(args[0])), 0, 127);
-            const v = clamp(Math.round(Number(args[1])), 0, 127);
+        if (name === "drone_fine") {
+            if (track && track.active) { const v = Number(args[0]); track.drone_fine = Number.isFinite(v) ? clamp(v, -48, 48) : 0; this.drone_retune(i); }
+            return;
+        }
+        if (name === "restart_syllables") { if (track) { track.patch.cursor = 0; track.patch.last_onset = -1e9; } return; }
+        if (track && !track.active && name !== "track_restore" && name !== "track_forget") return;
+        if (name === "input_note" && track) {
+            // Native plays live notes as the model's echo; this path serves the engine on its own (tests, no model).
+            const p = clamp(Math.round(Number(args[0])), 0, 127), v = clamp(Math.round(Number(args[1])), 0, 127);
             this.sound({ time: this.time, organism: i, pitch: p, velocity: v }, true);
             return;
         }
-        if (name === "track_remove" && i >= 0 && this.tracks[i]) {
-            this.tracks[i].drones = [];
-            this.cancel(i);
-            this.engine.channel_spatial.delete(i);
-            this.tracks[i].active = false;
-            this.solos[i] = false;
-            this.muted[i] = false;
-            return;
+        if (name === "track_remove" && track) {
+            track.drones = []; this.cancel(i); this.engine.channel_spatial.delete(i); this.engine.track_fx.delete(i);
+            track.active = false; this.solos[i] = false; this.muted[i] = false;
         }
+        if (name === "track_restore" && track) track.active = true;
+        if (name === "track_forget" && track) { track.patch = parse_patch(null); track.groups = []; }
         if (name === "stop_loop") {
-            if (i < 0) {
-                for (let j = 0; j < this.tracks.length; j++) this.cancel(j);
-                this.engine.panic();
-                this.character.clear();
-            } else {
-                this.cancel(i);
-            }
-            return;
+            if (i < 0) { for (let j = 0; j < this.tracks.length; j++) this.cancel(j); this.engine.panic(); this.character.clear(); }
+            else this.cancel(i);
         }
-        if (name === "transport_tempo" && args && args[0] != null) {
-            this.tempo = clamp(Number(args[0]), 30.0, 240.0);
-            return;
-        }
+        if (name === "transport_tempo") { const t = Number(args[0]); if (Number.isFinite(t)) this.tempo = clamp(t, 30, 240); }
     }
+    // HWorld::syllable_positions: the speech cursor of each MumbleSpeak track, -1 for the rest.
+    syllable_positions() { return this.tracks.map(t => t.active && t.custom && t.patch.kind === "mumble" ? t.patch.cursor : -1); }
+    // A live gesture value for one effect slot (HWorld::fx_param).
+    fx_param(i, id, name, value) { this.engine.set_fx_param(i, id, name, value); }
     render(outL, outR, frames) {
         this.service_drones();
         for (let n = 0; n < frames; n++) {
@@ -2541,8 +3081,9 @@ function applyAudioAction(world, op, args) {
     if (op === 'muted') {
         const [i, value] = args;
         world.resize(i + 1);
+        // HWorld::silence: muting cuts the track's notes and its channel echo/hall.
         world.muted[i] = Boolean(value);
-        if (value && !world.audible(i)) world.cancel(i, 20);
+        if (value) { world.cancel(i, 20); world.engine.channel_spatial.delete(i); }
     } else if (op === 'solo') {
         const i = args[0];
         world.solo = i;
@@ -2559,7 +3100,7 @@ function applyAudioAction(world, op, args) {
 class AudioWorldProxy {
     constructor(host) {
         this.host = host;
-        this.note_counts = []; this.pulses = []; this.tracks = [];
+        this.note_counts = []; this.pulses = []; this.tracks = []; this.fx_state = []; this.syllables = [];
         this.time = 0; this.rendered = 0; this.event_count = 0;
     }
     send(op, args) { this.host.send(op, args); }
@@ -2570,6 +3111,7 @@ class AudioWorldProxy {
     command(...args) { this.send('command', args); }
     sound(...args) { this.send('sound', args); }
     patch(...args) { this.send('patch', args); }
+    fx_param(...args) { this.send('fx_param', args); }
 }
 
 const AUDIO_MODULE_URL = typeof document !== 'undefined' ? document.currentScript?.src : '';
@@ -2617,6 +3159,7 @@ class VoidCantorWebAudio {
                 node.port.onmessage = ({ data }) => {
                     if (data.type === 'ready') { clearTimeout(timeout); resolve(); }
                     else if (data.type === 'stats') this.receiveStats(data);
+                    else if (data.type === 'error') console.error('Void Cantor audio thread:', data.message);
                 };
             }).catch(error => { node.disconnect(); node.port.close(); throw error; });
             this.node = node; this.port = node.port;
@@ -2643,7 +3186,7 @@ class VoidCantorWebAudio {
                 let peak = 0;
                 for (let i = 0; i < left.length; i++) peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
                 this.receiveStats({ peak, note_counts: this.localWorld.note_counts, pulses: this.localWorld.pulses,
-                    time: this.localWorld.time, rendered: this.localWorld.rendered, event_count: this.localWorld.event_count });
+                    time: this.localWorld.time, rendered: this.localWorld.rendered, event_count: this.localWorld.event_count, fx_state: this.localWorld.engine.fx_state(), syllables: this.localWorld.syllable_positions() });
             };
             this.node.connect(this.masterGain);
             this.backend = 'buffered';
@@ -2658,7 +3201,7 @@ class VoidCantorWebAudio {
     }
     receiveStats(data) {
         this.peak = Math.max(this.peak, data.peak);
-        for (const key of ['note_counts', 'pulses', 'time', 'rendered', 'event_count']) this.world[key] = data[key];
+        for (const key of ['note_counts', 'pulses', 'time', 'rendered', 'event_count', 'fx_state', 'syllables']) if (data[key] !== undefined) this.world[key] = data[key];
     }
     resumeIfNeeded() {
         this.init();
@@ -2686,18 +3229,26 @@ if (typeof registerProcessor === 'function') {
             this.world = new HWorld();
             this.world.rate = this.world.engine.sample_rate = sampleRate;
             this.untilStats = 0; this.peak = 0;
-            this.port.onmessage = ({ data }) => applyAudioAction(this.world, data.op, data.args);
+            this.port.onmessage = ({ data }) => {
+                try { applyAudioAction(this.world, data.op, data.args); }
+                catch (error) { this.report(error, data.op); }
+            };
             this.port.postMessage({ type: 'ready' });
+        }
+        // The page cannot see worklet exceptions (onprocessorerror carries no message), so send the text first.
+        report(error, where) {
+            this.port.postMessage({ type: 'error', message: `${where}: ${error && error.stack || error}` });
         }
         process(inputs, outputs) {
             const [left, right] = outputs[0];
-            this.world.render(left, right, left.length);
+            try { this.world.render(left, right, left.length); }
+            catch (error) { this.report(error, 'render'); throw error; }
             for (let i = 0; i < left.length; i++) this.peak = Math.max(this.peak, Math.abs(left[i]), Math.abs(right[i]));
             this.untilStats -= left.length;
             if (this.untilStats <= 0) {
                 this.untilStats = sampleRate / 20;
                 this.port.postMessage({ type: 'stats', peak: this.peak, note_counts: this.world.note_counts,
-                    pulses: this.world.pulses, time: this.world.time, rendered: this.world.rendered, event_count: this.world.event_count });
+                    pulses: this.world.pulses, time: this.world.time, rendered: this.world.rendered, event_count: this.world.event_count, fx_state: this.world.engine.fx_state(), syllables: this.world.syllable_positions() });
                 this.peak = 0;
             }
             return true;
