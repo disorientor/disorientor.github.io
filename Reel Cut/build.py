@@ -1,7 +1,10 @@
 import base64, pathlib
 root = pathlib.Path(__file__).parent
 font = base64.b64encode((root/'fonts/DepartureMono-Regular.otf').read_bytes()).decode()
-src = (root/'src/editor.src.html').read_text().replace('__FONT__', font)
+# Mediabunny (WebCodecs demux/decode/encode/mux) powers faster-than-real-time export.
+mediabunny = (root/'vendor/mediabunny-1.61.4.min.js').read_text()
+assert '</script' not in mediabunny
+src = (root/'src/editor.src.html').read_text().replace('__FONT__', font).replace('__MEDIABUNNY__', mediabunny)
 (root/'reel-cut.html').write_text(src)
 head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
 (root/'reel-cut-offline.html').write_text(head + src + '</body></html>')
