@@ -103,7 +103,9 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 #drop{position:fixed;inset:12px;z-index:60;display:grid;place-items:center;border:2px dashed var(--accent);border-radius:16px;background:rgba(12,12,16,.88);color:var(--accent);font-size:22px;pointer-events:none;text-align:center}
 /* Paths: circle of fifths + a tree that forks at every chord. Colours mark the kind of move. */
 :root{--c-func:var(--accent);--c-sub:#86d9dc;--c-col:#f6b2cf;--c-bass:#aaa3ff;--c-song:var(--muted)}
-#app.paths .song{display:none!important}
+#app.alt .song{display:none!important}
+#tabs{padding-block:0 8px}
+#tabs button{flex:1}
 #paths{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-block:4px 16px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 #paths>*{flex:none}
 .pTop{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
@@ -143,6 +145,35 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 #line .q.sel{box-shadow:0 0 0 2px var(--fg)}
 #line .q.playing{box-shadow:0 0 0 2px var(--accent)}
 #line .q.playing b{color:var(--accent)}
+input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;-webkit-user-select:text;user-select:text}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#pName{flex:1 1 140px}
+/* Arrange: saved sections up top, the song as a row of blocks you drag them into. Width is bars times zoom. */
+#arr{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-block:4px 16px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#arr>*{flex:none}
+#aLib{display:flex;flex-wrap:wrap;gap:6px}
+.lib{position:relative;display:flex;flex-direction:column;gap:2px;min-width:96px;max-width:220px;padding:6px 28px 7px 9px;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:6px;background:var(--panel);cursor:grab;touch-action:none}
+.lib b,.blk b{font-weight:normal;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib span{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib .x{position:absolute;top:2px;right:2px;padding:2px 7px;background:transparent;border:0;color:var(--muted);letter-spacing:0}
+.lib .x:hover{color:var(--fg)}
+#aTrack{position:relative;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;min-height:96px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+#aTrack.over{border-color:var(--accent)}
+#aTrack.out{border-style:dashed;border-color:var(--muted)}
+.aEmpty{width:100%;align-self:center;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:20px 0}
+.blk{flex:none;display:flex;flex-direction:column;gap:4px;min-width:40px;max-width:100%;padding:6px 6px 7px;border-radius:6px;background:color-mix(in srgb,var(--c) 16%,var(--bg));border:1px solid color-mix(in srgb,var(--c) 40%,transparent);border-top:3px solid var(--c);cursor:grab;touch-action:none;overflow:hidden}
+.blk b{font-size:13px}
+.blk span{color:var(--muted);white-space:nowrap}
+.blk .bars{display:flex;gap:2px}
+.blk .bars i{flex:1 1 0;min-width:0;font-style:normal;padding:4px 3px;background:var(--bg);border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .bars i.playing{background:var(--accent);color:var(--accent-ink)}
+.blk.sel{box-shadow:0 0 0 2px var(--fg)}
+.blk.playing{box-shadow:0 0 0 2px var(--accent)}
+.blk.lift{opacity:.3}
+.ghost{position:fixed;z-index:80;margin:0;pointer-events:none;opacity:.92;transform:rotate(-2deg);box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.caret{position:absolute;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--accent);pointer-events:none}
+#aName{flex:1 1 120px;max-width:220px}
+#pBpm,#aBpm{width:7ch}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
@@ -151,9 +182,13 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
   <header class="pad">
     <div class="mark">STRUNG<i>_</i>ALONG</div>
     <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="mode" title="Write progressions with the circle of fifths">Paths</button>
     <button id="open" class="primary">Open</button>
   </header>
+  <nav id="tabs" class="pad seg" aria-label="View">
+    <button data-m="song" class="on" title="The loaded song">Song</button>
+    <button data-m="paths" title="Write progressions with the circle of fifths">Paths</button>
+    <button data-m="arrange" title="Put saved sections in order">Arrange</button>
+  </nav>
 
   <section id="now" class="pad song" aria-live="polite">
     <div class="nowL">
@@ -200,10 +235,36 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
           <div class="speed" title="Tempo"><button id="pSlow" aria-label="Slower">&minus;</button><output id="pBpm"></output><button id="pFast" aria-label="Faster">+</button></div>
         </div>
         <div class="pRow"><button id="pSong" title="Use the loaded song's chords as the line">From song</button><button id="pTrim" title="Cut everything after the selected chord">Trim after</button><button id="pDel">Remove</button><button id="pClear">Clear</button></div>
+        <div class="pRow"><button id="pSave" class="primary" title="Name this line (Verse, Chorus...) and add it to the arrangement">Save as section</button><span id="pEditing" class="lab"></span></div>
+        <div id="pSaveRow" class="pRow" hidden>
+          <div id="pNames" class="seg"></div>
+          <input id="pName" placeholder="Or type a name" maxlength="24" aria-label="Section name">
+          <button id="pNameGo">Save</button><button id="pNameX">Cancel</button>
+        </div>
       </div>
     </div>
     <div id="tree"><div id="treeIn"><svg id="wires" aria-hidden="true"></svg></div></div>
     <div id="line" aria-label="Your line"></div>
+  </section>
+
+  <section id="arr" class="pad" hidden>
+    <div class="pRow"><span class="lab">Sections</span><span class="lab" style="opacity:.7">drag one into the song</span></div>
+    <div id="aLib"></div>
+    <div class="pRow">
+      <button id="aPlay" class="primary">&#9654; Play song</button>
+      <div class="speed" title="Tempo"><button id="aSlow" aria-label="Slower">&minus;</button><output id="aBpm"></output><button id="aFast" aria-label="Faster">+</button></div>
+      <div class="speed" title="Zoom" style="margin-left:0"><button id="aOut" aria-label="Zoom out">&minus;</button><output>Zoom</output><button id="aIn" aria-label="Zoom in">+</button></div>
+      <button id="aMidi" title="Download the arrangement as a MIDI file">Export MIDI</button>
+    </div>
+    <div id="aTrack" aria-label="Arrangement"></div>
+    <div id="aInfo" class="lab"></div>
+    <div id="aSelRow" class="pRow" hidden>
+      <input id="aName" maxlength="24" aria-label="Section name" title="Renames every copy of this section">
+      <button id="aEdit" title="Load its chords into Paths">Edit in Paths</button>
+      <button id="aRep" title="Play this section again right after">Repeat</button>
+      <button id="aSplit" title="Turn this copy into its own section you can change separately">Make separate</button>
+      <button id="aRm">Remove</button>
+    </div>
   </section>
 
   <div id="sheet" class="pad song" hidden>
@@ -1136,7 +1197,8 @@ function undo() {
   if (edit) edit.pushed = false;
   relabel(); renderAll(); renderEdit();
 }
-$('#undo').onclick = () => mode === 'paths' ? pUndo() : undo();
+const undoAny = () => mode === 'paths' ? pUndo() : mode === 'arrange' ? aUndo() : undo();
+$('#undo').onclick = () => undoAny();
 
 /* ---------- export ---------- */
 function exportText() {
@@ -1299,13 +1361,15 @@ const pName = n => nameIn(n.ch, n.key);
 function pushP() { pHist.push(JSON.stringify({ line, sel })); if (pHist.length > 80) pHist.shift(); }
 function pUndo() { if (!pHist.length) return; stopSeq(); ({ line, sel } = JSON.parse(pHist.pop())); renderPaths(); }
 function setMode(m) {
-  mode = m; $('#app').classList.toggle('paths', m === 'paths'); $('#paths').hidden = m !== 'paths';
-  $('#mode').textContent = m === 'paths' ? 'Song' : 'Paths';
-  $('#mode').title = m === 'paths' ? 'Back to the song' : 'Write progressions with the circle of fifths';
-  if (m === 'paths') { pause(); closeEdit(); if (!line.length) { if (song) fromSong(); else startAt(0, 0, true); } renderPaths(); }
-  else { stopSeq(); $('#undo').disabled = !history.length; }
+  stopSeq(); mode = m;
+  $('#app').classList.toggle('alt', m !== 'song'); $('#paths').hidden = m !== 'paths'; $('#arr').hidden = m !== 'arrange';
+  for (const b of $('#tabs').children) b.classList.toggle('on', b.dataset.m === m);
+  if (m !== 'song') { pause(); closeEdit(); }
+  if (m === 'paths') { if (!line.length) { if (song) fromSong(); else startAt(0, 0, true); } renderPaths(); }
+  else if (m === 'arrange') renderArr();
+  else $('#undo').disabled = !history.length;
 }
-$('#mode').onclick = () => setMode(mode === 'paths' ? 'song' : 'paths');
+$('#tabs').onclick = e => { const b = e.target.closest('[data-m]'); if (b && b.dataset.m !== mode) setMode(b.dataset.m); };
 // The loaded song's chord changes (as shown: transpose, capo and Simple apply), first sixteen, as a line to work from.
 function fromSong() {
   if (!song) return;
@@ -1317,14 +1381,14 @@ function fromSong() {
   }
   if (!out.length) { toast('No chords in this song to work from yet.'); return; }
   if (line.length) pushP();
-  stopSeq(); line = out; sel = 0;
+  stopSeq(); line = out; sel = 0; editing = null;
 }
 // Start a fresh line from a spot on the circle: outer ring majors, middle minors, inner diminished.
 function startAt(ring, i, quiet) {
   const p = (i * 7) % 12, key = ring === 1 ? { pc: (p + 9) % 12, minor: true } : { pc: p, minor: false };
   const ch = ring === 0 ? colour(p, 'maj', true) : ring === 1 ? colour(p + 9, 'min') : colour(p + 11, 'hdim');
   if (line.length) pushP();
-  stopSeq(); line = [{ ch, tech: 'start', why: `Starting on ${nameIn(ch, key)} in ${keyName(key)}. Pick where to go next.`, key }]; sel = 0;
+  stopSeq(); editing = null; line = [{ ch, tech: 'start', why: `Starting on ${nameIn(ch, key)} in ${keyName(key)}. Pick where to go next.`, key }]; sel = 0;
   if (!quiet) playChord(ch);
 }
 function choose(k, o) {
@@ -1392,6 +1456,9 @@ function renderPaths() {
   soundState();
   for (const id of ['#pPlay', '#pTrim', '#pDel', '#pClear']) $(id).disabled = !line.length;
   $('#pSong').disabled = !song;
+  const ed = sections.find(s => s.id === editing);
+  $('#pSave').disabled = !line.length; $('#pEditing').textContent = ed ? 'Editing ' + ed.name : '';
+  if (!line.length) $('#pSaveRow').hidden = true;
   const cur = line[sel], k = cur ? cur.key : { pc: 0, minor: false };
   $('#pKey').textContent = keyName(k);
   // Columns: the start, then for each later slot the ways on from the chord before it (your choice lit), then what could come next.
@@ -1457,12 +1524,241 @@ $('#pPlay').onclick = () => {
   const lineEls = $('#line').children;
   playSeq(line.map(n => n.ch), lit(line.map((_, i) => [chosenEl(i), lineEls[i]])));
 };
-$('#pSlow').onclick = () => { pBpm = Math.max(40, pBpm - 4); $('#pBpm').textContent = pBpm + ' bpm'; };
-$('#pFast').onclick = () => { pBpm = Math.min(200, pBpm + 4); $('#pBpm').textContent = pBpm + ' bpm'; };
+// One tempo for Paths and Arrange.
+function nudgeBpm(d) { pBpm = clamp(pBpm + d, 40, 200); $('#pBpm').textContent = $('#aBpm').textContent = pBpm + ' bpm'; aInfo(); }
+$('#pSlow').onclick = $('#aSlow').onclick = () => nudgeBpm(-4);
+$('#pFast').onclick = $('#aFast').onclick = () => nudgeBpm(4);
 $('#pSong').onclick = () => { fromSong(); renderPaths(); };
 $('#pTrim').onclick = () => { if (sel < line.length - 1) { pushP(); stopSeq(); line = line.slice(0, sel + 1); renderPaths(); } };
 $('#pDel').onclick = () => { if (!line.length) return; pushP(); stopSeq(); line.splice(sel, 1); sel = Math.max(0, Math.min(sel, line.length - 1)); renderPaths(); };
-$('#pClear').onclick = () => { if (!line.length) return; pushP(); stopSeq(); line = []; sel = 0; renderPaths(); };
+$('#pClear').onclick = () => { if (!line.length) return; pushP(); stopSeq(); line = []; sel = 0; editing = null; renderPaths(); };
+
+/* ---------- sections + arrange ----------
+   Save a Paths line under a name; the arrangement is a list of section ids, so a section can appear many times
+   and editing it changes every copy. Kept in this browser's storage, so it's there next visit on this device only. */
+const AKEY = 'strung_along.arrange', ZOOM = [12, 22, 44, 72], PRESETS = ['Intro', 'Verse', 'Pre-chorus', 'Chorus', 'Bridge', 'Solo', 'Outro'];
+let sections = [], arr = [], aHist = [], aSel = -1, aZoom = 2, editing = null;
+try {
+  const d = JSON.parse(localStorage.getItem(AKEY));
+  if (d && Array.isArray(d.sections) && Array.isArray(d.arr)) { sections = d.sections.filter(s => s && s.id && Array.isArray(s.chords) && s.chords.length); arr = d.arr.filter(id => sections.some(s => s.id === id)); }
+} catch (e) {}
+function saveArr() { try { localStorage.setItem(AKEY, JSON.stringify({ sections, arr })); } catch (e) {} }
+const secOf = id => sections.find(s => s.id === id);
+const hasName = (n, but) => sections.some(s => s !== but && s.name.toLowerCase() === n.toLowerCase());
+const nextName = base => { if (!hasName(base)) return base; let k = 2; while (hasName(`${base} ${k}`)) k++; return `${base} ${k}`; };
+const uid = () => Math.random().toString(36).slice(2, 10);
+// Colour by what the section is called.
+const kindOf = n => /pre/i.test(n) ? 'bass' : /chorus|refrain|hook/i.test(n) ? 'func' : /bridge|middle/i.test(n) ? 'col' : /verse/i.test(n) ? 'sub' : /solo|break|inst/i.test(n) ? 'bass' : 'song';
+function pushA() { stopSeq(); aHist.push(JSON.stringify({ sections, arr })); if (aHist.length > 80) aHist.shift(); }
+function aUndo() { if (!aHist.length) return; ({ sections, arr } = JSON.parse(aHist.pop())); aSel = -1; saveArr(); renderArr(); }
+
+function openSave() {
+  const ed = secOf(editing), bs = [];
+  if (ed) { const b = mk('button', 'on', 'Update ' + ed.name); b.title = `Every ${ed.name} in the song changes`; b.onclick = () => saveSection(ed.name); bs.push(b); }
+  for (const n of PRESETS) { const nm = nextName(n), b = mk('button', '', nm); b.onclick = () => saveSection(nm); bs.push(b); }
+  $('#pNames').replaceChildren(...bs); $('#pName').value = ''; $('#pSaveRow').hidden = false;
+}
+function saveSection(name) {
+  name = name.trim(); if (!name || !line.length) return;
+  const ed = secOf(editing);
+  if (hasName(name, ed)) { toast(`There's already a ${name}. Pick another name.`); return; }
+  pushA();
+  const chords = line.map(n => ({ ...n }));
+  if (ed && ed.name.toLowerCase() === name.toLowerCase()) {
+    ed.chords = chords; const n = arr.filter(id => id === ed.id).length;
+    toast(`Updated ${ed.name}${n > 1 ? `, all ${n} times it plays` : ''}.`);
+  } else {
+    const s = { id: uid(), name, chords }; sections.push(s); arr.push(s.id); editing = s.id;
+    toast(`Saved ${name}. It's at the end of the song in Arrange.`);
+  }
+  saveArr(); $('#pSaveRow').hidden = true; renderPaths();
+}
+$('#pSave').onclick = () => $('#pSaveRow').hidden ? openSave() : ($('#pSaveRow').hidden = true);
+$('#pNameGo').onclick = () => saveSection($('#pName').value);
+$('#pName').addEventListener('keydown', e => { if (e.key === 'Enter') saveSection(e.target.value); else if (e.key === 'Escape') $('#pSaveRow').hidden = true; });
+$('#pNameX').onclick = () => $('#pSaveRow').hidden = true;
+
+const barsOf = ids => ids.reduce((n, id) => n + secOf(id).chords.length, 0);
+function aInfo() {
+  const bars = barsOf(arr), sec = Math.round(bars * 4 * 60 / pBpm);
+  $('#aInfo').textContent = arr.length ? `${arr.length} part${arr.length > 1 ? 's' : ''} · ${bars} bars · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} at ${pBpm} bpm` : '';
+}
+const playLabel = () => aSel >= 0 && arr[aSel] && aSel > 0 ? `&#9654; Play from ${mk('i', '', secOf(arr[aSel]).name).innerHTML}` : '&#9654; Play song';
+function renderArr() {
+  $('#undo').disabled = !aHist.length;
+  $('#aBpm').textContent = pBpm + ' bpm';
+  if (aSel >= arr.length) aSel = -1;
+  $('#aLib').replaceChildren(...sections.map(s => {
+    const e = mk('div', 'lib'); e.dataset.id = s.id; e.style.setProperty('--c', `var(--c-${kindOf(s.name)})`); e.title = 'Tap to hear it, drag it into the song';
+    e.append(mk('b', '', s.name), mk('span', '', s.chords.map(pName).join(' ')));
+    const x = mk('button', 'x', '×'); x.title = `Delete ${s.name}`; x.setAttribute('aria-label', x.title);
+    x.onpointerdown = ev => ev.stopPropagation(); x.onclick = () => delSection(s.id);
+    e.append(x); return e;
+  }));
+  if (!sections.length) $('#aLib').append(mk('span', 'lab', 'None yet. Write a line in Paths and press Save as section.'));
+  const z = ZOOM[aZoom];
+  $('#aTrack').replaceChildren(...arr.map((id, i) => {
+    const s = secOf(id), e = mk('div', 'blk' + (i === aSel ? ' sel' : '')); e.dataset.i = i;
+    e.style.setProperty('--c', `var(--c-${kindOf(s.name)})`); e.style.width = s.chords.length * z + 12 + 'px'; e.style.minWidth = Math.min(s.name.length, 12) * 8 + 16 + 'px';
+    e.append(mk('b', '', s.name));
+    if (z >= 40) { const b = mk('div', 'bars'); b.append(...s.chords.map(n => mk('i', '', pName(n)))); e.append(b); }
+    else e.append(mk('span', '', s.chords.length + (z >= 20 ? ' bars' : '')));
+    return e;
+  }));
+  if (!arr.length) $('#aTrack').append(mk('div', 'aEmpty', sections.length ? 'Drag a section here' : 'Your song shows up here'));
+  const s = aSel >= 0 && secOf(arr[aSel]);
+  $('#aSelRow').hidden = !s; if (s) $('#aName').value = s.name;
+  $('#aPlay').disabled = $('#aMidi').disabled = !arr.length;
+  if (!seq) $('#aPlay').innerHTML = playLabel();
+  $('#aOut').disabled = aZoom === 0; $('#aIn').disabled = aZoom === ZOOM.length - 1;
+  aInfo();
+}
+function delSection(id) {
+  const s = secOf(id); pushA();
+  sections = sections.filter(o => o !== s); arr = arr.filter(o => o !== id); if (editing === id) editing = null; aSel = -1;
+  saveArr(); renderArr(); toast(`Deleted ${s.name}. Undo brings it back.`);
+}
+
+// Play blocks from..to (exclusive), lighting each block and, zoomed in, each bar.
+function playArr(from, to = arr.length) {
+  const chs = [], at = [];
+  for (let b = from; b < to; b++) secOf(arr[b]).chords.forEach((n, k) => { chs.push(n.ch); at.push([b, k]); });
+  if (!chs.length) return;
+  playSeq(chs, i => {
+    document.querySelectorAll('#aTrack .playing').forEach(e => e.classList.remove('playing'));
+    $('#aPlay').innerHTML = i === -1 ? playLabel() : '&#9632; Stop';
+    if (i < 0) return;
+    const blk = $('#aTrack').children[at[i][0]]; if (!blk) return;
+    blk.classList.add('playing'); const bar = blk.querySelector('.bars')?.children[at[i][1]]; if (bar) bar.classList.add('playing');
+  });
+}
+$('#aPlay').onclick = () => { if (seq) stopSeq(); else playArr(Math.max(0, aSel)); };
+$('#aOut').onclick = () => { aZoom = Math.max(0, aZoom - 1); renderArr(); };
+$('#aIn').onclick = () => { aZoom = Math.min(ZOOM.length - 1, aZoom + 1); renderArr(); };
+$('#aName').onchange = e => {
+  const s = secOf(arr[aSel]), v = e.target.value.trim(); if (!s) return;
+  if (!v || v === s.name) { e.target.value = s.name; return; }
+  if (hasName(v, s)) { toast(`There's already a ${v}.`); e.target.value = s.name; return; }
+  pushA(); s.name = v; saveArr(); renderArr();
+};
+$('#aName').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$('#aEdit').onclick = () => {
+  const s = secOf(arr[aSel]); if (!s) return;
+  if (line.length) pushP();
+  line = s.chords.map(n => ({ ...n })); sel = 0; setMode('paths'); editing = s.id; renderPaths();
+  toast(`Editing ${s.name}. Save as section, then Update, to change every ${s.name}.`);
+};
+$('#aRep').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel + 1, 0, arr[aSel]); aSel++; saveArr(); renderArr(); };
+$('#aSplit').onclick = () => {
+  const s = secOf(arr[aSel]); if (!s) return;
+  pushA(); const c = { id: uid(), name: nextName(s.name.replace(/ \d+$/, '')), chords: s.chords.map(n => ({ ...n })) };
+  sections.push(c); arr[aSel] = c.id; saveArr(); renderArr(); toast(`This one is now ${c.name}, its own section.`);
+};
+$('#aRm').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel, 1); aSel = -1; saveArr(); renderArr(); };
+
+// Dragging: pointer events so it works with a finger too. Sections copy in; blocks move; a block dropped outside the song is removed.
+let adrag = null;
+const arrEl = $('#arr'), aTrack = $('#aTrack');
+arrEl.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.lib, .blk'); if (!el || e.button > 0) return;
+  adrag = { el, lib: el.classList.contains('lib'), id: el.dataset.id, from: el.dataset.i == null ? -1 : +el.dataset.i, x: e.clientX, y: e.clientY, px: e.clientX, py: e.clientY, pid: e.pointerId, on: false, to: null };
+  el.setPointerCapture(e.pointerId);
+});
+arrEl.addEventListener('pointermove', e => {
+  const d = adrag; if (!d || e.pointerId !== d.pid) return;
+  d.px = e.clientX; d.py = e.clientY;
+  if (!d.on) { if (Math.hypot(d.px - d.x, d.py - d.y) < 6) return; lift(d); }
+  dragMove(d);
+});
+arrEl.addEventListener('pointerup', e => {
+  const d = adrag; if (!d || e.pointerId !== d.pid) return;
+  adrag = null;
+  if (d.on) { land(d); drop(d); }
+  else if (d.lib) { stopSeq(); playSeq(secOf(d.id).chords.map(n => n.ch), () => {}); }
+  else { aSel = d.from; renderArr(); playArr(d.from, d.from + 1); }
+});
+arrEl.addEventListener('pointercancel', () => { if (adrag && adrag.on) land(adrag); adrag = null; });
+function lift(d) {
+  d.on = true; stopSeq();
+  const r = d.el.getBoundingClientRect(); d.dx = d.x - r.left; d.dy = d.y - r.top;
+  d.ghost = d.el.cloneNode(true); d.ghost.classList.add('ghost'); d.ghost.classList.remove('sel', 'playing'); d.ghost.style.width = r.width + 'px';
+  document.body.append(d.ghost);
+  if (!d.lib) d.el.classList.add('lift');
+  d.caret = mk('div', 'caret'); aTrack.append(d.caret);
+  // Scroll the view when the finger nears the top or bottom edge.
+  const step = () => {
+    if (adrag !== d) return;
+    const r = arrEl.getBoundingClientRect(), v = d.py < r.top + 40 ? -8 : d.py > r.bottom - 40 ? 8 : 0;
+    if (v) { arrEl.scrollTop += v; dragMove(d); }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function dragMove(d) {
+  d.ghost.style.left = d.px - d.dx + 'px'; d.ghost.style.top = d.py - d.dy + 'px';
+  const tb = aTrack.getBoundingClientRect(), m = 24;
+  const inside = d.px > tb.left - m && d.px < tb.right + m && d.py > tb.top - m && d.py < tb.bottom + m;
+  aTrack.classList.toggle('over', inside); aTrack.classList.toggle('out', !inside && !d.lib);
+  d.to = inside ? slotAt(d.px, d.py, tb, d.caret) : null;
+  d.caret.hidden = d.to == null;
+}
+// Where a drop would go: the row nearest the pointer, then before the first block whose middle is right of it.
+function slotAt(x, y, tb, caret) {
+  const bs = [...aTrack.querySelectorAll('.blk')].map(e => ({ i: +e.dataset.i, r: e.getBoundingClientRect() }));
+  const put = (cx, top, h) => { caret.style.left = cx - tb.left + 'px'; caret.style.top = top - tb.top + 'px'; caret.style.height = h + 'px'; };
+  if (!bs.length) { put(tb.left + 10, tb.top + 10, tb.height - 20); return 0; }
+  const dist = b => y < b.r.top ? b.r.top - y : y > b.r.bottom ? y - b.r.bottom : 0, best = Math.min(...bs.map(dist));
+  const row = bs.filter(b => dist(b) - best < 2);
+  const b = row.find(b => x < b.r.left + b.r.width / 2);
+  if (b) { put(b.r.left - 3, b.r.top, b.r.height); return b.i; }
+  const last = row[row.length - 1]; put(last.r.right + 3, last.r.top, last.r.height); return last.i + 1;
+}
+function land(d) { d.ghost.remove(); d.caret.remove(); d.el.classList.remove('lift'); aTrack.classList.remove('over', 'out'); }
+function drop(d) {
+  if (d.to == null) {
+    if (!d.lib) { pushA(); const s = secOf(arr[d.from]); arr.splice(d.from, 1); aSel = -1; saveArr(); renderArr(); toast(`Took out ${s.name}. Undo puts it back.`); }
+    return;
+  }
+  if (d.lib) { pushA(); arr.splice(d.to, 0, d.id); aSel = d.to; }
+  else {
+    let to = d.to; if (to === d.from || to === d.from + 1) return;
+    pushA(); const [id] = arr.splice(d.from, 1); if (d.from < to) to--; arr.splice(to, 0, id); aSel = to;
+  }
+  saveArr(); renderArr();
+}
+
+// MIDI: one track, nylon guitar, a marker per section, strummed the same way it plays here.
+function exportMidi() {
+  if (!arr.length) return;
+  const PPQ = 480, ev = [], vlq = n => { const b = [n & 127]; while (n >>= 7) b.unshift((n & 127) | 128); return b; };
+  const meta = (type, data) => [0xff, type, ...vlq(data.length), ...data], text = s => [...new TextEncoder().encode(s)];
+  const us = Math.round(60e6 / pBpm);
+  ev.push({ t: 0, o: 0, b: meta(3, text('strung_along')) }, { t: 0, o: 0, b: meta(0x51, [us >> 16 & 255, us >> 8 & 255, us & 255]) },
+    { t: 0, o: 0, b: meta(0x58, [4, 2, 24, 8]) }, { t: 0, o: 0, b: [0xc0, 24] });
+  const note = (m, t, len, v) => { ev.push({ t, o: 2, b: [0x90, m, v] }, { t: t + len, o: 1, b: [0x80, m, 0] }); };
+  const stroke = (ns, beat, len, v, up) => (up ? [...ns].reverse() : ns).forEach((m, k) => note(m, Math.round(beat * PPQ) + k * 8, Math.round(len * PPQ) - k * 8, v));
+  let bar = 0;
+  for (const id of arr) {
+    const s = secOf(id); ev.push({ t: bar * 4 * PPQ, o: 0, b: meta(6, text(s.name)) });
+    for (const n of s.chords) {
+      const ns = voicing(n.ch), top = ns.slice(1), b0 = bar * 4;
+      ev.push({ t: b0 * PPQ, o: 0, b: meta(1, text(nameIn(n.ch, n.key))) });
+      stroke(ns, b0, 1.5, 104); stroke(top, b0 + 1.5, 0.5, 48, true); stroke(top, b0 + 2, 1.5, 70); stroke(top, b0 + 3.5, 0.5, 48, true);
+      bar++;
+    }
+  }
+  ev.sort((a, b) => a.t - b.t || a.o - b.o);
+  const trk = []; let last = 0;
+  for (const e of ev) { trk.push(...vlq(e.t - last), ...e.b); last = e.t; }
+  trk.push(0, 0xff, 0x2f, 0);
+  const n32 = n => [n >>> 24, n >> 16 & 255, n >> 8 & 255, n & 255];
+  const bytes = new Uint8Array([...text('MThd'), 0, 0, 0, 6, 0, 0, 0, 1, PPQ >> 8, PPQ & 255, ...text('MTrk'), ...n32(trk.length), ...trk]);
+  const a = mk('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+  a.download = (song ? song.name + ' ' : '') + 'arrangement.mid';
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Saved ${barsOf(arr)} bars as MIDI, with a marker at each section.`);
+}
+$('#aMidi').onclick = exportMidi;
 
 /* ---------- render ---------- */
 function renderAll() {
@@ -1484,8 +1780,8 @@ function frame() {
 /* ---------- input ---------- */
 addEventListener('keydown', e => {
   if (e.target.closest('input,textarea')) return;
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); mode === 'paths' ? pUndo() : undo(); return; }
-  if (mode === 'paths') { if (e.key === ' ' && !e.target.closest('button')) { e.preventDefault(); $('#pPlay').click(); } return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoAny(); return; }
+  if (mode !== 'song') { if (e.key === ' ' && !e.target.closest('button')) { e.preventDefault(); $(mode === 'paths' ? '#pPlay' : '#aPlay').click(); } return; }
   if (!song || e.ctrlKey || e.metaKey || e.altKey) return;
   const i = beatAt(t), step = e.shiftKey ? 4 : 1;
   if (e.key === ' ') { e.preventDefault(); playing ? pause() : play(); }
