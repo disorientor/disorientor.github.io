@@ -1281,10 +1281,10 @@ const STYLES = {
   jazz: { name: 'Jazz Harmony', desc: 'ii–V–I, substitutions, extensions, turnarounds',
     c: { tonic: '69', maj: 'maj7', min: 'm9', dom: '13', domMin: '7b9', upper: 'maj7' },
     w: { fifth: 3, home: 2, iiV: 2.6, trit: 2.8, sec: 2.4, backdoor: 2, pdim: 2, deceptive: 1.6, coltrane: 1.4, borrow: 1.6, step: 1, third: 1.2, mediant: .6, sidestep: .8, plane: .4, walk: .4, cliche: .6, pedal: .4, sus: 1, upper: .8, mod: .6, half: 1.4 } },
-  fusion: { name: 'Jazz Fusion', desc: 'Modal interchange, quartal harmony, altered dominants',
+  fusion: { name: 'Jazz Fusion', desc: 'Modal interchange, sus and slash chords, altered dominants, side-steps',
     c: { tonic: 'maj7#11', maj: 'maj9', min: 'm11', dom: '13', domMin: '7#9', upper: 'maj7' },
     w: { fifth: 1.2, home: 1, iiV: 1, trit: 1.6, sec: 1, backdoor: 1.2, pdim: .6, deceptive: 1, coltrane: 1.6, borrow: 2, step: 1.4, third: 1, mediant: 2.8, sidestep: 2.6, plane: 2.6, walk: .3, cliche: .4, pedal: 1.4, sus: 2.6, upper: 2.4, mod: 1.8, half: 1.6 } },
-  steely: { name: 'Chromatic Jazz-Pop', desc: 'Mu chords, slash chords, chromatic bass motion, elaborate voice leading',
+  steely: { name: 'Chromatic Jazz-Pop', desc: 'Add9 (mu) colours, slash chords, chromatic bass motion, borrowed chords',
     c: { tonic: 'add9', maj: 'add9', min: 'm9', dom: '13', domMin: '7#9', upper: '' },
     w: { fifth: 2, home: 1.4, iiV: 1.4, trit: 1.2, sec: 1.6, backdoor: 2.2, pdim: 1, deceptive: 1.6, coltrane: .4, borrow: 2.6, step: 1.6, third: 1.4, mediant: 1.4, sidestep: 1.2, plane: 1.2, walk: 1, cliche: 1.2, pedal: 1.6, sus: 2.2, upper: 3, mod: 1, half: 1 } },
   baroque: { name: 'Baroque Pop', desc: 'Walking bass lines, line clichés, secondary dominants',
@@ -1296,25 +1296,25 @@ const STYLES = {
   romantic: { name: 'Romantic Harmony', desc: 'Chromatic mediants, diminished passing chords, expressive modulation',
     c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7b9', upper: '' },
     w: { fifth: 2.4, home: 1.6, iiV: .6, trit: .3, sec: 2.4, backdoor: .8, pdim: 2.8, deceptive: 2.4, coltrane: 0, borrow: 2.4, step: 1.6, third: 2, mediant: 3, sidestep: .4, plane: .3, walk: 1.6, cliche: 1.6, pedal: 1.6, sus: .6, upper: .4, mod: 2.8, half: .3 } },
-  impress: { name: 'Impressionist Harmony', desc: 'Planing, whole-tone harmony, unresolved extensions, parallel chord motion',
+  impress: { name: 'Impressionist Harmony', desc: 'Planing, parallel chord motion, pedal points, unresolved extensions',
     c: { tonic: 'maj9', maj: 'maj7', min: 'm9', dom: '9', domMin: '7#11', upper: 'maj7' },
     w: { fifth: .6, home: 1, iiV: .2, trit: 1, sec: .4, backdoor: .6, pdim: .4, deceptive: .8, coltrane: .4, borrow: 2, step: 1.6, third: 1.6, mediant: 2.4, sidestep: 2, plane: 3, walk: .4, cliche: .4, pedal: 2.6, sus: 2, upper: 1.6, mod: 1.4, half: 1.6 } },
   neosoul: { name: 'Neo-Soul', desc: 'Minor 9ths, major 9ths, altered dominants, chromatic approach chords',
     c: { tonic: 'maj9', maj: 'maj9', min: 'm9', dom: '9', domMin: '7#9', upper: 'maj7' },
     w: { fifth: 2, home: 1.2, iiV: 2, trit: 2, sec: 1.4, backdoor: 2.2, pdim: 1, deceptive: 1.4, coltrane: .2, borrow: 2, step: 1.4, third: 1.4, mediant: 1, sidestep: 1.4, plane: 1.2, walk: .8, cliche: .6, pedal: 1, sus: 2, upper: 2.2, mod: .6, half: 2.6 } },
-  gospel: { name: 'Gospel Harmony', desc: 'Secondary dominants, diminished passing chords, plagal cadences',
+  gospel: { name: 'Gospel Harmony', desc: 'Secondary dominants, diminished passing chords, backdoor dominants',
     c: { tonic: '69', maj: 'maj7', min: 'm7', dom: '13', domMin: '7#9', upper: '' },
     w: { fifth: 2.8, home: 2.6, iiV: 2, trit: 1.6, sec: 3, backdoor: 2.6, pdim: 3, deceptive: 1.6, coltrane: .2, borrow: 2.2, step: 1.6, third: 1, mediant: .6, sidestep: .6, plane: .6, walk: 2.2, cliche: 1, pedal: 1.2, sus: 2, upper: 2.4, mod: 1.6, half: 1.4 } },
   bossa: { name: 'Brazilian / Bossa Nova', desc: 'Chromatic bass movement, extended tertian harmony, secondary ii–V progressions',
     c: { tonic: 'maj7', maj: 'maj7', min: 'm7', dom: '9', domMin: '7b9', tonicMin: 'm6', upper: 'maj7' },
     w: { fifth: 2.6, home: 1.6, iiV: 3, trit: 2, sec: 2.6, backdoor: 1.4, pdim: 1.6, deceptive: 1.4, coltrane: .3, borrow: 1.6, step: 1.2, third: 1.2, mediant: .6, sidestep: .8, plane: .4, walk: 2.4, cliche: 2.4, pedal: .8, sus: 1, upper: .8, mod: 1, half: 2 } },
-  modal: { name: 'Modal Jazz', desc: 'Dorian, Lydian, Mixolydian, prolonged modal centres',
+  modal: { name: 'Modal Jazz', desc: 'Lydian and Dorian colours, sus chords, pedal points, prolonged centres',
     c: { tonic: 'maj7#11', maj: 'maj7#11', min: 'm11', dom: '9sus4', domMin: '7sus4', upper: 'maj7' },
     w: { fifth: .4, home: 2.4, iiV: .3, trit: .6, sec: .3, backdoor: .8, pdim: .2, deceptive: .4, coltrane: .2, borrow: 2.4, step: 2.6, third: 1.4, mediant: 1, sidestep: 2.4, plane: 2.6, walk: .3, cliche: .3, pedal: 3, sus: 2.8, upper: 2, mod: 2, half: 1 } },
   postbop: { name: 'Post-Bop Harmony', desc: 'Coltrane changes, altered dominants, nonstandard resolutions',
     c: { tonic: 'maj7#11', maj: 'maj7', min: 'm9', dom: '7alt', domMin: '7alt', upper: 'maj7' },
     w: { fifth: 1.4, home: .8, iiV: 1.6, trit: 2.6, sec: 1.4, backdoor: 2, pdim: .8, deceptive: 1.6, coltrane: 3, borrow: 1.6, step: 1, third: 1.4, mediant: 2.6, sidestep: 2.2, plane: 1.4, walk: .4, cliche: .4, pedal: 1, sus: 1.8, upper: 1.6, mod: 2.4, half: 2.4 } },
-  minimal: { name: 'Minimalist Harmony', desc: 'Cyclic patterns, gradual harmonic change, additive processes',
+  minimal: { name: 'Minimalist Harmony', desc: 'Gradual stepwise change, pedal points, sus and add9 colours',
     c: { tonic: 'add9', maj: 'add9', min: 'madd9', dom: '7sus4', domMin: '7sus4', upper: '' },
     w: { fifth: 1, home: 2.4, iiV: .2, trit: .2, sec: .4, backdoor: .4, pdim: .2, deceptive: 1, coltrane: 0, borrow: 1.4, step: 3, third: 2.8, mediant: 1, sidestep: .6, plane: 1.4, walk: 1, cliche: 1.6, pedal: 3, sus: 2, upper: 1.2, mod: .6, half: .2 } },
   noir: { name: 'Film Noir Harmony', desc: 'Minor-major sevenths, diminished chords, chromatic descending lines',
@@ -1323,35 +1323,40 @@ const STYLES = {
   psych: { name: 'Psychedelic Pop', desc: 'Modal mixture, nonfunctional shifts, chromatic mediants',
     c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7', upper: '' },
     w: { fifth: 1.2, home: 1.4, iiV: .3, trit: .3, sec: 1.4, backdoor: 1.6, pdim: .6, deceptive: 1.6, coltrane: .2, borrow: 3, step: 2, third: 1.6, mediant: 2.8, sidestep: 2.4, plane: 2, walk: 1.4, cliche: 2, pedal: 2.4, sus: 1.4, upper: 1, mod: 2, half: .8 } },
-  prog: { name: 'Progressive Rock', desc: 'Modal changes, asymmetric phrases, unexpected tonal centres',
+  prog: { name: 'Progressive Rock', desc: 'Modal borrowing, sus colours, unexpected key changes',
     c: { tonic: 'add9', maj: 'add9', min: 'm', dom: '7sus4', domMin: '7', upper: '' },
     w: { fifth: 1, home: 1, iiV: .4, trit: .6, sec: 1, backdoor: 1.4, pdim: .6, deceptive: 2, coltrane: .6, borrow: 2.6, step: 2, third: 1.4, mediant: 2.4, sidestep: 2.4, plane: 2, walk: 1.2, cliche: 1, pedal: 2.2, sus: 2.6, upper: 2, mod: 3, half: 1 } },
-  renaiss: { name: 'Renaissance Polyphony', desc: 'Modal cadences, contrapuntal movement, consonance-directed voice leading',
+  renaiss: { name: 'Renaissance Polyphony', desc: 'Plain triads moving by step and fifth, modal borrowing, simple cadences',
     c: { tonic: '', maj: '', min: 'm', dom: '', domMin: '', upper: '' },
     w: { fifth: 2.6, home: 2, iiV: .2, trit: 0, sec: .8, backdoor: 1, pdim: 0, deceptive: 2, coltrane: 0, borrow: 2, step: 3, third: 2.6, mediant: 1.2, sidestep: 0, plane: .2, walk: 1.6, cliche: .8, pedal: 1, sus: 1.6, upper: 0, mod: .6, half: 0 } },
-  laterom: { name: 'Late Romantic Chromaticism', desc: 'Enharmonic modulation, augmented-sixth chords, ambiguous tonality',
+  laterom: { name: 'Late Romantic Chromaticism', desc: 'Chromatic mediants, diminished passing chords, frequent modulation',
     c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7b9', upper: '' },
     w: { fifth: 1.8, home: 1.2, iiV: .6, trit: 2, sec: 2, backdoor: 1, pdim: 2.6, deceptive: 2.4, coltrane: .8, borrow: 2.6, step: 1.2, third: 1.6, mediant: 3, sidestep: 2, plane: .8, walk: 1.4, cliche: 2, pedal: 1.6, sus: .4, upper: .4, mod: 3, half: 2.2 } },
-  posttonal: { name: 'Post-Tonal Harmony', desc: 'Symmetrical pitch collections, pitch-class sets, nonfunctional progressions',
+  posttonal: { name: 'Post-Tonal Harmony', desc: 'Nonfunctional motion: side-steps, planing, chromatic mediants, Coltrane cycles',
     c: { tonic: 'maj7#11', maj: 'maj7#11', min: 'm11', dom: '7#11', domMin: '7alt', upper: 'maj7' },
     w: { fifth: .3, home: .4, iiV: .1, trit: 1.6, sec: .2, backdoor: .4, pdim: 1.6, deceptive: 1, coltrane: 2.4, borrow: 1.6, step: 1, third: 1.4, mediant: 2.6, sidestep: 3, plane: 2.8, walk: .4, cliche: .6, pedal: 1.4, sus: 1.4, upper: 2, mod: 2.6, half: 2.6 } },
   citypop: { name: 'Japanese City Pop', desc: 'Jazz-derived pop turnarounds, major sevenths, secondary dominants',
     c: { tonic: 'maj9', maj: 'maj7', min: 'm7', dom: '13', domMin: '7#9', upper: '' },
     w: { fifth: 2.6, home: 1.6, iiV: 2.8, trit: 1.4, sec: 2.6, backdoor: 2.2, pdim: 1.4, deceptive: 1.8, coltrane: .2, borrow: 2, step: 1.4, third: 1.4, mediant: 1, sidestep: 1, plane: .8, walk: 1.2, cliche: 1, pedal: 1, sus: 2.2, upper: 3, mod: 2, half: 1.2 } },
-  flamenco: { name: 'Flamenco / Andalusian', desc: 'Phrygian harmony, Andalusian cadence, altered dominant colouring',
+  flamenco: { name: 'Flamenco / Andalusian', desc: 'Descending bass lines, half-step resolutions, b9 dominants',
     c: { tonic: '', maj: '', min: 'm', dom: '7b9', domMin: '7b9', upper: '' },
     w: { fifth: 1.4, home: 2.6, iiV: .3, trit: .6, sec: 1.2, backdoor: .4, pdim: .4, deceptive: 1, coltrane: 0, borrow: 2.6, step: 3, third: .8, mediant: .8, sidestep: 1.4, plane: 1.4, walk: 2.4, cliche: 2, pedal: 1.6, sus: .6, upper: .4, mod: .8, half: 2.8 } },
-  mathrock: { name: 'Math Rock / Midwest Emo', desc: 'Open voicings, add9 chords, suspended harmony, nonstandard bass movement',
+  mathrock: { name: 'Math Rock / Midwest Emo', desc: 'Add9 and sus colours, pedal points, nonstandard bass movement',
     c: { tonic: 'add9', maj: 'maj9', min: 'madd9', dom: '9sus4', domMin: '7sus4', upper: '' },
     w: { fifth: 1, home: 1.2, iiV: .4, trit: .4, sec: .8, backdoor: 1.2, pdim: .4, deceptive: 1.8, coltrane: .2, borrow: 2, step: 2.4, third: 2, mediant: 2, sidestep: 2, plane: 2.2, walk: 1.4, cliche: 1, pedal: 2.6, sus: 3, upper: 2.8, mod: 1.6, half: 1 } },
-  rnb: { name: 'R&B', desc: 'Lush seventh/ninth chords, smooth voice leading, extended turnarounds',
+  rnb: { name: 'R&B', desc: 'Lush seventh/ninth chords, extended turnarounds, slash chords',
     c: { tonic: 'maj9', maj: 'maj9', min: 'm9', dom: '13', domMin: '7b9', upper: 'maj7' },
     w: { fifth: 2.6, home: 1.4, iiV: 2.6, trit: 1.8, sec: 1.6, backdoor: 2.4, pdim: 1.2, deceptive: 1.6, coltrane: .2, borrow: 2, step: 1.6, third: 1.6, mediant: 1, sidestep: 1, plane: 1, walk: 1, cliche: .8, pedal: 1, sus: 2.4, upper: 2.6, mod: 1, half: 2 } },
 };
+// What a style actually changes here: one shared engine, its chord colours and which moves it favours.
+function styleDesc(st) {
+  const c = st.c, q = v => v || 'triads', top = Object.entries(st.w).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => TECH[t][0]);
+  return `${st.desc}. Here: V chords as ${c.dom || 'triads'}, minors as ${q(c.min)}; favours ${top.join(', ')}.`;
+}
 // [label, kind]; kind picks the colour (functional, substitute, colour, bass line).
 const TECH = {
   start: ['Start', 'song'], song: ['From song', 'song'],
-  fifth: ['Down a 5th', 'func'], home: ['Home', 'func'], step: ['Step', 'func'], third: ['Down a 3rd', 'func'], iiV: ['ii-V', 'func'], sec: ['Secondary V', 'func'], deceptive: ['Deceptive', 'func'],
+  aim: ['Follow through', 'func'], fifth: ['Down a 5th', 'func'], home: ['Home', 'func'], step: ['Step', 'func'], third: ['Down a 3rd', 'func'], iiV: ['ii-V', 'func'], sec: ['Secondary V', 'func'], deceptive: ['Deceptive', 'func'],
   trit: ['Tritone sub', 'sub'], half: ['Half-step', 'sub'], backdoor: ['Backdoor', 'sub'], pdim: ['Passing dim', 'sub'], coltrane: ['Coltrane', 'sub'],
   borrow: ['Borrowed', 'col'], mediant: ['Mediant', 'col'], sidestep: ['Side-step', 'col'], plane: ['Planing', 'col'], sus: ['Sus V', 'col'], mod: ['Key change', 'col'],
   walk: ['Bass walk', 'bass'], cliche: ['Line cliche', 'bass'], pedal: ['Pedal', 'bass'], upper: ['Slash', 'bass'],
@@ -1373,6 +1378,25 @@ function diaChord(k, pc) {
 }
 function roman(k, pc) { const d = dia(k, pc); if (!d) return spell(k)[mod12(pc)]; const n = ROMAN[d.d]; return ['min', 'hdim', 'dim'].includes(d.fam) ? n.toLowerCase() : n; }
 const common = (a, b) => { const t = tones(b); let n = 0; for (const p of tones(a)) if (t.has(p)) n++; return n; };
+const shared = (a, b) => { const t = tones(b); return [...tones(a)].filter(p => t.has(p)); };
+// Notes a chord adds beyond the key (a minor key also allows its raised 6th and 7th, for V and the melodic line).
+const outside = (ch, k) => { const S = scale(k); if (k.minor) S.push(mod12(k.pc + 9), mod12(k.pc + 11)); return [...tones(ch)].filter(p => !S.includes(p)); };
+// What two chords actually hold in common, as pitch classes (the voicings on the neck are picked per chord).
+// A note outside the key, spelled as its chord would (Em11's F#, Gm9's Bb).
+const rootSpell = ch => spell({ pc: ch.r, minor: ['min', 'hdim', 'dim'].includes(FAM(ch.q)) });
+// Moves whose reason leans on the key: when the style's colour reaches outside it (Em11 in C has an F#), say so.
+const DIA_T = new Set(['fifth', 'home', 'step', 'third', 'iiV', 'pedal']);
+function addsOut(ch, k) {
+  const o = outside(ch, k); if (!o.length) return '';
+  const nm = o.map(p => rootSpell(ch)[p]).join(' and ');
+  return scale(k).includes(ch.r)
+    ? ` Its ${ch.q || 'triad'} colour adds ${nm}, outside ${keyName(k)}: a deliberate tint, not a diatonic note.`
+    : ` It brings in ${nm}, outside ${keyName(k)}.`;
+}
+function holds(a, b, k) {
+  const s = shared(a, b);
+  return !s.length ? 'no notes in common' : `${s.length} note${s.length > 1 ? 's' : ''} in common (${s.map(p => scale(k).includes(p) ? spell(k)[p] : rootSpell(b)[p]).join(' ')})`;
+}
 // The diatonic chord that best holds a bass note: as its 3rd, else its root, else its 5th. Plain triads, for clarity.
 function holder(k, p) {
   let best = null, bp = 9;
@@ -1388,41 +1412,84 @@ function suggest(node) {
   const X = node.ch.b != null && mod12(node.ch.b - node.ch.r) === 2 ? { r: node.ch.b, q: '9sus4' } : node.ch;
   const k = node.key, fx = FAM(X.q), W = STYLES[pStyle].w, N = p => spellIn(k, p), nX = nameIn(node.ch, k);
   const maj = !k.minor, I = k.pc, S = scale(k), si = S.indexOf(X.r), raw = [];
-  const add = (tech, ch, why, key = k) => { if (ch && W[tech]) raw.push({ ch, tech, why, key }); };
+  // aim: the chords a move sets up ([{ ch, why, key }]); the next chord's suggestions offer to follow it through.
+  const add = (tech, ch, why, key = k, aim) => { if (ch && W[tech]) raw.push({ ch, tech, why: why + (DIA_T.has(tech) ? addsOut(ch, key) : ''), key, ...(aim && { aim }) }); };
+  const dch = (pc, fam = 'maj') => diaChord(k, pc) || colour(pc, fam);
+  const step = (ch, why, key = k) => ({ ch, why: why + addsOut(ch, key), key });
 
-  { const t = X.r + 5, c = diaChord(k, t) || colour(t, dia(k, t + 5)?.fam === 'min' ? 'domMin' : 'dom');
-    add('fifth', c, fx === 'dom' ? `${nX} resolves down a fifth: the V-I pull everything else is built on.` : `Root down a fifth (up a fourth) to ${N(t)}: the strongest move in tonal harmony, the engine of ii-V-I.`); }
-  if (X.r !== I || fx !== (maj ? 'maj' : 'min')) add('home', colour(I, maj ? 'maj' : 'min', true), `Back to the tonic, ${N(I)}${maj ? '' : 'm'}. ${fx === 'dom' ? 'The resolution the dominant was asking for.' : 'Home base.'}`);
+  // The chord this one leads to, and its mode (a minor target changes what a deceptive cadence lands on).
+  const T = X.r + 5, tFam = dia(k, T)?.fam, tMin = tFam === 'min' || tFam === 'hdim', tCh = dch(T, tMin ? 'min' : 'maj'), nT = nameIn(tCh, k);
+  { const c = diaChord(k, T) || colour(T, dia(k, T + 5)?.fam === 'min' ? 'domMin' : 'dom');
+    add('fifth', c, fx === 'dom' ? `${nX} resolves down a fifth to ${nameIn(c, k)}: the V-I pull everything else is built on.` : `Root down a fifth (up a fourth) to ${nameIn(c, k)}: the strongest root move in tonal harmony, the engine of ii-V-I.`); }
+  if (X.r !== I || fx !== (maj ? 'maj' : 'min')) {
+    const h = colour(I, maj ? 'maj' : 'min', true);
+    // Only a dominant a fifth above home (or its tritone sub, a half step above) is asking for home.
+    const why = fx !== 'dom' ? 'Home base.' : mod12(T) === I ? 'The resolution the dominant was asking for.'
+      : mod12(X.r - 1) === I ? `${nX} works as the tritone sub of the V, so it falls a half step home.`
+      : `${nX} points at ${N(T)}, so going home instead skips its resolution: a jump, not a cadence.`;
+    add('home', h, `Back to the tonic, ${nameIn(h, k)}. ${why}`);
+  }
   if (si >= 0) {
-    for (const [dd, w] of [[1, 'up'], [6, 'down']]) { const pc = S[(si + dd) % 7]; add('step', diaChord(k, pc), `Step ${w} to ${roman(k, pc)}: diatonic, every voice moves a little.`); }
-    const pc = S[(si + 5) % 7]; add('third', diaChord(k, pc), `Down a third to ${roman(k, pc)}: it shares two notes with ${nX}, so it barely moves.`);
+    for (const [dd, w] of [[1, 'up'], [6, 'down']]) { const pc = S[(si + dd) % 7], c = diaChord(k, pc); add('step', c, `Step ${w} to ${roman(k, pc)}, a scale step away: ${holds(c, X, k)} with ${nX}.`); }
+    const pc = S[(si + 5) % 7], c = diaChord(k, pc); add('third', c, `Down a third to ${roman(k, pc)}: ${holds(c, X, k)} with ${nX}.`);
   }
   if (maj) {
-    add('iiV', diaChord(k, I + 2), `Start a ii-V-I home: ${N(I + 2)}m7, ${N(I + 7)}7, ${N(I)}.`);
-    add('iiV', colour(I + 7, 'min'), `ii of a ii-V into the IV: ${N(I + 7)}m7, then ${N(I)}7 lands on ${N(I + 5)}.`);
-    add('iiV', colour(I + 11, 'hdim'), `Minor ii-V into the vi: ${N(I + 11)}m7b5, then ${N(I + 4)}7 lands on ${N(I + 9)}m.`);
-  } else add('iiV', colour(I + 2, 'hdim'), `Minor ii-V-i home: ${N(I + 2)}m7b5, ${N(I + 7)}7, ${N(I)}m.`);
-
-  if (fx === 'min' || fx === 'hdim') add('trit', colour(X.r + 11, 'dom'), `Tritone sub: ${N(X.r + 11)}7 instead of ${N(X.r + 5)}7. Same tritone inside, and the bass slides down by half steps to ${N(X.r + 10)}.`);
-  if (fx === 'dom' || fx === 'aug') {
-    const T = X.r + 5;
-    add('trit', colour(X.r + 6, 'dom'), `Tritone sub: ${N(X.r + 6)}7 shares this chord's 3rd and 7th, so it still resolves to ${N(T)}, by a half step.`);
-    add('half', diaChord(k, X.r + 11) || colour(X.r + 11, 'maj'), `Resolve down a half step to ${N(X.r + 11)}: ${nX} works as the tritone sub of ${N(X.r + 6)}7.`);
-    add('deceptive', diaChord(k, T + 9) || colour(T + 9, 'min'), `Deceptive cadence: ${nX} promises ${N(T)} and lands on ${N(T + 9)}m instead.`);
-    add('deceptive', colour(T + 8, 'maj'), `Deceptive to bVI: ${nX} drops onto ${N(T + 8)}, a borrowed surprise.`);
+    const ii = diaChord(k, I + 2), V = colour(I + 7, 'dom'), home = colour(I, 'maj', true);
+    add('iiV', ii, `Start a ii-V-I home: ${nameIn(ii, k)}, ${nameIn(V, k)}, ${nameIn(home, k)}.`, k,
+      [step(V, `The V of the ii-V-I you started: next stop ${nameIn(home, k)}.`), step(home, 'The I the ii-V was heading for.')]);
+    const ii4 = colour(I + 7, 'min'), V4 = colour(I, 'dom'), IV = diaChord(k, I + 5);
+    add('iiV', ii4, `ii of a ii-V into the IV: ${nameIn(ii4, k)}, then ${nameIn(V4, k)} lands on ${nameIn(IV, k)}.`, k,
+      [step(V4, `The V of the ii-V into the IV: it lands on ${nameIn(IV, k)} next.`), step(IV, 'The IV the ii-V was heading for.')]);
+    const ii6 = colour(I + 11, 'hdim'), V6 = colour(I + 4, 'domMin'), vi = diaChord(k, I + 9);
+    add('iiV', ii6, `Minor ii-V into the vi: ${nameIn(ii6, k)}, then ${nameIn(V6, k)} lands on ${nameIn(vi, k)}.`, k,
+      [step(V6, `The V of the minor ii-V: it lands on ${nameIn(vi, k)} next.`), step(vi, 'The vi the minor ii-V was heading for.')]);
+  } else {
+    const ii = colour(I + 2, 'hdim'), V = colour(I + 7, 'domMin'), home = colour(I, 'min', true);
+    add('iiV', ii, `Minor ii-V-i home: ${nameIn(ii, k)}, ${nameIn(V, k)}, ${nameIn(home, k)}.`, k,
+      [step(V, `The V of the minor ii-V-i: next stop ${nameIn(home, k)}.`), step(home, 'The i the ii-V was heading for.')]);
   }
-  S.forEach((T, d) => {
-    const df = dia(k, T).fam; if (!d || df === 'hdim' || df === 'dim') return;
-    add('sec', colour(T + 7, df === 'min' ? 'domMin' : 'dom'), `Secondary dominant, V7 of ${roman(k, T)}: ${N(T + 7)}7 borrows ${N(T)}'s own dominant to point at it.`);
+
+  if (fx === 'min' || fx === 'hdim') { const g = dch(X.r + 10);
+    add('trit', colour(X.r + 11, 'dom'), `Tritone sub: ${N(X.r + 11)}7 instead of ${N(X.r + 5)}7. Same tritone inside, and the bass slides down by half steps to ${N(X.r + 10)}.`, k,
+      [step(g, `Where the tritone sub was heading: down a half step to ${nameIn(g, k)}.`)]); }
+  if (fx === 'dom' || fx === 'aug') {
+    add('trit', colour(X.r + 6, 'dom'), `Tritone sub: ${N(X.r + 6)}7 shares this chord's 3rd and 7th, so it still resolves to ${N(T)}, by a half step.`, k,
+      [step(tCh, `Where the tritone sub was heading: down a half step to ${nT}.`)]);
+    add('half', dch(X.r + 11), `Resolve down a half step to ${N(X.r + 11)}: ${nX} works as the tritone sub of ${N(X.r + 6)}7.`);
+    // V-vi in a major target, V-VI in a minor one: the chord a third below the target, sharing two of its notes.
+    const dc = tMin ? dch(T + 8) : dch(T + 9, 'min');
+    add('deceptive', dc, `Deceptive cadence: ${nX} promises ${nT} and lands on ${nameIn(dc, k)} instead, the ${tMin ? 'VI' : 'vi'} of ${N(T)}.`);
+    if (!tMin) add('deceptive', colour(T + 8, 'maj'), `Deceptive to bVI: ${nX} drops onto ${nameIn(colour(T + 8, 'maj'), k)}, borrowed from ${N(T)} minor, instead of ${nT}.`);
+  }
+  S.forEach((P, d) => {
+    const df = dia(k, P).fam; if (!d || df === 'hdim' || df === 'dim') return;
+    const tc = diaChord(k, P);
+    add('sec', colour(P + 7, df === 'min' ? 'domMin' : 'dom'), `Secondary dominant, V7 of ${roman(k, P)}: ${N(P + 7)}7 borrows ${N(P)}'s own dominant to point at it.`, k,
+      [step(tc, `The ${roman(k, P)} the secondary dominant was pointing at.`)]);
   });
-  const BOR = maj ? [[5, 'min', 'iv'], [8, 'maj', 'bVI'], [10, 'dom', 'bVII7'], [3, 'maj', 'bIII'], [2, 'hdim', 'iim7b5'], [7, 'min', 'v']]
-                  : [[5, 'dom', 'IV7 (Dorian)'], [0, 'maj', 'I (Picardy third)'], [1, 'maj', 'bII (Neapolitan)'], [2, 'min', 'ii (Dorian)']];
-  for (const [o, f, lab] of BOR) add('borrow', colour(I + o, f, !o), `Borrowed from ${N(I)} ${maj ? 'minor' : 'major'}: the ${lab} chord. Same home, ${maj ? 'darker' : 'brighter'} colour.`);
-  if (maj) add('backdoor', colour(I + 10, 'dom'), `Backdoor dominant: ${N(I + 10)}7 slides up a whole step to ${N(I)}. Softer than the V7.`);
-  if (fx !== 'dim') add('pdim', colour(X.r + 1, 'dim'), `Passing diminished: ${spellIn(k, X.r + 1, true)}dim7 walks the bass up a half step toward ${N(X.r + 2)}.`);
-  if (fx === 'maj') add('coltrane', colour(X.r + 3, 'dom'), `Coltrane changes: ${N(X.r + 3)}7 heads for ${N(X.r + 8)}, a major third down. Three keys split the octave.`, { pc: mod12(X.r + 8), minor: false });
+  // Each borrowed chord names where it really comes from: a major key's from the parallel minor; a minor key's from Dorian, Phrygian or the parallel major.
+  const BOR = maj ? [[5, 'min', 'iv', 'minor'], [8, 'maj', 'bVI', 'minor'], [10, 'dom', 'bVII7', 'minor'], [3, 'maj', 'bIII', 'minor'], [2, 'hdim', 'iim7b5', 'minor'], [7, 'min', 'v', 'minor']]
+                  : [[5, 'dom', 'IV7', 'Dorian'], [0, 'maj', 'I (Picardy third)', 'major'], [1, 'maj', 'bII (Neapolitan)', 'Phrygian'], [2, 'min', 'ii', 'Dorian']];
+  const TONE = { minor: 'Same home, darker colour.', major: 'Same home, brighter colour.', Dorian: 'Its raised 6th brightens the minor.', Phrygian: 'Its flat 2nd darkens the minor; it usually heads to V.' };
+  for (const [o, f, lab, src] of BOR) add('borrow', colour(I + o, f, !o), `Borrowed from ${N(I)} ${src}: the ${lab} chord. ${TONE[src]}`);
+  if (maj) { const h = colour(I, 'maj', true);
+    add('backdoor', colour(I + 10, 'dom'), `Backdoor dominant: ${N(I + 10)}7 slides up a whole step to ${N(I)}. Softer than the V7.`, k, [step(h, 'Home, the way the backdoor dominant was heading.')]); }
+  if (fx !== 'dim') { const g = dch(X.r + 2, 'min');
+    add('pdim', colour(X.r + 1, 'dim'), `Passing diminished: ${spellIn(k, X.r + 1, true)}dim7 walks the bass up a half step toward ${N(X.r + 2)}.`, k,
+      [step(g, `Where the passing diminished was walking: up to ${nameIn(g, k)}.`)]); }
+  if (fx === 'maj') {
+    // The full cycle: three tonics a major third apart, each reached from its own V7, and back.
+    const kk = o => ({ pc: mod12(X.r + o), minor: false }), back = X.r === I && maj ? k : kk(0), ton = o => colour(X.r + o, 'maj', true);
+    add('coltrane', colour(X.r + 3, 'dom'), `Coltrane changes: ${N(X.r + 3)}7 heads for ${N(X.r + 8)}, a major third down. Three keys split the octave.`, kk(8), [
+      { ch: ton(8), why: `Coltrane changes, first key: ${nameIn(ton(8), kk(8))}. Next, ${nameIn(colour(X.r + 11, 'dom'), kk(4))} points to ${spell(kk(4))[kk(4).pc]}.`, key: kk(8) },
+      { ch: colour(X.r + 11, 'dom'), why: `Coltrane changes: the V7 of ${spell(kk(4))[kk(4).pc]}, a major third further down.`, key: kk(4) },
+      { ch: ton(4), why: `Coltrane changes, second key: ${nameIn(ton(4), kk(4))}. One more V7 brings it home.`, key: kk(4) },
+      { ch: colour(X.r + 7, 'dom'), why: `Coltrane changes: the V7 back to ${N(X.r)}.`, key: back },
+      { ch: ton(0), why: 'Coltrane changes, complete: three keys a major third apart, back where you started.', key: back }]);
+  }
   for (const [o, w] of [[4, 'major third up'], [8, 'major third down'], [3, 'minor third up'], [9, 'minor third down']])
-    if (dia(k, X.r + o)?.fam !== 'maj') add('mediant', colour(X.r + o, 'maj'), `Chromatic mediant: the root moves a ${w}, one note held in common. A cinematic lift.`);
+    if (dia(k, X.r + o)?.fam !== 'maj') { const c = colour(X.r + o, 'maj');
+      add('mediant', c, `Chromatic mediant: the root moves a ${w}, with ${holds(c, X, k)}. A cinematic lift.`); }
   if (fx !== 'dim') {
     for (const [o, w] of [[1, 'up'], [11, 'down']]) add('sidestep', { r: mod12(X.r + o), q: X.q }, `Side-step: slide ${nX} a half step ${w}, then back. Outside, then in.`);
     for (const [o, w] of [[2, 'up'], [10, 'down']]) add('plane', { r: mod12(X.r + o), q: X.q }, `Planing: move the same shape a whole step ${w}, ignoring the key.`);
@@ -1437,9 +1504,10 @@ function suggest(node) {
   if ((fx === 'maj' || fx === 'min') && [0, 1, 2].includes(mod12(X.r - bass))) add('cliche', { r: X.r, q: fx === 'min' ? 'm' : '', b: mod12(bass - 1) }, `Line cliche: hold ${N(X.r)}${fx === 'min' ? 'm' : ''} and let the bass sink a half step to ${spellIn(k, bass - 1, true)}.`);
   for (const o of [5, 2]) { const c = diaChord(k, X.r + o); if (c) add('pedal', { ...c, b: bass }, `Pedal point: ${N(bass)} stays in the bass while ${nameIn(c, k)} moves above it.`); }
   if (maj) {
-    add('mod', colour(I + 9, 'dom'), `Key change up a whole step: ${N(I + 9)}7 is the V of ${N(I + 2)}. Lifts the whole tune.`, { pc: mod12(I + 2), minor: false });
+    const nk = o => ({ pc: mod12(I + o), minor: false }), arrive = o => [{ ch: colour(I + o, 'maj', true), why: `Arrived in ${keyName(nk(o))}: the new home the key change was setting up.`, key: nk(o) }];
+    add('mod', colour(I + 9, 'dom'), `Key change up a whole step: ${N(I + 9)}7 is the V of ${N(I + 2)}. Lifts the whole tune.`, nk(2), arrive(2));
     add('mod', colour(I + 3, 'maj', true), `Key change up a minor third, straight to ${N(I + 3)}. Bold, no warning.`, { pc: mod12(I + 3), minor: false });
-    add('mod', colour(I + 8, 'dom'), `Key change up a half step: ${N(I + 8)}7 is the V of ${N(I + 1)}.`, { pc: mod12(I + 1), minor: false });
+    add('mod', colour(I + 8, 'dom'), `Key change up a half step: ${N(I + 8)}7 is the V of ${N(I + 1)}.`, nk(1), arrive(1));
   }
 
   // Within a technique, chords closer to this one first; the style's weights order the techniques; two per technique, eight in all.
@@ -1455,6 +1523,8 @@ function suggest(node) {
   }
   ranked.sort((a, b) => b.s - a.s);
   const seen = [node.ch], per = {}, res = [];
+  // A move still under way (a ii-V-I, a Coltrane cycle) offers its next chord first, so the phrase can keep its intent.
+  if (node.aim?.length) { const [a, ...rest] = node.aim; res.push({ ...a, tech: 'aim', ...(rest.length && { aim: rest }) }); seen.push(a.ch); }
   for (const o of ranked) {
     if (res.length >= 8 || (per[o.tech] || 0) >= 2 || seen.some(c => sameCh(c, o.ch))) continue;
     seen.push(o.ch); per[o.tech] = (per[o.tech] || 0) + 1; res.push(o);
@@ -1501,7 +1571,7 @@ function startAt(ring, i, quiet) {
 function choose(k, o) {
   stopSeq();
   if (!(line[k] && sameCh(line[k].ch, o.ch) && line[k].tech === o.tech)) {
-    pushP(); const n = { ch: o.ch, tech: o.tech, why: o.why, key: o.key, pos: near(o.ch, pPos)?.at };
+    pushP(); const n = { ch: o.ch, tech: o.tech, why: o.why, key: o.key, pos: near(o.ch, pPos)?.at, ...(o.aim && { aim: o.aim }) };
     if (k < line.length) line[k] = n; else line.push(n);
   }
   sel = k; playChord(o.ch, near(o.ch, line[k].pos)); renderPaths(); showWhy(line[k]);
@@ -1556,7 +1626,7 @@ let cols = [];
 function renderPaths() {
   $('#undo').disabled = !pHist.length;
   if (!$('#pStyle').options.length) $('#pStyle').append(...Object.entries(STYLES).map(([id, st]) => new Option(st.name, id)));
-  $('#pStyle').value = pStyle; $('#pStyleDesc').textContent = STYLES[pStyle].desc;
+  $('#pStyle').value = pStyle; $('#pStyleDesc').textContent = styleDesc(STYLES[pStyle]);
   $('#pBpm').textContent = pBpm + ' bpm';
   soundState();
   for (const id of ['#pPlay', '#pTrim', '#pDel', '#pClear']) $(id).disabled = !line.length;
