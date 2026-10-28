@@ -38,16 +38,22 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 .badge.on{border-color:var(--accent);color:var(--accent)}
 .dia{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--fg)}
 .dia svg{display:block;height:128px;width:auto}
-.dia.small{opacity:.45}
-.dia.small svg{height:92px}
 .dia span{color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-@media (max-width:560px){#nextDia{display:none}}
+/* Queue: the next few chord changes as small diagrams, so you can see what's coming, not just the next one. */
+#queue{display:flex;gap:6px;overflow:hidden;padding-block:2px 8px;min-height:0}
+#queue:empty{display:none}
+.q{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.q svg{display:block;height:78px;width:auto}
+.q.piano svg{height:44px}
+.q b{font-weight:normal;font-size:13px;white-space:nowrap}
+.q span{color:var(--muted);white-space:nowrap}
+.q:first-child{border-color:var(--muted)}
+.q:nth-child(n+3){opacity:.7}
+.q:nth-child(n+5){opacity:.5}
 @media (max-width:420px){.clock>span{display:none}}
-#vid{display:flex;justify-content:center;padding-block:4px}
-#vid .frame{height:clamp(120px,22vh,220px);aspect-ratio:16/9;max-width:100%;border-radius:8px;overflow:hidden;background:#000}
-#vid iframe{display:block;width:100%;height:100%;border:0}
 .transport{display:flex;align-items:center;gap:12px;padding-block:8px}
-#play{flex:none;width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:14px;letter-spacing:0}
+.btns{display:flex;gap:6px}
+.btns button{flex:none;width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;font-size:14px;letter-spacing:0}
 .clock{font-size:clamp(16px,5.4vw,22px);font-variant-numeric:tabular-nums;white-space:nowrap}
 .clock span{color:var(--muted)}
 .speed{margin-left:auto;display:flex;align-items:center;gap:4px}
@@ -94,17 +100,6 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 #mInfo{color:var(--muted);overflow-wrap:anywhere}
 .row{display:flex;gap:8px;justify-content:flex-end}
 #drop{position:fixed;inset:12px;z-index:60;display:grid;place-items:center;border:2px dashed var(--accent);border-radius:16px;background:rgba(12,12,16,.88);color:var(--accent);font-size:22px;pointer-events:none;text-align:center}
-#link{position:fixed;inset:0;z-index:55;display:grid;place-items:center;padding:16px;background:rgba(6,6,9,.82)}
-#link input{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;width:100%;-webkit-user-select:text;user-select:text}
-#link input:focus{outline:2px solid var(--accent);outline-offset:1px}
-#link .hint{color:var(--muted)}
-#link .card{max-height:calc(100dvh - 32px)}
-#lRes{display:flex;flex-direction:column;gap:2px;overflow-y:auto;min-height:0;margin-inline:-8px}
-#lRes button{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;text-align:left;text-transform:none;letter-spacing:0;background:transparent;border:0;padding:6px 8px}
-#lRes button:hover,#lRes button:focus-visible{background:var(--raised)}
-#lRes img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;background:var(--raised)}
-#lRes b{font-weight:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-#lRes span{display:block;color:var(--muted);font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
@@ -113,7 +108,6 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
   <header class="pad">
     <div class="mark">STRUNG<i>_</i>ALONG</div>
     <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="yt" title="Search YouTube or play a link (or just paste one)">YouTube</button>
     <button id="open" class="primary">Open</button>
   </header>
 
@@ -125,13 +119,16 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
       <div class="badges" id="badges"></div>
     </div>
     <div class="dia" id="curDia"></div>
-    <div class="dia small" id="nextDia"></div>
   </section>
 
-  <div id="vid" class="pad" hidden><div class="frame"><div id="ytp"></div></div></div>
+  <div id="queue" class="pad" aria-label="Coming up"></div>
 
   <div class="transport pad">
-    <button id="play" aria-label="Play" title="Play (Space)">&#9654;</button>
+    <div class="btns">
+      <button id="rew" aria-label="Rewind" title="Rewind to the start, or to the top of the loop (Home)">|&#9664;&#9664;</button>
+      <button id="play" aria-label="Play" title="Play (Space)">&#9654;</button>
+      <button id="pause" aria-label="Pause" title="Pause (Space)">||</button>
+    </div>
     <div class="clock"><b id="nowT">0:00.0</b> <span>/ <span id="dur">0:00.0</span></span></div>
     <div class="speed" title="Playback speed">
       <button id="sdn" aria-label="Slower">&minus;</button>
@@ -166,16 +163,6 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
   </div>
 </div>
 
-<form id="link" hidden>
-  <div class="card">
-    <h2>YouTube</h2>
-    <input id="lUrl" type="search" enterkeyhint="search" placeholder="Search for a song, or paste a link" autocomplete="off" spellcheck="false" required>
-    <div id="lRes" hidden></div>
-    <div class="hint" id="lHint">Tip: you can paste a link anywhere on the page.</div>
-    <div class="row"><button type="button" id="lCancel">Cancel</button><button class="primary" id="lGo">Search</button></div>
-  </div>
-</form>
-
 <div id="drop" hidden>DROP A SONG</div>
 <div id="toast" hidden></div>
 <input type="file" id="pick" accept="audio/*,video/*" hidden>
@@ -204,7 +191,6 @@ const QUAL = {
 const QLIST = ['', 'm', '7', 'm7', 'maj7', 'sus2', 'sus4', 'dim'];  // not Object.keys: '7' is an integer key and would sort first
 const DETECT = ['', 'm', '7', 'm7', 'maj7'];
 const flatKey = (pc, minor) => (minor ? [2, 7, 0, 5, 10, 3] : [5, 10, 3, 8, 1, 6]).includes(pc);
-function parseChord(s) { const m = /^([A-G][#b]?)(.*)$/.exec(s); const r = SHARP.indexOf(m[1]) >= 0 ? SHARP.indexOf(m[1]) : FLAT.indexOf(m[1]); return { r, q: m[2] }; }
 
 /* ---------- state ---------- */
 let song = null;   // {name, url, dur, bpm, beatLen, beats: Float64Array (n+1 edges), chords: [{r,q}|null], phase, key: {pc, minor}, peaks}
@@ -507,9 +493,9 @@ async function analyse(file, ctl) {
 
 /* ---------- loading ---------- */
 let job = null;
-// Only one load at a time: a new one cancels whatever is still analysing (e.g. the sample song), or it would land on top.
-function cancelJob() { if (job) { job.cancelled = true; job.ac?.abort(); } job = null; }
-async function load(file, opt = {}) {
+// Only one load at a time: a new one cancels whatever is still analysing, or it would land on top.
+function cancelJob() { if (job) job.cancelled = true; job = null; }
+async function load(file) {
   if (!file) return;
   if (!/^(audio|video)\//.test(file.type) && !/\.(mp3|wav|m4a|aac|ogg|oga|opus|flac|mp4|m4v|mov|webm)$/i.test(file.name)) { toast('That file is not audio or video.'); return; }
   pause(); closeEdit(); cancelJob();
@@ -526,10 +512,8 @@ async function load(file, opt = {}) {
     const res = await analyse(file, ctl);
     if (my.cancelled) return;
     if (song) URL.revokeObjectURL(song.url);
-    song = { ...res, name: opt.name || file.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(file), yt: opt.yt || null };
-    if (song.yt) { audio.removeAttribute('src'); rate = ytRate(rate); $('#vid').hidden = false; }
-    else { audio.src = song.url; audio.playbackRate = rate; $('#vid').hidden = true; if (ytp) ytp.stopVideo(); }
-    setRate(rate);
+    song = { ...res, name: file.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(file) };
+    audio.src = song.url; setRate(rate);
     t = 0; loop = null; history = []; transpose = 0; capo = 0;
     $('#undo').disabled = true;
     renderAll();
@@ -542,174 +526,6 @@ async function load(file, opt = {}) {
 $('#mCancel').onclick = () => { cancelJob(); $('#modal').hidden = true; if (!song) renderAll(); };
 $('#open').onclick = () => $('#pick').click();
 $('#pick').onchange = e => { load(e.target.files[0]); e.target.value = ''; };
-
-/* ---------- YouTube links ----------
-   The video streams through YouTube's own embedded player. Browsers won't let the page hear that player,
-   so the chords come from server.py, which hands over the same audio in memory for analysis. */
-const YT_LINK = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/;
-const qs = new URLSearchParams(location.search);
-let API = 'http://localhost:8787';
-try { API = qs.get('api') || localStorage.getItem('chordgrid.api') || API; if (qs.get('api')) localStorage.setItem('chordgrid.api', API); } catch (e) {}
-API = API.replace(/\/+$/, '');
-let ytp = null, ytApiP = null;
-function ytApi() {
-  return ytApiP ||= new Promise((res, rej) => {
-    window.onYouTubeIframeAPIReady = res;
-    const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api';
-    sc.onerror = () => { ytApiP = null; rej(new Error('could not load the YouTube player')); };
-    document.head.append(sc);
-  });
-}
-async function ytCue(id) {
-  await ytApi();
-  $('#vid').hidden = false;
-  if (ytp) { ytp.cueVideoById(id); return; }
-  await new Promise(res => {
-    ytp = new YT.Player('ytp', { videoId: id, playerVars: { origin: location.origin, playsinline: 1, controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
-      events: { onReady: res, onStateChange: ytState } });
-  });
-}
-// Clicking the video itself also plays/pauses it, so follow the player's state rather than assume it.
-function ytState(e) {
-  if (!song || !song.yt) return;
-  if (e.data === YT.PlayerState.PLAYING) playing = true;
-  else if (e.data === YT.PlayerState.PAUSED) playing = false;
-  else if (e.data === YT.PlayerState.ENDED) { playing = false; t = song.dur; }
-  setPlayIcon();
-}
-// getCurrentTime() only ticks a few times a second; fill the gaps so the strip glides.
-let ytLast = -1, ytAt = 0;
-function ytTime() {
-  const v = ytp.getCurrentTime(), now = performance.now();
-  if (v !== ytLast) { ytLast = v; ytAt = now; return v; }
-  return ytp.getPlayerState() === YT.PlayerState.PLAYING ? v + (now - ytAt) / 1000 * ytp.getPlaybackRate() : v;
-}
-const YT_RATES = [0.5, 0.75, 1, 1.25, 1.5];
-const ytRate = r => YT_RATES.reduce((a, b) => Math.abs(b - r) < Math.abs(a - r) ? b : a);
-async function loadLink(link) {
-  const m = YT_LINK.exec(link.trim());
-  if (!m) { toast('That is not a YouTube link.'); return; }
-  const id = m[1];
-  // YouTube refuses to embed into a page with no web address (Error 153), so hop over to the copy server.py serves.
-  if (location.protocol === 'file:') {
-    try { await fetch(`${API}/ping`); } catch (e) { toast(`YouTube won't play in a page opened as a file. Start the helper (python3 server.py), then try again.`); return; }
-    location.href = `${API}/?yt=${encodeURIComponent('https://youtu.be/' + id)}`; return;
-  }
-  pause(); closeEdit(); cancelJob();
-  const my = job = { cancelled: false, ac: new AbortController() };
-  $('#modal').hidden = false; $('#mTitle').textContent = 'Listening'; $('#mInfo').textContent = link.trim(); $('#mBar').style.width = '1%';
-  let file;
-  try {
-    const [r] = await Promise.all([fetch(`${API}/audio?url=${encodeURIComponent('https://youtu.be/' + id)}`, { signal: my.ac.signal }), ytCue(id)]);
-    if (!r.ok) throw new Error(await r.text() || `HTTP ${r.status}`);
-    const blob = await r.blob();
-    file = new File([blob], `${id}.${blob.type === 'audio/webm' ? 'webm' : 'm4a'}`, { type: blob.type || 'audio/mp4' });
-  } catch (e) {
-    if (my.cancelled) return;
-    if (job === my) { $('#modal').hidden = true; job = null; }
-    toast(e instanceof TypeError ? `Can't reach the strung_along helper at ${API}. Start it with: python3 server.py` : `YouTube: ${e.message}`);
-    console.error(e); return;
-  }
-  if (my.cancelled) return;
-  job = null;
-  load(file, { yt: id, name: (ytp.getVideoData && ytp.getVideoData().title) || 'YouTube' });
-}
-/* The YouTube box takes a link (play it) or anything else (search via server.py, pick a result), all without leaving the page. */
-const linkForm = $('#link'), lRes = $('#lRes');
-let searchAc = null;
-const fmtDur = d => d ? `${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')}` : '';
-function closeLink() { linkForm.hidden = true; if (searchAc) searchAc.abort(); }
-function setLinkMode() { $('#lGo').textContent = YT_LINK.test($('#lUrl').value) ? 'Play' : 'Search'; }
-$('#yt').onclick = () => { linkForm.hidden = false; $('#lUrl').select(); $('#lUrl').focus(); setLinkMode(); };
-$('#lCancel').onclick = closeLink;
-$('#lUrl').oninput = setLinkMode;
-linkForm.onclick = e => { if (e.target === linkForm) closeLink(); };
-linkForm.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closeLink(); } };
-linkForm.onsubmit = e => {
-  e.preventDefault();
-  const q = $('#lUrl').value.trim();
-  if (YT_LINK.test(q)) { closeLink(); loadLink(q); } else searchYt(q);
-};
-async function searchYt(q) {
-  if (searchAc) searchAc.abort();
-  const ac = searchAc = new AbortController();
-  $('#lHint').textContent = 'Searching…'; $('#lHint').hidden = false; lRes.hidden = true;
-  try {
-    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, { signal: ac.signal });
-    if (!r.ok) throw new Error(await r.text() || `HTTP ${r.status}`);
-    const list = await r.json();
-    if (ac !== searchAc) return;
-    lRes.replaceChildren(...list.map(v => {
-      const b = mk('button'); b.type = 'button';
-      const img = mk('img'); img.src = `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`; img.alt = ''; img.loading = 'lazy';
-      const txt = mk('div'); txt.append(mk('b', '', v.title), mk('span', '', [v.channel, fmtDur(v.duration)].filter(Boolean).join(' · ')));
-      b.append(img, txt);
-      b.onclick = () => { closeLink(); loadLink('https://youtu.be/' + v.id); };
-      return b;
-    }));
-    lRes.hidden = !list.length; lRes.scrollTop = 0;
-    $('#lHint').hidden = !!list.length; $('#lHint').textContent = 'Nothing found.';
-  } catch (e) {
-    if (ac.signal.aborted) return;
-    $('#lHint').textContent = e instanceof TypeError ? `Searching needs the helper. Start it with: python3 server.py` : `YouTube: ${e.message}`;
-  }
-}
-addEventListener('paste', e => {
-  if (e.target === $('#lUrl')) return;
-  const s = e.clipboardData.getData('text');
-  if (YT_LINK.test(s)) { e.preventDefault(); closeLink(); loadLink(s); }
-});
-
-/* ---------- sample song (synthesised, so the app opens with something in it) ---------- */
-async function makeSample() {
-  const bpm = 100, sb = 60 / bpm, prog = ['Am', 'F', 'C', 'G', 'Am', 'F', 'C', 'E7'], bars = 1 + prog.length * 2, sr = 44100;
-  const dur = bars * 4 * sb + 1.2, oc = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
-  const master = oc.createGain(); master.gain.value = 0.7;
-  const comp = oc.createDynamicsCompressor(); master.connect(comp); comp.connect(oc.destination);
-  const noise = oc.createBuffer(1, sr, sr), nd = noise.getChannelData(0);
-  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-  const hz = m => 440 * 2 ** ((m - 69) / 12);
-  const env = (gn, t0, len, vol) => { gn.gain.setValueAtTime(0, t0); gn.gain.linearRampToValueAtTime(vol, t0 + 0.012); gn.gain.linearRampToValueAtTime(vol * 0.55, t0 + len * 0.8); gn.gain.linearRampToValueAtTime(0, t0 + len); };
-  function note(type, m, t0, len, vol, cut, pan = 0) {
-    const o = oc.createOscillator(), lp = oc.createBiquadFilter(), gn = oc.createGain(), pn = oc.createStereoPanner();
-    o.type = type; o.frequency.value = hz(m); lp.frequency.value = cut; pn.pan.value = pan;
-    env(gn, t0, len, vol); o.connect(lp).connect(gn).connect(pn).connect(master); o.start(t0); o.stop(t0 + len + 0.02);
-  }
-  function hit(t0, hp, len, vol) {
-    const s = oc.createBufferSource(), f = oc.createBiquadFilter(), gn = oc.createGain();
-    s.buffer = noise; f.type = 'highpass'; f.frequency.value = hp;
-    gn.gain.setValueAtTime(vol, t0); gn.gain.exponentialRampToValueAtTime(0.001, t0 + len);
-    s.connect(f).connect(gn).connect(master); s.start(t0, Math.random() * 0.5); s.stop(t0 + len + 0.02);
-  }
-  function kick(t0) {
-    const o = oc.createOscillator(), gn = oc.createGain();
-    o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + 0.12);
-    gn.gain.setValueAtTime(0.9, t0); gn.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
-    o.connect(gn).connect(master); o.start(t0); o.stop(t0 + 0.32);
-  }
-  const near = (pc, lo) => lo + ((pc - lo) % 12 + 12) % 12;
-  for (let b = 0; b < bars; b++) {
-    const t0 = b * 4 * sb;
-    for (let k = 0; k < 4; k++) { if (k % 2 === 0) kick(t0 + k * sb); else hit(t0 + k * sb, 1500, 0.16, 0.35); }
-    for (let k = 0; k < 8; k++) hit(t0 + k * sb / 2, 7000, 0.04, 0.1);
-    if (!b) continue;
-    const { r, q } = parseChord(prog[(b - 1) % prog.length]), iv = QUAL[q].iv;
-    for (const i of iv) note('sawtooth', near(r + i, 55), t0, 4 * sb, 0.05, 1800, (i % 2) - 0.5);
-    note('triangle', near(r, 36), t0, 1.8 * sb, 0.4, 600); note('triangle', near(r, 36), t0 + 2 * sb, 1.8 * sb, 0.35, 600);
-    for (let k = 0; k < 8; k++) note('triangle', near(r + iv[k % iv.length], 64), t0 + k * sb / 2, 0.24, 0.09, 4000, 0.3);
-  }
-  return new File([wav(await oc.startRendering())], 'Sample - Am F C G.wav', { type: 'audio/wav' });
-}
-function wav(ab) {
-  const ch = ab.numberOfChannels, n = ab.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf);
-  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-  w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true); v.setUint32(24, ab.sampleRate, true);
-  v.setUint32(28, ab.sampleRate * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * ch * 2, true);
-  const data = []; for (let c = 0; c < ch; c++) data.push(ab.getChannelData(c));
-  for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) { const s = clamp(data[c][i], -1, 1); v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
-  return new Blob([buf], { type: 'audio/wav' });
-}
 
 /* ---------- chord diagrams ---------- */
 const OPEN = {
@@ -782,27 +598,28 @@ function diagram(v) {
 }
 
 /* ---------- playback ---------- */
-function setPlayIcon() { $('#play').innerHTML = playing ? '||' : '&#9654;'; $('#play').setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+function setPlayIcon() {
+  $('#play').classList.toggle('primary', playing); $('#pause').classList.toggle('primary', !playing && !!song);
+  for (const id of ['#rew', '#play', '#pause']) $(id).disabled = !song;
+}
 function play() {
   if (!song) return;
   if (t >= song.dur - 0.05) t = loop ? song.beats[loop.a] : 0;
   playing = true; setPlayIcon();
-  if (song.yt) { ytp.seekTo(t, true); ytp.setPlaybackRate(rate); ytp.playVideo(); return; }
   audio.currentTime = t; audio.playbackRate = rate;
   audio.play().catch(() => { playing = false; setPlayIcon(); });
 }
-function pause() { audio.pause(); if (ytp && ytp.pauseVideo) ytp.pauseVideo(); playing = false; setPlayIcon(); }
-function seek(s) { if (!song) return; t = clamp(s, 0, song.dur); if (song.yt) ytp.seekTo(t, true); else audio.currentTime = t; }
+function pause() { audio.pause(); playing = false; setPlayIcon(); }
+function seek(s) { if (!song) return; t = clamp(s, 0, song.dur); audio.currentTime = t; }
+// Back to the top of the loop if there is one, else the start of the song. Keeps playing if it was.
+function rewind() { if (song) seek(loop ? song.beats[loop.a] : 0); }
 audio.addEventListener('ended', () => { playing = false; t = song ? song.dur : 0; setPlayIcon(); });
-$('#play').onclick = () => playing ? pause() : play();
-// YouTube only offers a few fixed speeds, so step through those instead of 5% at a time.
-function setRate(r) { rate = clamp(Math.round(r * 20) / 20, 0.5, 1.5); if (song && song.yt) { rate = ytRate(rate); ytp.setPlaybackRate(rate); } else audio.playbackRate = rate; $('#spd').textContent = Math.round(rate * 100) + '%'; }
-function stepRate(d) {
-  if (song && song.yt) setRate(YT_RATES[clamp(YT_RATES.indexOf(rate) + d, 0, YT_RATES.length - 1)]);
-  else setRate(rate + d * 0.05);
-}
-$('#sdn').onclick = () => stepRate(-1);
-$('#sup').onclick = () => stepRate(1);
+$('#rew').onclick = rewind;
+$('#play').onclick = play;
+$('#pause').onclick = pause;
+function setRate(r) { rate = clamp(Math.round(r * 20) / 20, 0.5, 1.5); audio.playbackRate = rate; $('#spd').textContent = Math.round(rate * 100) + '%'; }
+$('#sdn').onclick = () => setRate(rate - 0.05);
+$('#sup').onclick = () => setRate(rate + 0.05);
 
 /* ---------- timeline strip ---------- */
 const tl = $('#tl'), tc = $('#tlc'), tg = tc.getContext('2d');
@@ -878,7 +695,7 @@ function buildGrid() {
   gridIn.replaceChildren(); cellEls = [];
   if (!song) {
     gridIn.style.setProperty('--cols', 1);
-    const em = mk('div', 'empty'); em.append(mk('div', '', 'Drop a song, paste a YouTube link, or search YouTube'), mk('div', '', 'or press Open'));
+    const em = mk('div', 'empty'); em.append(mk('div', '', 'Drop a song here'), mk('div', '', 'or press Open'));
     gridIn.append(em); return;
   }
   bpr = grid.clientWidth >= 640 ? 4 : 2;
@@ -931,18 +748,34 @@ function updateNow(force) {
   if (cellEls[i]) cellEls[i].classList.add('cur');
   const jumped = Math.abs(i - shownCur) > 1;
   shownCur = i;
-  if (!song) { $('#cur').textContent = '--'; $('#cur').className = 'nc'; $('#next').textContent = '--'; $('#nextIn').textContent = ''; $('#curDia').innerHTML = $('#nextDia').innerHTML = ''; return; }
+  if (!song) { $('#cur').textContent = '--'; $('#cur').className = 'nc'; $('#next').textContent = '--'; $('#nextIn').textContent = ''; $('#curDia').innerHTML = ''; $('#queue').replaceChildren(); shownDia = ''; return; }
   const nb = nBeats(); let j = i + 1; while (j < nb && labs[j] === labs[i]) j++;
   $('#cur').textContent = shown(labs[i]); $('#cur').className = labs[i] === 'N' ? 'nc' : '';
   $('#next').textContent = j < nb ? shown(labs[j]) : 'End';
   $('#nextIn').textContent = j < nb ? `in ${j - i}` : '';
-  const dk = `${inst}|${labs[i]}|${j < nb ? labs[j] : ''}`;
-  if (dk !== shownDia || force) {
-    shownDia = dk;
-    const v = view(song.chords[i]), w = j < nb ? view(song.chords[j]) : null;
-    $('#curDia').innerHTML = v ? diagram(v) : ''; $('#nextDia').innerHTML = w ? diagram(w) : '';
+  // Rebuild the diagrams only when the chord changes; between changes just count down the beats.
+  if (labs[i] + '|' + j !== shownDia || force) {
+    shownDia = labs[i] + '|' + j;
+    const v = view(song.chords[i]); $('#curDia').innerHTML = v ? diagram(v) : '';
+    renderQueue(j);
   }
+  [...$('#queue').children].forEach(e => e.lastChild.textContent = `in ${+e.dataset.at - i}`);
   if (playing || jumped || force) followGrid(i);
+}
+// As many upcoming changes as fit across the screen (N.C. stretches skipped).
+function renderQueue(j) {
+  const q = $('#queue'), nb = nBeats(), w = { guitar: 86, ukulele: 74, piano: 135 }[inst], max = Math.max(1, Math.min(8, Math.floor(($('#now').clientWidth - 32 + 6) / (w + 6))));
+  const out = [];
+  while (j < nb && out.length < max) {
+    let k = j + 1; while (k < nb && labs[k] === labs[j]) k++;
+    if (labs[j] !== 'N') {
+      const e = mk('div', 'q' + (inst === 'piano' ? ' piano' : '')); e.dataset.at = j;
+      e.innerHTML = diagram(view(song.chords[j])); e.append(mk('b', '', labs[j]), mk('span'));
+      out.push(e);
+    }
+    j = k;
+  }
+  q.replaceChildren(...out);
 }
 function renderBadges() {
   const b = $('#badges'); b.replaceChildren();
@@ -1059,11 +892,11 @@ function renderAll() {
   $('#title').textContent = song ? song.name : ' ';
   $('#dur').textContent = fmt(song ? song.dur : 0);
   if (song) relabel();
-  buildGrid(); renderTools(); renderBadges(); updateNow(true);
+  buildGrid(); renderTools(); renderBadges(); updateNow(true); setPlayIcon();
 }
 function frame() {
   if (playing && song) {
-    t = song.yt ? ytTime() : audio.currentTime;
+    t = audio.currentTime;
     if (loop && t >= song.beats[loop.b] - 0.02) seek(song.beats[loop.a]);
   }
   $('#nowT').textContent = fmt(t);
@@ -1078,6 +911,7 @@ addEventListener('keydown', e => {
   if (!song || e.ctrlKey || e.metaKey || e.altKey) return;
   const i = beatAt(t), step = e.shiftKey ? 4 : 1;
   if (e.key === ' ') { e.preventDefault(); playing ? pause() : play(); }
+  else if (e.key === 'Home') { e.preventDefault(); rewind(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(song.beats[Math.max(0, (t - song.beats[i] > 0.15 ? i + 1 : i) - step)]); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); seek(song.beats[Math.min(nBeats() - 1, i + step)]); }
   else if (e.key === '[') setView(() => transpose = (transpose + 11 + 6) % 12 - 6);
@@ -1091,11 +925,9 @@ addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Fil
 addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('#drop').hidden = true; } });
 addEventListener('dragover', e => e.preventDefault());
 addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; $('#drop').hidden = true; load(e.dataTransfer.files[0]); });
-addEventListener('resize', () => { sizeStrip(); if (song && (grid.clientWidth >= 640 ? 4 : 2) !== bpr) { buildGrid(); updateNow(true); } });
+addEventListener('resize', () => { sizeStrip(); if (song && (grid.clientWidth >= 640 ? 4 : 2) !== bpr) buildGrid(); if (song) updateNow(true); });
 
 sizeStrip(); renderAll(); requestAnimationFrame(frame);
 document.fonts && document.fonts.load('15px "Departure Mono"');
-if (qs.get('yt')) loadLink(qs.get('yt'));
-makeSample().then(f => { if (!song && !job) load(f); }).catch(e => console.error(e));
 })();
 </script>
