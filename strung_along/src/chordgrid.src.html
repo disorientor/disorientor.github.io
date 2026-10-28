@@ -119,6 +119,9 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 .seg{display:flex;flex-wrap:wrap;gap:4px}
 .seg button{padding:6px 8px;letter-spacing:.04em}
 .seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+select{font:inherit;color:inherit;background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;min-width:0;max-width:100%}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#pStyleDesc{text-transform:none;letter-spacing:0;margin-top:-4px}
 #pKey{font-size:15px}
 .why{min-height:4.4em;line-height:1.5}
 .why b{font-weight:normal;color:var(--accent);font-size:15px;margin-right:8px}
@@ -230,7 +233,8 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <div class="pTop">
       <div id="cof" aria-label="Circle of fifths"></div>
       <div class="pSide">
-        <div class="pRow"><span class="lab">Style</span><div id="pStyle" class="seg"></div></div>
+        <div class="pRow"><span class="lab">Style</span><select id="pStyle" aria-label="Style"></select></div>
+        <div id="pStyleDesc" class="lab"></div>
         <div class="pRow"><span class="lab">Key</span><span id="pKey"></span><span id="pSound" class="lab"></span></div>
         <div id="pWhy" class="why"></div>
         <div class="legend"><span style="--c:var(--c-func)">Functional</span><span style="--c:var(--c-sub)">Substitute</span><span style="--c:var(--c-col)">Colour</span><span style="--c:var(--c-bass)">Bass line</span></div>
@@ -327,6 +331,7 @@ const QUAL = {
   'maj7#11': { iv: [0, 4, 7, 11, 18],     simple: '',     opt: [7] },
   'm9':      { iv: [0, 3, 7, 10, 14],     simple: 'm',    opt: [7] },
   'm11':     { iv: [0, 3, 7, 10, 14, 17], simple: 'm',    opt: [7, 14] },
+  'mMaj7':   { iv: [0, 3, 7, 11],         simple: 'm' },
   '9':       { iv: [0, 4, 7, 10, 14],     simple: '',     opt: [7] },
   '13':      { iv: [0, 4, 7, 10, 14, 21], simple: '',     opt: [7, 14] },
   '7b9':     { iv: [0, 4, 7, 10, 13],     simple: '',     opt: [7] },
@@ -344,7 +349,7 @@ const QUAL = {
   'aug':     { iv: [0, 4, 8],             simple: 'aug' },
 };
 // Not Object.keys: '7', '6', '9'... are integer keys and would sort first.
-const QLIST = ['', 'm', '7', 'm7', 'maj7', '6', 'm6', 'add9', 'madd9', '69', 'maj9', 'maj7#11', 'm9', 'm11', '9', '13', '7b9', '7#9', '7#11', '7b13', '7alt', 'sus2', 'sus4', '7sus4', '9sus4', 'dim', 'dim7', 'm7b5', 'aug'];
+const QLIST = ['', 'm', '7', 'm7', 'maj7', '6', 'm6', 'add9', 'madd9', '69', 'maj9', 'maj7#11', 'm9', 'm11', 'mMaj7', '9', '13', '7b9', '7#9', '7#11', '7b13', '7alt', 'sus2', 'sus4', '7sus4', '9sus4', 'dim', 'dim7', 'm7b5', 'aug'];
 // Detection picks from these first; 9ths, 13ths, #11s and slash basses are added per chord afterwards.
 const DETECT = ['', 'm', '7', 'm7', 'maj7', 'm7b5', 'dim7', 'aug', '7sus4'];
 // The job a chord does, for the progression helper.
@@ -1267,23 +1272,78 @@ function exportText() {
 const MAJ_SC = [0, 2, 4, 5, 7, 9, 11], MIN_SC = [0, 2, 3, 5, 7, 8, 10];
 const MAJ_Q = ['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7b5'], MIN_Q = ['m7', 'm7b5', 'maj7', 'm7', '7', 'maj7', '7'];
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+// Per style: how its chords are coloured (c; a minor tonic falls back to min) and how much it leans on each technique (w; 0 never).
 const STYLES = {
-  jazz:    { name: 'Jazz',        w: { fifth: 3, home: 2, iiV: 2.6, trit: 2.8, sec: 2.4, backdoor: 2, pdim: 2, deceptive: 1.6, coltrane: 1.4, borrow: 1.6, step: 1, third: 1.2, mediant: .6, sidestep: .8, plane: .4, walk: .4, cliche: .6, pedal: .4, sus: 1, upper: .8, mod: .6, half: 1.4 } },
-  fusion:  { name: 'Fusion',      w: { fifth: 1.2, home: 1, iiV: 1, trit: 1.6, sec: 1, backdoor: 1.2, pdim: .6, deceptive: 1, coltrane: 1.6, borrow: 2, step: 1.4, third: 1, mediant: 2.8, sidestep: 2.6, plane: 2.6, walk: .3, cliche: .4, pedal: 1.4, sus: 2.6, upper: 2.4, mod: 1.8, half: 1.6 } },
-  steely:  { name: 'Steely Dan',  w: { fifth: 2, home: 1.4, iiV: 1.4, trit: 1.2, sec: 1.6, backdoor: 2.2, pdim: 1, deceptive: 1.6, coltrane: .4, borrow: 2.6, step: 1.6, third: 1.4, mediant: 1.4, sidestep: 1.2, plane: 1.2, walk: 1, cliche: 1.2, pedal: 1.6, sus: 2.2, upper: 3, mod: 1, half: 1 } },
-  baroque: { name: 'Baroque pop', w: { fifth: 2.6, home: 2, iiV: 1, trit: .3, sec: 2.6, backdoor: 1, pdim: 2.2, deceptive: 2.2, coltrane: 0, borrow: 2.4, step: 2, third: 2.4, mediant: 1, sidestep: .2, plane: .2, walk: 3, cliche: 2.8, pedal: 1.4, sus: .8, upper: .8, mod: 1.2, half: .3 } },
-  beach:   { name: 'Beach Boys',  w: { fifth: 2, home: 1.6, iiV: 1.2, trit: .4, sec: 2.2, backdoor: 1.6, pdim: 1.4, deceptive: 1.6, coltrane: .2, borrow: 2.2, step: 2, third: 1.8, mediant: 2.4, sidestep: .4, plane: .6, walk: 2, cliche: 1.6, pedal: 3, sus: 1, upper: 2.6, mod: 2.6, half: .4 } },
+  jazz: { name: 'Jazz Harmony', desc: 'ii–V–I, substitutions, extensions, turnarounds',
+    c: { tonic: '69', maj: 'maj7', min: 'm9', dom: '13', domMin: '7b9', upper: 'maj7' },
+    w: { fifth: 3, home: 2, iiV: 2.6, trit: 2.8, sec: 2.4, backdoor: 2, pdim: 2, deceptive: 1.6, coltrane: 1.4, borrow: 1.6, step: 1, third: 1.2, mediant: .6, sidestep: .8, plane: .4, walk: .4, cliche: .6, pedal: .4, sus: 1, upper: .8, mod: .6, half: 1.4 } },
+  fusion: { name: 'Jazz Fusion', desc: 'Modal interchange, quartal harmony, altered dominants',
+    c: { tonic: 'maj7#11', maj: 'maj9', min: 'm11', dom: '13', domMin: '7#9', upper: 'maj7' },
+    w: { fifth: 1.2, home: 1, iiV: 1, trit: 1.6, sec: 1, backdoor: 1.2, pdim: .6, deceptive: 1, coltrane: 1.6, borrow: 2, step: 1.4, third: 1, mediant: 2.8, sidestep: 2.6, plane: 2.6, walk: .3, cliche: .4, pedal: 1.4, sus: 2.6, upper: 2.4, mod: 1.8, half: 1.6 } },
+  steely: { name: 'Chromatic Jazz-Pop', desc: 'Mu chords, slash chords, chromatic bass motion, elaborate voice leading',
+    c: { tonic: 'add9', maj: 'add9', min: 'm9', dom: '13', domMin: '7#9', upper: '' },
+    w: { fifth: 2, home: 1.4, iiV: 1.4, trit: 1.2, sec: 1.6, backdoor: 2.2, pdim: 1, deceptive: 1.6, coltrane: .4, borrow: 2.6, step: 1.6, third: 1.4, mediant: 1.4, sidestep: 1.2, plane: 1.2, walk: 1, cliche: 1.2, pedal: 1.6, sus: 2.2, upper: 3, mod: 1, half: 1 } },
+  baroque: { name: 'Baroque Pop', desc: 'Walking bass lines, line clichés, secondary dominants',
+    c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7', upper: '' },
+    w: { fifth: 2.6, home: 2, iiV: 1, trit: .3, sec: 2.6, backdoor: 1, pdim: 2.2, deceptive: 2.2, coltrane: 0, borrow: 2.4, step: 2, third: 2.4, mediant: 1, sidestep: .2, plane: .2, walk: 3, cliche: 2.8, pedal: 1.4, sus: .8, upper: .8, mod: 1.2, half: .3 } },
+  beach: { name: 'Chromatic Vocal Pop', desc: 'Modal mixture, chromatic mediants, unexpected modulations, descending bass lines',
+    c: { tonic: 'add9', maj: 'maj7', min: 'm7', dom: '7', domMin: '7', upper: '' },
+    w: { fifth: 2, home: 1.6, iiV: 1.2, trit: .4, sec: 2.2, backdoor: 1.6, pdim: 1.4, deceptive: 1.6, coltrane: .2, borrow: 2.2, step: 2, third: 1.8, mediant: 2.4, sidestep: .4, plane: .6, walk: 2, cliche: 1.6, pedal: 3, sus: 1, upper: 2.6, mod: 2.6, half: .4 } },
+  romantic: { name: 'Romantic Harmony', desc: 'Chromatic mediants, diminished passing chords, expressive modulation',
+    c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7b9', upper: '' },
+    w: { fifth: 2.4, home: 1.6, iiV: .6, trit: .3, sec: 2.4, backdoor: .8, pdim: 2.8, deceptive: 2.4, coltrane: 0, borrow: 2.4, step: 1.6, third: 2, mediant: 3, sidestep: .4, plane: .3, walk: 1.6, cliche: 1.6, pedal: 1.6, sus: .6, upper: .4, mod: 2.8, half: .3 } },
+  impress: { name: 'Impressionist Harmony', desc: 'Planing, whole-tone harmony, unresolved extensions, parallel chord motion',
+    c: { tonic: 'maj9', maj: 'maj7', min: 'm9', dom: '9', domMin: '7#11', upper: 'maj7' },
+    w: { fifth: .6, home: 1, iiV: .2, trit: 1, sec: .4, backdoor: .6, pdim: .4, deceptive: .8, coltrane: .4, borrow: 2, step: 1.6, third: 1.6, mediant: 2.4, sidestep: 2, plane: 3, walk: .4, cliche: .4, pedal: 2.6, sus: 2, upper: 1.6, mod: 1.4, half: 1.6 } },
+  neosoul: { name: 'Neo-Soul', desc: 'Minor 9ths, major 9ths, altered dominants, chromatic approach chords',
+    c: { tonic: 'maj9', maj: 'maj9', min: 'm9', dom: '9', domMin: '7#9', upper: 'maj7' },
+    w: { fifth: 2, home: 1.2, iiV: 2, trit: 2, sec: 1.4, backdoor: 2.2, pdim: 1, deceptive: 1.4, coltrane: .2, borrow: 2, step: 1.4, third: 1.4, mediant: 1, sidestep: 1.4, plane: 1.2, walk: .8, cliche: .6, pedal: 1, sus: 2, upper: 2.2, mod: .6, half: 2.6 } },
+  gospel: { name: 'Gospel Harmony', desc: 'Secondary dominants, diminished passing chords, plagal cadences',
+    c: { tonic: '69', maj: 'maj7', min: 'm7', dom: '13', domMin: '7#9', upper: '' },
+    w: { fifth: 2.8, home: 2.6, iiV: 2, trit: 1.6, sec: 3, backdoor: 2.6, pdim: 3, deceptive: 1.6, coltrane: .2, borrow: 2.2, step: 1.6, third: 1, mediant: .6, sidestep: .6, plane: .6, walk: 2.2, cliche: 1, pedal: 1.2, sus: 2, upper: 2.4, mod: 1.6, half: 1.4 } },
+  bossa: { name: 'Brazilian / Bossa Nova', desc: 'Chromatic bass movement, extended tertian harmony, secondary ii–V progressions',
+    c: { tonic: 'maj7', maj: 'maj7', min: 'm7', dom: '9', domMin: '7b9', tonicMin: 'm6', upper: 'maj7' },
+    w: { fifth: 2.6, home: 1.6, iiV: 3, trit: 2, sec: 2.6, backdoor: 1.4, pdim: 1.6, deceptive: 1.4, coltrane: .3, borrow: 1.6, step: 1.2, third: 1.2, mediant: .6, sidestep: .8, plane: .4, walk: 2.4, cliche: 2.4, pedal: .8, sus: 1, upper: .8, mod: 1, half: 2 } },
+  modal: { name: 'Modal Jazz', desc: 'Dorian, Lydian, Mixolydian, prolonged modal centres',
+    c: { tonic: 'maj7#11', maj: 'maj7#11', min: 'm11', dom: '9sus4', domMin: '7sus4', upper: 'maj7' },
+    w: { fifth: .4, home: 2.4, iiV: .3, trit: .6, sec: .3, backdoor: .8, pdim: .2, deceptive: .4, coltrane: .2, borrow: 2.4, step: 2.6, third: 1.4, mediant: 1, sidestep: 2.4, plane: 2.6, walk: .3, cliche: .3, pedal: 3, sus: 2.8, upper: 2, mod: 2, half: 1 } },
+  postbop: { name: 'Post-Bop Harmony', desc: 'Coltrane changes, altered dominants, nonstandard resolutions',
+    c: { tonic: 'maj7#11', maj: 'maj7', min: 'm9', dom: '7alt', domMin: '7alt', upper: 'maj7' },
+    w: { fifth: 1.4, home: .8, iiV: 1.6, trit: 2.6, sec: 1.4, backdoor: 2, pdim: .8, deceptive: 1.6, coltrane: 3, borrow: 1.6, step: 1, third: 1.4, mediant: 2.6, sidestep: 2.2, plane: 1.4, walk: .4, cliche: .4, pedal: 1, sus: 1.8, upper: 1.6, mod: 2.4, half: 2.4 } },
+  minimal: { name: 'Minimalist Harmony', desc: 'Cyclic patterns, gradual harmonic change, additive processes',
+    c: { tonic: 'add9', maj: 'add9', min: 'madd9', dom: '7sus4', domMin: '7sus4', upper: '' },
+    w: { fifth: 1, home: 2.4, iiV: .2, trit: .2, sec: .4, backdoor: .4, pdim: .2, deceptive: 1, coltrane: 0, borrow: 1.4, step: 3, third: 2.8, mediant: 1, sidestep: .6, plane: 1.4, walk: 1, cliche: 1.6, pedal: 3, sus: 2, upper: 1.2, mod: .6, half: .2 } },
+  noir: { name: 'Film Noir Harmony', desc: 'Minor-major sevenths, diminished chords, chromatic descending lines',
+    c: { tonic: 'maj7', maj: 'maj7', min: 'm7', dom: '7b9', domMin: '7b9', tonicMin: 'mMaj7', upper: '' },
+    w: { fifth: 2, home: 1.4, iiV: 1.4, trit: 1.6, sec: 1.4, backdoor: .8, pdim: 2.6, deceptive: 2, coltrane: .3, borrow: 2.4, step: 1.4, third: 1.4, mediant: 1.8, sidestep: 1.8, plane: .8, walk: 1.4, cliche: 3, pedal: 1.6, sus: .4, upper: .6, mod: 1.4, half: 2.2 } },
+  psych: { name: 'Psychedelic Pop', desc: 'Modal mixture, nonfunctional shifts, chromatic mediants',
+    c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7', upper: '' },
+    w: { fifth: 1.2, home: 1.4, iiV: .3, trit: .3, sec: 1.4, backdoor: 1.6, pdim: .6, deceptive: 1.6, coltrane: .2, borrow: 3, step: 2, third: 1.6, mediant: 2.8, sidestep: 2.4, plane: 2, walk: 1.4, cliche: 2, pedal: 2.4, sus: 1.4, upper: 1, mod: 2, half: .8 } },
+  prog: { name: 'Progressive Rock', desc: 'Modal changes, asymmetric phrases, unexpected tonal centres',
+    c: { tonic: 'add9', maj: 'add9', min: 'm', dom: '7sus4', domMin: '7', upper: '' },
+    w: { fifth: 1, home: 1, iiV: .4, trit: .6, sec: 1, backdoor: 1.4, pdim: .6, deceptive: 2, coltrane: .6, borrow: 2.6, step: 2, third: 1.4, mediant: 2.4, sidestep: 2.4, plane: 2, walk: 1.2, cliche: 1, pedal: 2.2, sus: 2.6, upper: 2, mod: 3, half: 1 } },
+  renaiss: { name: 'Renaissance Polyphony', desc: 'Modal cadences, contrapuntal movement, consonance-directed voice leading',
+    c: { tonic: '', maj: '', min: 'm', dom: '', domMin: '', upper: '' },
+    w: { fifth: 2.6, home: 2, iiV: .2, trit: 0, sec: .8, backdoor: 1, pdim: 0, deceptive: 2, coltrane: 0, borrow: 2, step: 3, third: 2.6, mediant: 1.2, sidestep: 0, plane: .2, walk: 1.6, cliche: .8, pedal: 1, sus: 1.6, upper: 0, mod: .6, half: 0 } },
+  laterom: { name: 'Late Romantic Chromaticism', desc: 'Enharmonic modulation, augmented-sixth chords, ambiguous tonality',
+    c: { tonic: '', maj: '', min: 'm', dom: '7', domMin: '7b9', upper: '' },
+    w: { fifth: 1.8, home: 1.2, iiV: .6, trit: 2, sec: 2, backdoor: 1, pdim: 2.6, deceptive: 2.4, coltrane: .8, borrow: 2.6, step: 1.2, third: 1.6, mediant: 3, sidestep: 2, plane: .8, walk: 1.4, cliche: 2, pedal: 1.6, sus: .4, upper: .4, mod: 3, half: 2.2 } },
+  posttonal: { name: 'Post-Tonal Harmony', desc: 'Symmetrical pitch collections, pitch-class sets, nonfunctional progressions',
+    c: { tonic: 'maj7#11', maj: 'maj7#11', min: 'm11', dom: '7#11', domMin: '7alt', upper: 'maj7' },
+    w: { fifth: .3, home: .4, iiV: .1, trit: 1.6, sec: .2, backdoor: .4, pdim: 1.6, deceptive: 1, coltrane: 2.4, borrow: 1.6, step: 1, third: 1.4, mediant: 2.6, sidestep: 3, plane: 2.8, walk: .4, cliche: .6, pedal: 1.4, sus: 1.4, upper: 2, mod: 2.6, half: 2.6 } },
+  citypop: { name: 'Japanese City Pop', desc: 'Jazz-derived pop turnarounds, major sevenths, secondary dominants',
+    c: { tonic: 'maj9', maj: 'maj7', min: 'm7', dom: '13', domMin: '7#9', upper: '' },
+    w: { fifth: 2.6, home: 1.6, iiV: 2.8, trit: 1.4, sec: 2.6, backdoor: 2.2, pdim: 1.4, deceptive: 1.8, coltrane: .2, borrow: 2, step: 1.4, third: 1.4, mediant: 1, sidestep: 1, plane: .8, walk: 1.2, cliche: 1, pedal: 1, sus: 2.2, upper: 3, mod: 2, half: 1.2 } },
+  flamenco: { name: 'Flamenco / Andalusian', desc: 'Phrygian harmony, Andalusian cadence, altered dominant colouring',
+    c: { tonic: '', maj: '', min: 'm', dom: '7b9', domMin: '7b9', upper: '' },
+    w: { fifth: 1.4, home: 2.6, iiV: .3, trit: .6, sec: 1.2, backdoor: .4, pdim: .4, deceptive: 1, coltrane: 0, borrow: 2.6, step: 3, third: .8, mediant: .8, sidestep: 1.4, plane: 1.4, walk: 2.4, cliche: 2, pedal: 1.6, sus: .6, upper: .4, mod: .8, half: 2.8 } },
+  mathrock: { name: 'Math Rock / Midwest Emo', desc: 'Open voicings, add9 chords, suspended harmony, nonstandard bass movement',
+    c: { tonic: 'add9', maj: 'maj9', min: 'madd9', dom: '9sus4', domMin: '7sus4', upper: '' },
+    w: { fifth: 1, home: 1.2, iiV: .4, trit: .4, sec: .8, backdoor: 1.2, pdim: .4, deceptive: 1.8, coltrane: .2, borrow: 2, step: 2.4, third: 2, mediant: 2, sidestep: 2, plane: 2.2, walk: 1.4, cliche: 1, pedal: 2.6, sus: 3, upper: 2.8, mod: 1.6, half: 1 } },
+  rnb: { name: 'R&B', desc: 'Lush seventh/ninth chords, smooth voice leading, extended turnarounds',
+    c: { tonic: 'maj9', maj: 'maj9', min: 'm9', dom: '13', domMin: '7b9', upper: 'maj7' },
+    w: { fifth: 2.6, home: 1.4, iiV: 2.6, trit: 1.8, sec: 1.6, backdoor: 2.4, pdim: 1.2, deceptive: 1.6, coltrane: .2, borrow: 2, step: 1.6, third: 1.6, mediant: 1, sidestep: 1, plane: 1, walk: 1, cliche: .8, pedal: 1, sus: 2.4, upper: 2.6, mod: 1, half: 2 } },
 };
-const COLOR = {
-  tonic:  { jazz: '69',   fusion: 'maj7#11', steely: 'add9', baroque: '',     beach: 'add9' },
-  maj:    { jazz: 'maj7', fusion: 'maj9',    steely: 'add9', baroque: '',     beach: 'maj7' },
-  min:    { jazz: 'm9',   fusion: 'm11',     steely: 'm9',   baroque: 'm',    beach: 'm7' },
-  dom:    { jazz: '13',   fusion: '13',      steely: '13',   baroque: '7',    beach: '7' },
-  domMin: { jazz: '7b9',  fusion: '7#9',     steely: '7#9',  baroque: '7',    beach: '7' },
-  hdim:   { jazz: 'm7b5', fusion: 'm7b5',    steely: 'm7b5', baroque: 'm7b5', beach: 'm7b5' },
-  dim:    { jazz: 'dim7', fusion: 'dim7',    steely: 'dim7', baroque: 'dim7', beach: 'dim7' },
-};
-const UPPER = { jazz: 'maj7', fusion: 'maj7', steely: '', baroque: '', beach: '' };
 // [label, kind]; kind picks the colour (functional, substitute, colour, bass line).
 const TECH = {
   start: ['Start', 'song'], song: ['From song', 'song'],
@@ -1300,7 +1360,7 @@ const spellIn = (k, p, up) => { p = mod12(p); return scale(k).includes(p) ? spel
 const nameIn = (ch, k) => spellIn(k, ch.r, FAM(ch.q) === 'dim') + ch.q + (ch.b != null && ch.b !== ch.r ? '/' + spellIn(k, ch.b, mod12(ch.r - ch.b) === 1) : '');
 const scale = k => (k.minor ? MIN_SC : MAJ_SC).map(i => (k.pc + i) % 12);
 function dia(k, pc) { const d = scale(k).indexOf(mod12(pc)); return d < 0 ? null : { d, fam: FAM((k.minor ? MIN_Q : MAJ_Q)[d]) }; }
-const colour = (r, fam, tonic) => ({ r: mod12(r), q: COLOR[tonic && fam === 'maj' ? 'tonic' : fam][pStyle] });
+const colour = (r, fam, tonic) => { const c = STYLES[pStyle].c; return { r: mod12(r), q: fam === 'hdim' ? 'm7b5' : fam === 'dim' ? 'dim7' : tonic ? c[fam === 'maj' ? 'tonic' : 'tonicMin'] ?? c[fam] : c[fam] }; };
 function diaChord(k, pc) {
   const d = dia(k, pc); if (!d) return null;
   let fam = d.fam; if (fam === 'dom' && dia(k, pc + 5)?.fam === 'min') fam = 'domMin';
@@ -1363,7 +1423,7 @@ function suggest(node) {
     for (const [o, w] of [[2, 'up'], [10, 'down']]) add('plane', { r: mod12(X.r + o), q: X.q }, `Planing: move the same shape a whole step ${w}, ignoring the key.`);
   }
   add('sus', { r: mod12(X.r + 5), q: '9sus4' }, `Sus dominant: ${N(X.r + 5)}9sus4 hints at a V without the pull. It floats.`);
-  { const T = X.r + 5; add('upper', { r: mod12(T + 10), q: UPPER[pStyle], b: mod12(T) }, `${N(T + 10)} over ${N(T)}: a chord over a bass a whole step up. Sounds like ${N(T)}11, a soft sus dominant.`); }
+  { const T = X.r + 5; add('upper', { r: mod12(T + 10), q: STYLES[pStyle].c.upper, b: mod12(T) }, `${N(T + 10)} over ${N(T)}: a chord over a bass a whole step up. Sounds like ${N(T)}11, a soft sus dominant.`); }
   if (maj && X.r !== I) add('upper', { r: mod12(I + 2), q: '', b: I }, `Lydian slash: ${N(I + 2)} over ${N(I)}. A bright, floating home chord.`);
   const bass = X.b ?? X.r;
   { const d = [1, 2].map(o => mod12(bass - o)).find(pc => S.includes(pc)), c = d != null && holder(k, d);
@@ -1400,6 +1460,7 @@ function suggest(node) {
 /* ---------- paths view ---------- */
 const pName = n => nameIn(n.ch, n.key);
 function pushP() { pHist.push(JSON.stringify({ line, sel })); if (pHist.length > 80) pHist.shift(); }
+$('#pStyle').onchange = e => { pStyle = e.target.value; renderPaths(); };
 function pUndo() { if (!pHist.length) return; stopSeq(); ({ line, sel } = JSON.parse(pHist.pop())); renderPaths(); }
 function setMode(m) {
   stopSeq(); mode = m;
@@ -1489,10 +1550,8 @@ const treeIn = $('#treeIn'), wires = $('#wires');
 let cols = [];
 function renderPaths() {
   $('#undo').disabled = !pHist.length;
-  $('#pStyle').replaceChildren(...Object.entries(STYLES).map(([id, st]) => {
-    const b = mk('button', id === pStyle ? 'on' : '', st.name);
-    b.onclick = () => { pStyle = id; renderPaths(); }; return b;
-  }));
+  if (!$('#pStyle').options.length) $('#pStyle').append(...Object.entries(STYLES).map(([id, st]) => new Option(st.name, id)));
+  $('#pStyle').value = pStyle; $('#pStyleDesc').textContent = STYLES[pStyle].desc;
   $('#pBpm').textContent = pBpm + ' bpm';
   soundState();
   for (const id of ['#pPlay', '#pTrim', '#pDel', '#pClear']) $(id).disabled = !line.length;
