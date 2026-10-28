@@ -1449,13 +1449,20 @@ function suggest(node) {
       [step(V, `The V of the minor ii-V-i: next stop ${nameIn(home, k)}.`), step(home, 'The i the ii-V was heading for.')]);
   }
 
-  if (fx === 'min' || fx === 'hdim') { const g = dch(X.r + 10);
-    add('trit', colour(X.r + 11, 'dom'), `Tritone sub: ${N(X.r + 11)}7 instead of ${N(X.r + 5)}7. Same tritone inside, and the bass slides down by half steps to ${N(X.r + 10)}.`, k,
+  if (fx === 'min' || fx === 'hdim') { const g = dch(X.r + 10), sub = colour(X.r + 11, 'dom');
+    add('trit', sub, `Tritone sub: ${nameIn(sub, k)} instead of ${N(X.r + 5)}7. Same tritone inside, and the bass slides down by half steps to ${N(X.r + 10)}.`, k,
       [step(g, `Where the tritone sub was heading: down a half step to ${nameIn(g, k)}.`)]); }
   if (fx === 'dom' || fx === 'aug') {
-    add('trit', colour(X.r + 6, 'dom'), `Tritone sub: ${N(X.r + 6)}7 shares this chord's 3rd and 7th, so it still resolves to ${N(T)}, by a half step.`, k,
-      [step(tCh, `Where the tritone sub was heading: down a half step to ${nT}.`)]);
-    add('half', dch(X.r + 11), `Resolve down a half step to ${N(X.r + 11)}: ${nX} works as the tritone sub of ${N(X.r + 6)}7.`);
+    // The swap only shares a tritone when this chord has one: a sus has no 3rd, a plain aug no 7th.
+    const xt = tones(X), lacks = [[4, '3rd'], [10, '7th']].filter(([i]) => !xt.has(mod12(X.r + i))).map(([, n]) => n).join(' or ');
+    const sub = colour(X.r + 6, 'dom'), nS = nameIn(sub, k);
+    add('trit', sub, lacks
+      ? `Chromatic approach: ${nS} falls a half step to ${N(T)}. Not a true tritone sub here: ${nX} has no ${lacks}, so there is no shared tritone.`
+      : `Tritone sub: ${nS} shares ${nX}'s 3rd and 7th, so it still resolves to ${N(T)}, by a half step.`, k,
+      [step(tCh, `Where the ${lacks ? 'chromatic approach' : 'tritone sub'} was heading: down a half step to ${nT}.`)]);
+    add('half', dch(X.r + 11), lacks
+      ? `Slide down a half step to ${N(X.r + 11)}. A chromatic move: without its ${lacks}, ${nX} can't stand in for ${N(X.r + 6)}7.`
+      : `Resolve down a half step to ${N(X.r + 11)}: ${nX} works as the tritone sub of ${N(X.r + 6)}7.`);
     // V-vi in a major target, V-VI in a minor one: the chord a third below the target, sharing two of its notes.
     const dc = tMin ? dch(T + 8) : dch(T + 9, 'min');
     add('deceptive', dc, `Deceptive cadence: ${nX} promises ${nT} and lands on ${nameIn(dc, k)} instead, the ${tMin ? 'VI' : 'vi'} of ${N(T)}.`);
