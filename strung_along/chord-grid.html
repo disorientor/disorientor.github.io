@@ -190,6 +190,7 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <div id="app">
   <header class="pad">
     <div class="mark">STRUNG<i>_</i>ALONG</div>
+    <button id="inst" title="Switch the chord diagrams: guitar, ukulele, piano">Guitar</button>
     <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
     <button id="open" class="primary">Open</button>
   </header>
@@ -1173,7 +1174,6 @@ function renderTools() {
     T('+1', 'Key', () => setView(() => transpose = (transpose + 13 + 6) % 12 - 6)),
     T('|' + capo, 'Capo', () => setView(() => capo = (capo + 1) % 8), capo > 0),
     T(simple ? 'C' : 'C7', 'Simple', () => setView(() => simple = !simple), simple),
-    T({ guitar: '#=', ukulele: '#-', piano: '[|]' }[inst], inst === 'ukulele' ? 'Uke' : inst, () => { inst = { guitar: 'ukulele', ukulele: 'piano', piano: 'guitar' }[inst]; renderTools(); updateNow(true); }),
     T(loop ? `[${loop.n}]` : '[ ]', 'Loop', cycleLoop, !!loop),
     T('Aa', 'Edit', () => openEdit(beatAt(t))),
     T('o>', 'Paths', () => { fromSong(); setMode('paths'); }),
@@ -1249,6 +1249,12 @@ function undo() {
 }
 const undoAny = () => mode === 'paths' ? pUndo() : mode === 'arrange' ? aUndo() : undo();
 $('#undo').onclick = () => undoAny();
+// The instrument lives up top so it works on every tab, song or not.
+$('#inst').onclick = () => {
+  inst = { guitar: 'ukulele', ukulele: 'piano', piano: 'guitar' }[inst];
+  $('#inst').textContent = { guitar: 'Guitar', ukulele: 'Uke', piano: 'Piano' }[inst];
+  updateNow(true); if (mode === 'paths') renderPaths(); else if (mode === 'arrange') renderArr();
+};
 
 /* ---------- export ---------- */
 function exportText() {
