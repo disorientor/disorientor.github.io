@@ -1,13 +1,14 @@
-"""Audio helper for Chord Grid: lets the page analyse the chords of a YouTube video it is streaming.
+"""Audio helper for strung_along: lets the page analyse the chords of a YouTube video it is streaming.
 
 The page plays the video through YouTube's own embedded player, but browsers won't let a page
 hear that player's audio, so for analysis it asks this server:  GET /audio?url=<youtube link>
 -> the audio bytes, held in memory only. Nothing is saved to disk.
+It also searches YouTube for the page, so you never have to leave it:  GET /search?q=<words> -> JSON list.
 
 Run:   python3 server.py            (listens on http://localhost:8787 — open that to use the page locally)
 Needs: yt-dlp on PATH or importable (e.g. `python3 -m pip install -U yt-dlp`).
 """
-import os, pathlib, re, shutil, subprocess, sys, urllib.parse
+import json, os, pathlib, re, shutil, subprocess, sys, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get('PORT', 8787))
@@ -40,6 +41,21 @@ def fetch(vid):
     return r.stdout
 
 
+def search(q):
+    """Top YouTube results for q, as [{id, title, channel, duration}]. Flat listing: no video is opened, so it's quick."""
+    cmd = YTDLP + ['--flat-playlist', '-J', '--quiet', f'ytsearch12:{q}']
+    r = subprocess.run(cmd, capture_output=True, timeout=60)
+    if r.returncode:
+        err = r.stderr.decode(errors='replace').strip().splitlines()
+        raise RuntimeError(err[-1] if err else 'search failed')
+    out = []
+    for e in json.loads(r.stdout).get('entries') or []:
+        if not e or len(e.get('id') or '') != 11: continue
+        out.append({'id': e['id'], 'title': e.get('title') or '', 'channel': e.get('channel') or e.get('uploader') or '',
+                    'duration': e.get('duration')})
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     def cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -67,6 +83,18 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(body)))
             self.end_headers(); return self.wfile.write(body)
+        if u.path == '/search':
+            q = urllib.parse.parse_qs(u.query).get('q', [''])[0].strip()[:200]
+            if not q: return self.fail(400, 'Nothing to search for.')
+            try:
+                body = json.dumps(search(q)).encode()
+            except subprocess.TimeoutExpired:
+                return self.fail(504, 'YouTube took too long to answer.')
+            except Exception as e:
+                return self.fail(502, str(e))
+            self.send_response(200); self.cors()
+            self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body)))
+            self.end_headers(); return self.wfile.write(body)
         if u.path != '/audio': return self.fail(404, 'not found')
         link = urllib.parse.parse_qs(u.query).get('url', [''])[0]
         m = ID.search(link)
@@ -88,5 +116,5 @@ class Handler(BaseHTTPRequestHandler):
 
 YTDLP = ytdlp()
 if __name__ == '__main__':
-    print(f'Chord Grid audio helper on http://localhost:{PORT}')
+    print(f'strung_along audio helper on http://localhost:{PORT}')
     ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()

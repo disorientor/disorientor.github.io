@@ -1,4 +1,4 @@
-<title>Chord Grid</title>
+<title>strung_along</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 @font-face{font-family:"Departure Mono";src:url(data:font/otf;base64,__FONT__) format("opentype");font-display:block}
@@ -25,6 +25,7 @@ button.primary{background:var(--accent);color:var(--accent-ink);border-color:var
 header{display:flex;align-items:center;gap:8px;padding-block:10px}
 .mark{flex:1;font-size:22px;letter-spacing:.02em;white-space:nowrap}
 .mark i{font-style:normal;color:var(--accent)}
+@media (max-width:420px){header{gap:6px}header button{padding-inline:8px;letter-spacing:.04em}.mark{font-size:clamp(15px,4.6vw,22px)}}
 #now{display:flex;align-items:center;gap:16px;padding-block:4px 6px;min-height:150px}
 .nowL{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 #title{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em}
@@ -97,15 +98,22 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 #link input{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;width:100%;-webkit-user-select:text;user-select:text}
 #link input:focus{outline:2px solid var(--accent);outline-offset:1px}
 #link .hint{color:var(--muted)}
+#link .card{max-height:calc(100dvh - 32px)}
+#lRes{display:flex;flex-direction:column;gap:2px;overflow-y:auto;min-height:0;margin-inline:-8px}
+#lRes button{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;text-align:left;text-transform:none;letter-spacing:0;background:transparent;border:0;padding:6px 8px}
+#lRes button:hover,#lRes button:focus-visible{background:var(--raised)}
+#lRes img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;background:var(--raised)}
+#lRes b{font-weight:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+#lRes span{display:block;color:var(--muted);font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
 </style>
 
 <div id="app">
   <header class="pad">
-    <div class="mark">CHORD<i>/</i>GRID</div>
+    <div class="mark">STRUNG<i>_</i>ALONG</div>
     <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
-    <button id="yt" title="Play a YouTube link (or just paste one)">Link</button>
+    <button id="yt" title="Search YouTube or play a link (or just paste one)">YouTube</button>
     <button id="open" class="primary">Open</button>
   </header>
 
@@ -160,10 +168,11 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 
 <form id="link" hidden>
   <div class="card">
-    <h2>YouTube link</h2>
-    <input id="lUrl" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=..." autocomplete="off" spellcheck="false" required>
-    <div class="hint">Tip: you can paste a link anywhere on the page.</div>
-    <div class="row"><button type="button" id="lCancel">Cancel</button><button class="primary">Play</button></div>
+    <h2>YouTube</h2>
+    <input id="lUrl" type="search" enterkeyhint="search" placeholder="Search for a song, or paste a link" autocomplete="off" spellcheck="false" required>
+    <div id="lRes" hidden></div>
+    <div class="hint" id="lHint">Tip: you can paste a link anywhere on the page.</div>
+    <div class="row"><button type="button" id="lCancel">Cancel</button><button class="primary" id="lGo">Search</button></div>
   </div>
 </form>
 
@@ -598,21 +607,57 @@ async function loadLink(link) {
   } catch (e) {
     if (my.cancelled) return;
     if (job === my) { $('#modal').hidden = true; job = null; }
-    toast(e instanceof TypeError ? `Can't reach the chord helper at ${API}. Start it with: python3 server.py` : `YouTube: ${e.message}`);
+    toast(e instanceof TypeError ? `Can't reach the strung_along helper at ${API}. Start it with: python3 server.py` : `YouTube: ${e.message}`);
     console.error(e); return;
   }
   if (my.cancelled) return;
   job = null;
   load(file, { yt: id, name: (ytp.getVideoData && ytp.getVideoData().title) || 'YouTube' });
 }
-const linkForm = $('#link');
-$('#yt').onclick = () => { linkForm.hidden = false; $('#lUrl').value = ''; $('#lUrl').focus(); };
-$('#lCancel').onclick = () => linkForm.hidden = true;
-linkForm.onsubmit = e => { e.preventDefault(); linkForm.hidden = true; loadLink($('#lUrl').value); };
+/* The YouTube box takes a link (play it) or anything else (search via server.py, pick a result), all without leaving the page. */
+const linkForm = $('#link'), lRes = $('#lRes');
+let searchAc = null;
+const fmtDur = d => d ? `${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')}` : '';
+function closeLink() { linkForm.hidden = true; if (searchAc) searchAc.abort(); }
+function setLinkMode() { $('#lGo').textContent = YT_LINK.test($('#lUrl').value) ? 'Play' : 'Search'; }
+$('#yt').onclick = () => { linkForm.hidden = false; $('#lUrl').select(); $('#lUrl').focus(); setLinkMode(); };
+$('#lCancel').onclick = closeLink;
+$('#lUrl').oninput = setLinkMode;
+linkForm.onclick = e => { if (e.target === linkForm) closeLink(); };
+linkForm.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closeLink(); } };
+linkForm.onsubmit = e => {
+  e.preventDefault();
+  const q = $('#lUrl').value.trim();
+  if (YT_LINK.test(q)) { closeLink(); loadLink(q); } else searchYt(q);
+};
+async function searchYt(q) {
+  if (searchAc) searchAc.abort();
+  const ac = searchAc = new AbortController();
+  $('#lHint').textContent = 'Searching…'; $('#lHint').hidden = false; lRes.hidden = true;
+  try {
+    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`, { signal: ac.signal });
+    if (!r.ok) throw new Error(await r.text() || `HTTP ${r.status}`);
+    const list = await r.json();
+    if (ac !== searchAc) return;
+    lRes.replaceChildren(...list.map(v => {
+      const b = mk('button'); b.type = 'button';
+      const img = mk('img'); img.src = `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`; img.alt = ''; img.loading = 'lazy';
+      const txt = mk('div'); txt.append(mk('b', '', v.title), mk('span', '', [v.channel, fmtDur(v.duration)].filter(Boolean).join(' · ')));
+      b.append(img, txt);
+      b.onclick = () => { closeLink(); loadLink('https://youtu.be/' + v.id); };
+      return b;
+    }));
+    lRes.hidden = !list.length; lRes.scrollTop = 0;
+    $('#lHint').hidden = !!list.length; $('#lHint').textContent = 'Nothing found.';
+  } catch (e) {
+    if (ac.signal.aborted) return;
+    $('#lHint').textContent = e instanceof TypeError ? `Searching needs the helper. Start it with: python3 server.py` : `YouTube: ${e.message}`;
+  }
+}
 addEventListener('paste', e => {
   if (e.target === $('#lUrl')) return;
   const s = e.clipboardData.getData('text');
-  if (YT_LINK.test(s)) { e.preventDefault(); linkForm.hidden = true; loadLink(s); }
+  if (YT_LINK.test(s)) { e.preventDefault(); closeLink(); loadLink(s); }
 });
 
 /* ---------- sample song (synthesised, so the app opens with something in it) ---------- */
@@ -833,7 +878,7 @@ function buildGrid() {
   gridIn.replaceChildren(); cellEls = [];
   if (!song) {
     gridIn.style.setProperty('--cols', 1);
-    const em = mk('div', 'empty'); em.append(mk('div', '', 'Drop a song or paste a YouTube link'), mk('div', '', 'or press Open'));
+    const em = mk('div', 'empty'); em.append(mk('div', '', 'Drop a song, paste a YouTube link, or search YouTube'), mk('div', '', 'or press Open'));
     gridIn.append(em); return;
   }
   bpr = grid.clientWidth >= 640 ? 4 : 2;
