@@ -145,6 +145,10 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px}
 #line .q.sel{box-shadow:0 0 0 2px var(--fg)}
 #line .q.playing{box-shadow:0 0 0 2px var(--accent)}
 #line .q.playing b{color:var(--accent)}
+#pPos{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#pPos .q{cursor:pointer}
+#pPos .q.home{border-color:var(--muted)}
+#pPosName{font-size:15px}
 input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;-webkit-user-select:text;user-select:text}
 input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #pName{flex:1 1 140px}
@@ -185,9 +189,9 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <button id="open" class="primary">Open</button>
   </header>
   <nav id="tabs" class="pad seg" aria-label="View">
-    <button data-m="song" class="on" title="The loaded song">Song</button>
     <button data-m="paths" title="Write progressions with the circle of fifths">Paths</button>
     <button data-m="arrange" title="Put saved sections in order">Arrange</button>
+    <button data-m="song" class="on" title="The loaded song">Song</button>
   </nav>
 
   <section id="now" class="pad song" aria-live="polite">
@@ -245,6 +249,10 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     </div>
     <div id="tree"><div id="treeIn"><svg id="wires" aria-hidden="true"></svg></div></div>
     <div id="line" aria-label="Your line"></div>
+    <div id="pPosWrap">
+      <div class="pRow"><span class="lab">Positions</span><span id="pPosName"></span><span class="lab" style="opacity:.7">tap to hear</span></div>
+      <div id="pPos" aria-label="Positions on the neck"></div>
+    </div>
   </section>
 
   <section id="arr" class="pad" hidden>
@@ -758,19 +766,25 @@ function ukeShape(r, q, b) {
 // Search a four-fret window at every position for a playable voicing: every needed tone, nothing outside the chord,
 // at most four fingers (a barre counts as one). Guitar keeps the bass (root, or the slash note) lowest; the uke is
 // re-entrant so any order goes, and chords bigger than four notes drop the root, then the 5th.
-function findShape(tun, r, q, b, lowBass) {
+// loose 1 lets a four-plus-note chord drop its 5th and sound on three strings; loose 2 also drops the root (rootless).
+// Asked for one window (p0 === p1, the positions view), the shape must sit there: lowest fret on p, no open strings from the 3rd fret up.
+function findShape(tun, r, q, b, lowBass, p0 = 0, p1 = 9, loose = 0) {
   const Q = QUAL[q], n = tun.length, ok = tones({ r, q, b }), opt = new Set((Q.opt || []).map(i => mod12(r + i))), bass = b ?? r;
   let need = [...ok].filter(p => !opt.has(p));
   if (!lowBass && need.length > n) need = need.filter(p => p !== r);
   if (need.length > n) need = need.filter(p => p !== mod12(r + 7));
+  if (loose && need.length > 3) need = need.filter(p => p !== mod12(r + 7));
+  if (loose > 1 && need.length > 3) need = need.filter(p => p !== r);
   need = need.slice(-n);
-  const fr = new Array(n); let best = null, bs = Infinity;
+  const rootLow = lowBass && loose < 2;
+  const fr = new Array(n), one = p0 === p1; let best = null, bs = Infinity, win = p0;
   function score() {
     const on = []; for (let s = 0; s < n; s++) if (fr[s] >= 0) on.push(s);
-    if (on.length < (lowBass ? 4 : n)) return;
+    if (on.length < (lowBass ? 4 : n) - (loose ? 1 : 0)) return;
     const pcs = new Set(on.map(s => (tun[s] + fr[s]) % 12));
     if (need.some(p => !pcs.has(p))) return;
     const fretted = on.filter(s => fr[s] > 0), fs = fretted.map(s => fr[s]), lo = Math.min(...fs), hi = Math.max(...fs);
+    if (one && win > 0 && (lo !== win || (win >= 3 && fretted.length < on.length))) return;
     let barre = 0;
     if (fretted.length > 4) {
       const at = fretted.filter(s => fr[s] === lo); if (at.length < 2 || fretted.length - at.length + 1 > 4) return;
@@ -779,16 +793,17 @@ function findShape(tun, r, q, b, lowBass) {
     }
     let inner = 0; for (let s = on[0]; s <= on[on.length - 1]; s++) if (fr[s] < 0) inner++;
     const sc = (fs.length ? (hi - lo) * 1.5 + lo * 0.5 : 0) + inner * 2.5 + (n - on.length) * (lowBass ? 0.7 : 3) + (lowBass ? on[0] * 0.6 : 0) + (ok.size - pcs.size) * 0.3;
-    if (sc < bs) { bs = sc; best = { frets: fr.slice(), barre }; }
+    if (sc < bs) { bs = sc; best = { frets: fr.slice(), barre, sc }; }
   }
-  for (let p = 0; p <= 9; p++) {
+  for (let p = p0; p <= p1; p++) {
+    win = p;
     const choices = [-1, 0]; for (let f = Math.max(1, p); f <= p + 3; f++) choices.push(f);
     (function go(s, low) {
       if (s === n) return score();
       for (const f of choices) {
         if (f < 0) { fr[s] = -1; go(s + 1, low); continue; }
         const pc = (tun[s] + f) % 12;
-        if (!ok.has(pc) || (lowBass && !low && pc !== bass)) continue;
+        if (!ok.has(pc) || (rootLow && !low && pc !== bass)) continue;
         fr[s] = f; go(s + 1, true);
       }
     })(0, false);
@@ -820,6 +835,31 @@ function pianoSVG(r, q) {
   for (let o = 0; o < 2; o++) for (const n in BL) s += `<rect x="${1 + (o * 7 + BL[n]) * kw - 4.75}" y="1" width="9" height="42" rx="1.5" fill="${on.has(o * 12 + +n) ? 'var(--accent)' : 'var(--bg)'}" stroke="var(--bg)"/>`;
   return s + '</svg>';
 }
+// Five ways to play it up the neck (the CAGED idea, found by search so it works for any chord): the best voicing in
+// each four-fret window, then the five best that sit at least two frets apart, low to high. The usual shape is always one.
+const posCache = new Map();
+const lowFret = sh => { const f = sh.frets.filter(f => f > 0); return f.length ? Math.min(...f) : 0; };
+function positions(v) {
+  if (inst === 'piano') return [];
+  const uke = inst === 'ukulele', k = `${inst}|${v.r}|${v.q}|${v.b}`;
+  if (posCache.has(k)) return posCache.get(k);
+  const tun = uke ? UKE : GTR, home = uke ? ukeShape(v.r, v.q, v.b) : guitarShape(v.r, v.q, v.b), seen = new Set(), cand = [];
+  const add = (sh, pri, tier) => { if (!sh || seen.has(sh.frets.join())) return; seen.add(sh.frets.join()); cand.push({ ...sh, at: lowFret(sh), pri, tier }); };
+  add(home, true, 0);
+  // Full voicings first; the looser ones only fill the gaps a big chord leaves.
+  for (let tier = 0; tier < 3; tier++) for (let p = 0; p <= 14; p++) add(findShape(tun, v.r, v.q, v.b, !uke, p, p, tier), false, tier);
+  cand.sort((a, b) => b.pri - a.pri || a.tier - b.tier || a.sc - b.sc);
+  const out = [];
+  for (const gap of [2, 1]) for (const c of cand) { if (out.length < 5 && !out.includes(c) && out.every(o => Math.abs(o.at - c.at) >= gap)) out.push(c); }
+  // Say what a voicing leaves out.
+  for (const c of out) {
+    const pcs = new Set(c.frets.map((f, s) => f < 0 ? -1 : (tun[s] + f) % 12));
+    c.note = c.pri ? 'usual' : !pcs.has(v.r) ? 'rootless' : tones(v).has(mod12(v.r + 7)) && !pcs.has(mod12(v.r + 7)) ? 'no 5th' : '';
+  }
+  out.sort((a, b) => a.at - b.at);
+  posCache.set(k, out); return out;
+}
+const ordinal = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
 const diaCache = new Map();
 function diagram(v) {
   const k = `${inst}|${v.r}|${v.q}|${v.b}`;
@@ -892,9 +932,10 @@ function voicing(v) {
   if (!sh) return QUAL[v.q].iv.map(i => 48 + v.r + i);
   return sh.frets.map((f, s) => f < 0 ? -1 : tun[s] + f).filter(m => m >= 0);
 }
-async function playChord(v) {
+async function playChord(v, sh) {
   const ctx = decodeCtx(); ctx.resume();
-  const notes = voicing(v); await Promise.all(notes.map(noteBuf));
+  const tun = inst === 'ukulele' ? UKE : GTR, notes = sh ? sh.frets.map((f, s) => f < 0 ? -1 : tun[s] + f).filter(m => m >= 0) : voicing(v);
+  await Promise.all(notes.map(noteBuf));
   strum(notes, ctx.currentTime + 0.02, { vel: 0.85, len: 2.4 });
 }
 // A bar per chord, strummed bossa-ish: full down-strum on 1, lighter strokes on the and-of-2, 3 and the and-of-4.
@@ -1486,6 +1527,15 @@ function renderPaths() {
     e.innerHTML = diagram(n.ch); e.append(mk('b', '', pName(n)), mk('span', '', TECH[n.tech][0]));
     e.onclick = () => { sel = i; stopSeq(); playChord(n.ch); renderPaths(); showWhy(n); };
     return e;
+  }));
+  // Every position of the selected chord.
+  const ps = cur ? positions(cur.ch) : [];
+  $('#pPosWrap').hidden = !ps.length;
+  $('#pPosName').textContent = cur ? pName(cur) : '';
+  $('#pPos').replaceChildren(...ps.map(sh => {
+    const e = mk('div', 'q' + (sh.pri ? ' home' : '')); e.innerHTML = fretSVG(sh);
+    e.append(mk('b', '', sh.at ? ordinal(sh.at) + ' fret' : 'Open'), mk('span', '', sh.note));
+    e.onclick = () => { stopSeq(); playChord(cur.ch, sh); }; return e;
   }));
   $('#cof').innerHTML = cofSVG(k, cur && cur.ch, cur ? (cols[sel + 1] ? cols[sel + 1].items : suggest(cur)) : []);
   showWhy(cur);
