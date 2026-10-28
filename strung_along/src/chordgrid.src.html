@@ -554,7 +554,7 @@ async function ytCue(id) {
   $('#vid').hidden = false;
   if (ytp) { ytp.cueVideoById(id); return; }
   await new Promise(res => {
-    ytp = new YT.Player('ytp', { videoId: id, playerVars: { playsinline: 1, controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
+    ytp = new YT.Player('ytp', { videoId: id, playerVars: { origin: location.origin, playsinline: 1, controls: 0, disablekb: 1, rel: 0, iv_load_policy: 3 },
       events: { onReady: res, onStateChange: ytState } });
   });
 }
@@ -579,6 +579,11 @@ async function loadLink(link) {
   const m = YT_LINK.exec(link.trim());
   if (!m) { toast('That is not a YouTube link.'); return; }
   const id = m[1];
+  // YouTube refuses to embed into a page with no web address (Error 153), so hop over to the copy server.py serves.
+  if (location.protocol === 'file:') {
+    try { await fetch(`${API}/ping`); } catch (e) { toast(`YouTube won't play in a page opened as a file. Start the helper (python3 server.py), then try again.`); return; }
+    location.href = `${API}/?yt=${encodeURIComponent('https://youtu.be/' + id)}`; return;
+  }
   pause(); closeEdit();
   const my = job = { cancelled: false, ac: new AbortController() };
   $('#modal').hidden = false; $('#mTitle').textContent = 'Listening'; $('#mInfo').textContent = link.trim(); $('#mBar').style.width = '1%';

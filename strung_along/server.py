@@ -4,14 +4,15 @@ The page plays the video through YouTube's own embedded player, but browsers won
 hear that player's audio, so for analysis it asks this server:  GET /audio?url=<youtube link>
 -> the audio bytes, held in memory only. Nothing is saved to disk.
 
-Run:   python3 server.py            (listens on http://localhost:8787)
+Run:   python3 server.py            (listens on http://localhost:8787 — open that to use the page locally)
 Needs: yt-dlp on PATH or importable (e.g. `python3 -m pip install -U yt-dlp`).
 """
-import os, re, shutil, subprocess, sys, urllib.parse
+import os, pathlib, re, shutil, subprocess, sys, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get('PORT', 8787))
 MAX_SECONDS = 20 * 60
+PAGE = pathlib.Path(__file__).with_name('chord-grid.html')
 ID = re.compile(r'(?:youtu\.be/|youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|embed/|live/)|music\.youtube\.com/watch\?(?:.*&)?v=)([\w-]{11})')
 
 
@@ -60,6 +61,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == '/ping': return self.fail(200, 'ok')
+        # The page itself, so it has a real web address: YouTube won't embed into a file:// page.
+        if u.path in ('/', '/chord-grid.html'):
+            body = PAGE.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8'); self.send_header('Content-Length', str(len(body)))
+            self.end_headers(); return self.wfile.write(body)
         if u.path != '/audio': return self.fail(404, 'not found')
         link = urllib.parse.parse_qs(u.query).get('url', [''])[0]
         m = ID.search(link)
