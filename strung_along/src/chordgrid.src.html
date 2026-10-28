@@ -151,6 +151,8 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #pPos{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 #pPos .q{cursor:pointer}
 #pPos .q.home{border-color:var(--muted)}
+#pPos .q.on{box-shadow:0 0 0 2px var(--accent)}
+#pPos .q.on b{color:var(--accent)}
 #pPosName{font-size:15px}
 input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;-webkit-user-select:text;user-select:text}
 input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -254,7 +256,7 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     <div id="tree"><div id="treeIn"><svg id="wires" aria-hidden="true"></svg></div></div>
     <div id="line" aria-label="Your line"></div>
     <div id="pPosWrap">
-      <div class="pRow"><span class="lab">Positions</span><span id="pPosName"></span><span class="lab" style="opacity:.7">tap to hear</span></div>
+      <div class="pRow"><span class="lab">Positions</span><span id="pPosName"></span><span class="lab" style="opacity:.7">tap to use</span></div>
       <div id="pPos" aria-label="Positions on the neck"></div>
     </div>
   </section>
@@ -865,11 +867,13 @@ function positions(v) {
   posCache.set(k, out); return out;
 }
 const ordinal = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+// The voicing nearest a fret, from the positions above; null means the usual shape.
+const near = (v, pos) => { if (pos == null) return null; const ps = positions(v); return ps.length ? ps.reduce((a, b) => Math.abs(b.at - pos) < Math.abs(a.at - pos) ? b : a) : null; };
 const diaCache = new Map();
-function diagram(v) {
-  const k = `${inst}|${v.r}|${v.q}|${v.b}`;
+function diagram(v, pos) {
+  const k = `${inst}|${v.r}|${v.q}|${v.b}|${pos}`;
   if (!diaCache.has(k)) {
-    const shape = inst === 'guitar' ? guitarShape(v.r, v.q, v.b) : inst === 'ukulele' ? ukeShape(v.r, v.q, v.b) : null;
+    const shape = near(v, pos) || (inst === 'guitar' ? guitarShape(v.r, v.q, v.b) : inst === 'ukulele' ? ukeShape(v.r, v.q, v.b) : null);
     diaCache.set(k, inst === 'piano' ? pianoSVG(v.r, v.q) : shape ? fretSVG(shape) : '');
   }
   return diaCache.get(k);
@@ -932,8 +936,8 @@ function hush() {
   voices.clear();
 }
 // MIDI notes of the voicing the diagram shows, low string first (piano mode borrows the guitar voicing).
-function voicing(v) {
-  const uke = inst === 'ukulele', sh = uke ? ukeShape(v.r, v.q, v.b) : guitarShape(v.r, v.q, v.b), tun = uke ? UKE : GTR;
+function voicing(v, pos) {
+  const uke = inst === 'ukulele', sh = near(v, pos) || (uke ? ukeShape(v.r, v.q, v.b) : guitarShape(v.r, v.q, v.b)), tun = uke ? UKE : GTR;
   if (!sh) return QUAL[v.q].iv.map(i => 48 + v.r + i);
   return sh.frets.map((f, s) => f < 0 ? -1 : tun[s] + f).filter(m => m >= 0);
 }
@@ -943,14 +947,14 @@ async function playChord(v, sh) {
   await Promise.all(notes.map(noteBuf));
   strum(notes, ctx.currentTime + 0.02, { vel: 0.85, len: 2.4 });
 }
-// A bar per chord, strummed bossa-ish: full down-strum on 1, lighter strokes on the and-of-2, 3 and the and-of-4.
+// A bar per node ({ ch, pos }), strummed bossa-ish: full down-strum on 1, lighter strokes on the and-of-2, 3 and the and-of-4.
 let seq = null;
 async function playSeq(chs, onStep) {
   stopSeq();
   const ctx = decodeCtx(); ctx.resume();
   const my = seq = { timers: [], onStep };
   onStep(-2);
-  const vs = chs.map(voicing);
+  const vs = chs.map(n => voicing(n.ch, n.pos));
   await Promise.all(vs.flat().map(noteBuf));
   if (seq !== my) return;
   const beat = 60 / pBpm, t0 = ctx.currentTime + 0.08, at = s => (s - ctx.currentTime) * 1000;
@@ -1352,7 +1356,8 @@ const TECH = {
   borrow: ['Borrowed', 'col'], mediant: ['Mediant', 'col'], sidestep: ['Side-step', 'col'], plane: ['Planing', 'col'], sus: ['Sus V', 'col'], mod: ['Key change', 'col'],
   walk: ['Bass walk', 'bass'], cliche: ['Line cliche', 'bass'], pedal: ['Pedal', 'bass'], upper: ['Slash', 'bass'],
 };
-let mode = 'song', pStyle = 'jazz', pBpm = 84, line = [], sel = 0, pHist = [];
+// pPos: the fret of the position last picked; new chords take their voicing nearest it.
+let mode = 'song', pStyle = 'jazz', pBpm = 84, line = [], sel = 0, pHist = [], pPos = null;
 const spell = k => flatKey(k.pc, k.minor) ? FLAT : SHARP;
 const keyName = k => `${spell(k)[k.pc]} ${k.minor ? 'minor' : 'major'}`;
 // In-key notes follow the key's spelling; chromatic ones are flats (Bb7, Ab), except where they lead upward: diminished chords, a bass under its chord.
@@ -1490,16 +1495,16 @@ function startAt(ring, i, quiet) {
   const p = (i * 7) % 12, key = ring === 1 ? { pc: (p + 9) % 12, minor: true } : { pc: p, minor: false };
   const ch = ring === 0 ? colour(p, 'maj', true) : ring === 1 ? colour(p + 9, 'min') : colour(p + 11, 'hdim');
   if (line.length) pushP();
-  stopSeq(); editing = null; line = [{ ch, tech: 'start', why: `Starting on ${nameIn(ch, key)} in ${keyName(key)}. Pick where to go next.`, key }]; sel = 0;
-  if (!quiet) playChord(ch);
+  stopSeq(); editing = null; line = [{ ch, tech: 'start', why: `Starting on ${nameIn(ch, key)} in ${keyName(key)}. Pick where to go next.`, key, pos: near(ch, pPos)?.at }]; sel = 0;
+  if (!quiet) playChord(ch, near(ch, line[0].pos));
 }
 function choose(k, o) {
   stopSeq();
   if (!(line[k] && sameCh(line[k].ch, o.ch) && line[k].tech === o.tech)) {
-    pushP(); const n = { ch: o.ch, tech: o.tech, why: o.why, key: o.key };
+    pushP(); const n = { ch: o.ch, tech: o.tech, why: o.why, key: o.key, pos: near(o.ch, pPos)?.at };
     if (k < line.length) line[k] = n; else line.push(n);
   }
-  sel = k; playChord(o.ch); renderPaths(); showWhy(line[k]);
+  sel = k; playChord(o.ch, near(o.ch, line[k].pos)); renderPaths(); showWhy(line[k]);
   const col = treeIn.querySelectorAll('.col')[k + 1] || treeIn.querySelectorAll('.col')[k];
   if (col) col.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
@@ -1583,18 +1588,18 @@ function renderPaths() {
   $('#line').replaceChildren(...line.map((n, i) => {
     const e = mk('div', 'q' + (inst === 'piano' ? ' piano' : '') + (i === sel ? ' sel' : ''));
     e.style.setProperty('--c', `var(--c-${TECH[n.tech][1]})`);
-    e.innerHTML = diagram(n.ch); e.append(mk('b', '', pName(n)), mk('span', '', TECH[n.tech][0]));
-    e.onclick = () => { sel = i; stopSeq(); playChord(n.ch); renderPaths(); showWhy(n); };
+    e.innerHTML = diagram(n.ch, n.pos); e.append(mk('b', '', pName(n)), mk('span', '', TECH[n.tech][0]));
+    e.onclick = () => { sel = i; if (n.pos != null) pPos = n.pos; stopSeq(); playChord(n.ch, near(n.ch, n.pos)); renderPaths(); showWhy(n); };
     return e;
   }));
-  // Every position of the selected chord.
-  const ps = cur ? positions(cur.ch) : [];
+  // Every position of the selected chord. Picking one swaps this chord's voicing; chords added after start near it.
+  const ps = cur ? positions(cur.ch) : [], at = cur && near(cur.ch, cur.pos);
   $('#pPosWrap').hidden = !ps.length;
   $('#pPosName').textContent = cur ? pName(cur) : '';
   $('#pPos').replaceChildren(...ps.map(sh => {
-    const e = mk('div', 'q' + (sh.pri ? ' home' : '')); e.innerHTML = fretSVG(sh);
+    const e = mk('div', 'q' + (sh.pri ? ' home' : '') + ((at ? at === sh : sh.pri) ? ' on' : '')); e.innerHTML = fretSVG(sh);
     e.append(mk('b', '', sh.at ? ordinal(sh.at) + ' fret' : 'Open'), mk('span', '', sh.note));
-    e.onclick = () => { stopSeq(); playChord(cur.ch, sh); }; return e;
+    e.onclick = () => { stopSeq(); if (cur.pos !== sh.at) { pushP(); cur.pos = sh.at; } pPos = sh.at; playChord(cur.ch, sh); renderPaths(); }; return e;
   }));
   $('#cof').innerHTML = cofSVG(k, cur && cur.ch, cur ? (cols[sel + 1] ? cols[sel + 1].items : suggest(cur)) : []);
   showWhy(cur);
@@ -1626,12 +1631,12 @@ const chosenEl = c => cols[c] && cols[c].els.find(e => e.classList.contains('on'
 // Play from the start of the line down to any node, chosen or not.
 function playTo(c, o, el) {
   const lineEls = $('#line').children;
-  playSeq([...line.slice(0, c).map(n => n.ch), o.ch], lit([...line.slice(0, c).map((_, i) => [chosenEl(i), lineEls[i]]), [el, sameCh(o.ch, line[c]?.ch ?? {}) ? lineEls[c] : null]]));
+  playSeq([...line.slice(0, c), { ch: o.ch, pos: line[c] && sameCh(o.ch, line[c].ch) ? line[c].pos : pPos }], lit([...line.slice(0, c).map((_, i) => [chosenEl(i), lineEls[i]]), [el, sameCh(o.ch, line[c]?.ch ?? {}) ? lineEls[c] : null]]));
 }
 $('#pPlay').onclick = () => {
   if (seq) { stopSeq(); return; }
   const lineEls = $('#line').children;
-  playSeq(line.map(n => n.ch), lit(line.map((_, i) => [chosenEl(i), lineEls[i]])));
+  playSeq(line, lit(line.map((_, i) => [chosenEl(i), lineEls[i]])));
 };
 // One tempo for Paths and Arrange.
 function nudgeBpm(d) { pBpm = clamp(pBpm + d, 40, 200); $('#pBpm').textContent = $('#aBpm').textContent = pBpm + ' bpm'; aInfo(); }
@@ -1731,7 +1736,7 @@ function delSection(id) {
 // Play blocks from..to (exclusive), lighting each block and, zoomed in, each bar.
 function playArr(from, to = arr.length) {
   const chs = [], at = [];
-  for (let b = from; b < to; b++) secOf(arr[b]).chords.forEach((n, k) => { chs.push(n.ch); at.push([b, k]); });
+  for (let b = from; b < to; b++) secOf(arr[b]).chords.forEach((n, k) => { chs.push(n); at.push([b, k]); });
   if (!chs.length) return;
   playSeq(chs, i => {
     document.querySelectorAll('#aTrack .playing').forEach(e => e.classList.remove('playing'));
@@ -1783,7 +1788,7 @@ arrEl.addEventListener('pointerup', e => {
   const d = adrag; if (!d || e.pointerId !== d.pid) return;
   adrag = null;
   if (d.on) { land(d); drop(d); }
-  else if (d.lib) { stopSeq(); playSeq(secOf(d.id).chords.map(n => n.ch), () => {}); }
+  else if (d.lib) { stopSeq(); playSeq(secOf(d.id).chords, () => {}); }
   else { aSel = d.from; renderArr(); playArr(d.from, d.from + 1); }
 });
 arrEl.addEventListener('pointercancel', () => { if (adrag && adrag.on) land(adrag); adrag = null; });
@@ -1850,7 +1855,7 @@ function exportMidi() {
   for (const id of arr) {
     const s = secOf(id); ev.push({ t: bar * 4 * PPQ, o: 0, b: meta(6, text(s.name)) });
     for (const n of s.chords) {
-      const ns = voicing(n.ch), top = ns.slice(1), b0 = bar * 4;
+      const ns = voicing(n.ch, n.pos), top = ns.slice(1), b0 = bar * 4;
       ev.push({ t: b0 * PPQ, o: 0, b: meta(1, text(nameIn(n.ch, n.key))) });
       stroke(ns, b0, 1.5, 104); stroke(top, b0 + 1.5, 0.5, 48, true); stroke(top, b0 + 2, 1.5, 70); stroke(top, b0 + 3.5, 0.5, 48, true);
       bar++;
