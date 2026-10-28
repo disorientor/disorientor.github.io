@@ -176,12 +176,28 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .blk .bars{display:flex;gap:2px}
 .blk .bars i{flex:1 1 0;min-width:0;font-style:normal;padding:4px 3px;background:var(--bg);border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .blk .bars i.playing{background:var(--accent);color:var(--accent-ink)}
+.blk .bars i.rest{background:transparent}
+.blk em{font-style:normal;color:var(--muted);margin-left:6px;font-size:11px}
 .blk.sel{box-shadow:0 0 0 2px var(--fg)}
 .blk.playing{box-shadow:0 0 0 2px var(--accent)}
 .blk.lift{opacity:.3}
 .ghost{position:fixed;z-index:80;margin:0;pointer-events:none;opacity:.92;transform:rotate(-2deg);box-shadow:0 10px 24px rgba(0,0,0,.5)}
 .caret{position:absolute;width:3px;margin-left:-1.5px;border-radius:2px;background:var(--accent);pointer-events:none}
 #aName{flex:1 1 120px;max-width:220px}
+/* Timing lane for the selected section: a ruler of bar numbers over a beat grid, chords as clips you slide along it. */
+#aEd{display:flex;flex-direction:column;gap:8px}
+#aStrumDesc{text-transform:none;letter-spacing:0}
+#aLane{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel);scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#aLaneIn{position:relative;height:76px}
+#aLaneIn .ruler{position:absolute;left:0;right:0;top:0;height:18px;border-bottom:1px solid var(--line)}
+#aLaneIn .ruler span{position:absolute;top:2px;padding-left:4px;color:var(--muted);border-left:1px solid var(--muted);height:15px;line-height:13px}
+#aLaneIn .beats{position:absolute;left:0;right:0;top:18px;bottom:0;
+  background:repeating-linear-gradient(90deg,var(--muted) 0 1px,transparent 1px var(--bar)),repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px var(--beat)),repeating-linear-gradient(90deg,color-mix(in srgb,var(--line) 45%,transparent) 0 1px,transparent 1px var(--e8))}
+.clip{position:absolute;top:26px;height:42px;display:flex;align-items:center;padding:0 8px;border-radius:6px;background:var(--clip);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab;touch-action:none;outline:none}
+.clip:focus-visible,.clip.drag{box-shadow:0 0 0 2px var(--accent)}
+.clip.drag{cursor:grabbing;z-index:2}
+.clip.playing{background:var(--accent);color:var(--accent-ink)}
+#aPos{min-height:1.4em}
 #pBpm,#aBpm{width:7ch}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
@@ -278,6 +294,16 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
       <button id="aRep" title="Play this section again right after">Repeat</button>
       <button id="aSplit" title="Turn this copy into its own section you can change separately">Make separate</button>
       <button id="aRm">Remove</button>
+    </div>
+    <div id="aEd" hidden>
+      <div class="pRow">
+        <span class="lab">Time</span><div id="aSig" class="seg" aria-label="Time signature"></div>
+        <span class="lab">Strum</span><select id="aStrum" aria-label="Strum pattern"></select>
+        <span class="lab">Grid</span><div id="aGrid" class="seg" aria-label="Snap to"><button data-g="q" title="Snap to beats">1/4</button><button data-g="e" title="Snap to eighths">1/8</button></div>
+      </div>
+      <div id="aStrumDesc" class="lab"></div>
+      <div id="aLane"><div id="aLaneIn"></div></div>
+      <div id="aPos" class="lab">Drag a chord to move it. It stops next to its neighbours.</div>
     </div>
   </section>
 
@@ -947,27 +973,77 @@ async function playChord(v, sh) {
   await Promise.all(notes.map(noteBuf));
   strum(notes, ctx.currentTime + 0.02, { vel: 0.85, len: 2.4 });
 }
-// A bar per node ({ ch, pos }), strummed bossa-ish: full down-strum on 1, lighter strokes on the and-of-2, 3 and the and-of-4.
+/* Meters and strum patterns. Time is counted in eighths; tempo counts quarters, so an eighth is the same length in every meter.
+   n: eighths per bar, beat: eighths per beat (a dotted quarter in 6/8). A pattern is one bar of strokes, repeated:
+   [eighth, up, velocity, strings ('all', 'top' drops the bass note, 'bass' is the bass note alone), max length in eighths]. */
+const SIG = { '3/4': { n: 6, beat: 2 }, '4/4': { n: 8, beat: 2 }, '5/4': { n: 10, beat: 2 }, '6/8': { n: 6, beat: 3 } };
+const ST = (name, desc, ...st) => ({ name, desc, st: st.map(([e, u = 0, v = 0.6, s = 'top', l]) => ({ e, u, v, s, l })) });
+const STRUMS = {
+  '4/4': {
+    bossa: ST('Bossa', 'Full down-strum on 1, lighter strokes on the and-of-2, 3 and the and-of-4.', [0, 0, 0.95, 'all'], [3, 1, 0.4], [4, 0, 0.6], [7, 1, 0.4]),
+    quarters: ST('Quarters', 'A down-strum on every beat, leaning on the 1.', [0, 0, 0.95, 'all'], [2, 0, 0.6, 'all'], [4, 0, 0.75, 'all'], [6, 0, 0.6, 'all']),
+    pop: ST('Pop', 'D, DU, UDU: the campfire pattern. Beat 3 is skipped on the way down.', [0, 0, 0.95, 'all'], [2, 0, 0.65], [3, 1, 0.4], [5, 1, 0.4], [6, 0, 0.65], [7, 1, 0.4]),
+    ballad: ST('Ballad', 'One strum on the 1, left to ring for the bar.', [0, 0, 0.9, 'all']),
+    reggae: ST('Offbeat', 'Short chops on the ands, downbeats left empty. Reggae and ska.', [1, 0, 0.6, 'top', 0.5], [3, 0, 0.6, 'top', 0.5], [5, 0, 0.6, 'top', 0.5], [7, 0, 0.6, 'top', 0.5]),
+  },
+  '3/4': {
+    waltz: ST('Waltz', 'Bass note on 1, then two strums: oom-pah-pah.', [0, 0, 0.9, 'bass'], [2, 0, 0.6], [4, 0, 0.6]),
+    ddu: ST('D DU DU', 'Down on 1, then down-ups through beats 2 and 3.', [0, 0, 0.95, 'all'], [2, 0, 0.65], [3, 1, 0.4], [4, 0, 0.65], [5, 1, 0.4]),
+    ring: ST('Let ring', 'One strum on the 1, left to ring for the bar.', [0, 0, 0.9, 'all']),
+  },
+  '5/4': {
+    split: ST('3 + 2', 'Heavy strums on 1 and 4 so the bar falls into three and two, like Take Five.', [0, 0, 0.95, 'all'], [2, 0, 0.55], [4, 0, 0.55], [6, 0, 0.85, 'all'], [8, 0, 0.55]),
+    quarters: ST('Quarters', 'A down-strum on every beat, leaning on the 1.', [0, 0, 0.95, 'all'], [2, 0, 0.6, 'all'], [4, 0, 0.7, 'all'], [6, 0, 0.6, 'all'], [8, 0, 0.6, 'all']),
+    ring: ST('Let ring', 'One strum on the 1, left to ring for the bar.', [0, 0, 0.9, 'all']),
+  },
+  '6/8': {
+    rolling: ST('Rolling', 'Every eighth, D U D D U D, leaning on 1 and 4.', [0, 0, 0.95, 'all'], [1, 1, 0.35], [2, 0, 0.55], [3, 0, 0.8, 'all'], [4, 1, 0.35], [5, 0, 0.55]),
+    bass: ST('Bass + strums', 'Bass note on 1 and 4, light strums in between.', [0, 0, 0.9, 'bass'], [1, 0, 0.5], [2, 0, 0.5], [3, 0, 0.75, 'bass'], [4, 0, 0.5], [5, 0, 0.5]),
+    ring: ST('Two strums', 'A slow strum on 1 and 4, ringing.', [0, 0, 0.9, 'all'], [3, 0, 0.6]),
+  },
+};
+const secLen = s => s.bars * SIG[s.sig].n;
+const patOf = s => (STRUMS[s.sig][s.strum] || Object.values(STRUMS[s.sig])[0]).st;
+// Every stroke for a run of sections [{ sec, off }] (off in eighths), in time order. The pattern repeats each bar and each
+// stroke plays whichever chord is sounding; a chord change always gets a full stroke even between pattern strokes.
+// Before a section's first chord is a rest. i counts chords across all the parts, start marks a chord's first stroke.
+function strokes(parts) {
+  const out = []; let i0 = 0;
+  for (const { sec, off } of parts) {
+    const cs = sec.chords, n = SIG[sec.sig].n, end = secLen(sec), vs = cs.map(c => voicing(c.ch, c.pos)), at = new Map();
+    for (let b = 0; b < sec.bars; b++) for (const p of patOf(sec)) at.set(b * n + p.e, p);
+    cs.forEach(c => { const p = at.get(c.at); at.set(c.at, { e: 0, u: 0, v: Math.max(0.8, p ? p.v : 0), s: 'all', start: true }); });
+    const es = [...at.keys()].filter(e => e < end).sort((a, b) => a - b);
+    es.forEach((e, j) => {
+      let k = cs.length - 1; while (k >= 0 && cs[k].at > e) k--;
+      if (k < 0) return;
+      const p = at.get(e), ns = vs[k], notes = p.s === 'all' ? ns : p.s === 'bass' ? ns.slice(0, 1) : ns.slice(1);
+      const len = Math.min(p.l || Infinity, (j + 1 < es.length ? es[j + 1] : end) - e);
+      out.push({ e: off + e, notes, v: p.v, u: !!p.u, gap: p.u ? 0.012 : p.s === 'all' ? 0.02 : 0.014, len, i: i0 + k, start: !!p.start });
+    });
+    i0 += cs.length;
+  }
+  return out;
+}
 let seq = null;
-async function playSeq(chs, onStep) {
+async function playParts(parts, onStep) {
   stopSeq();
   const ctx = decodeCtx(); ctx.resume();
   const my = seq = { timers: [], onStep };
   onStep(-2);
-  const vs = chs.map(n => voicing(n.ch, n.pos));
-  await Promise.all(vs.flat().map(noteBuf));
+  const st = strokes(parts);
+  await Promise.all([...new Set(st.flatMap(s => s.notes))].map(noteBuf));
   if (seq !== my) return;
-  const beat = 60 / pBpm, t0 = ctx.currentTime + 0.08, at = s => (s - ctx.currentTime) * 1000;
-  vs.forEach((n, i) => {
-    const t = t0 + i * 4 * beat, top = n.slice(1);
-    strum(n, t, { vel: 0.95, len: beat * 1.5 + 0.06 });
-    strum(top, t + beat * 1.5, { vel: 0.4, up: true, gap: 0.012, len: beat * 0.5 + 0.06 });
-    strum(top, t + beat * 2, { vel: 0.6, gap: 0.014, len: beat * 1.5 + 0.06 });
-    strum(top, t + beat * 3.5, { vel: 0.4, up: true, gap: 0.012, len: beat * 0.5 + (i === vs.length - 1 ? 1.6 : 0.08) });
-    my.timers.push(setTimeout(() => onStep(i), at(t)));
+  const e8 = 30 / pBpm, t0 = ctx.currentTime + 0.08, at = s => (s - ctx.currentTime) * 1000, last = parts[parts.length - 1];
+  st.forEach((s, j) => {
+    const t = t0 + s.e * e8;
+    strum(s.notes, t, { vel: s.v, up: s.u, gap: s.gap, len: s.len * e8 + (j === st.length - 1 ? 1.6 : 0.06) });
+    if (s.start) my.timers.push(setTimeout(() => onStep(s.i), at(t)));
   });
-  my.timers.push(setTimeout(() => { if (seq === my) { seq = null; onStep(-1); } }, at(t0 + vs.length * 4 * beat)));
+  my.timers.push(setTimeout(() => { if (seq === my) { seq = null; onStep(-1); } }, at(t0 + (last.off + secLen(last.sec)) * e8)));
 }
+// A bar per node ({ ch, pos }), 4/4 bossa: how Paths plays a line.
+const playSeq = (chs, onStep) => playParts([{ sec: { sig: '4/4', bars: chs.length, strum: 'bossa', chords: chs.map((n, k) => ({ ...n, at: k * 8 })) }, off: 0 }], onStep);
 function stopSeq() { if (!seq) return; const s = seq; seq = null; s.timers.forEach(clearTimeout); hush(); s.onStep(-1); }
 
 /* ---------- playback ---------- */
@@ -1649,12 +1725,19 @@ $('#pClear').onclick = () => { if (!line.length) return; pushP(); stopSeq(); lin
 
 /* ---------- sections + arrange ----------
    Save a Paths line under a name; the arrangement is a list of section ids, so a section can appear many times
-   and editing it changes every copy. Kept in this browser's storage, so it's there next visit on this device only. */
+   and editing it changes every copy. Kept in this browser's storage, so it's there next visit on this device only.
+   A section has its own meter (sig), length in bars, strum pattern, and each chord's start (at, in eighths from the top). */
 const AKEY = 'strung_along.arrange', ZOOM = [12, 22, 44, 72], PRESETS = ['Intro', 'Verse', 'Pre-chorus', 'Chorus', 'Bridge', 'Solo', 'Outro'];
-let sections = [], arr = [], aHist = [], aSel = -1, aZoom = 2, editing = null;
+let sections = [], arr = [], aHist = [], aSel = -1, aZoom = 2, editing = null, aGrid = 'q';
+// Sections saved before timing existed: one chord per bar, 4/4 bossa, which is how they always played.
+function timed(s) {
+  if (!SIG[s.sig]) { s.sig = '4/4'; s.bars = s.chords.length; s.chords.forEach((c, k) => c.at = k * 8); }
+  if (!STRUMS[s.sig][s.strum]) s.strum = Object.keys(STRUMS[s.sig])[0];
+  return s;
+}
 try {
   const d = JSON.parse(localStorage.getItem(AKEY));
-  if (d && Array.isArray(d.sections) && Array.isArray(d.arr)) { sections = d.sections.filter(s => s && s.id && Array.isArray(s.chords) && s.chords.length); arr = d.arr.filter(id => sections.some(s => s.id === id)); }
+  if (d && Array.isArray(d.sections) && Array.isArray(d.arr)) { sections = d.sections.filter(s => s && s.id && Array.isArray(s.chords) && s.chords.length).map(timed); arr = d.arr.filter(id => sections.some(s => s.id === id)); }
 } catch (e) {}
 function saveArr() { try { localStorage.setItem(AKEY, JSON.stringify({ sections, arr })); } catch (e) {} }
 const secOf = id => sections.find(s => s.id === id);
@@ -1664,7 +1747,8 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 // Colour by what the section is called.
 const kindOf = n => /pre/i.test(n) ? 'bass' : /chorus|refrain|hook/i.test(n) ? 'func' : /bridge|middle/i.test(n) ? 'col' : /verse/i.test(n) ? 'sub' : /solo|break|inst/i.test(n) ? 'bass' : 'song';
 function pushA() { stopSeq(); aHist.push(JSON.stringify({ sections, arr })); if (aHist.length > 80) aHist.shift(); }
-function aUndo() { if (!aHist.length) return; ({ sections, arr } = JSON.parse(aHist.pop())); aSel = -1; saveArr(); renderArr(); }
+// Keeps the selection (renderArr drops it if that block is gone), so undoing a timing move leaves the lane open.
+function aUndo() { if (!aHist.length) return; ({ sections, arr } = JSON.parse(aHist.pop())); saveArr(); renderArr(); }
 
 function openSave() {
   const ed = secOf(editing), bs = [];
@@ -1679,10 +1763,14 @@ function saveSection(name) {
   pushA();
   const chords = line.map(n => ({ ...n }));
   if (ed && ed.name.toLowerCase() === name.toLowerCase()) {
+    // Same number of chords: keep where they sit. Otherwise back to one a bar.
+    if (chords.length === ed.chords.length) chords.forEach((c, k) => c.at = ed.chords[k].at);
+    else { ed.bars = chords.length; chords.forEach((c, k) => c.at = k * SIG[ed.sig].n); }
     ed.chords = chords; const n = arr.filter(id => id === ed.id).length;
     toast(`Updated ${ed.name}${n > 1 ? `, all ${n} times it plays` : ''}.`);
   } else {
-    const s = { id: uid(), name, chords }; sections.push(s); arr.push(s.id); editing = s.id;
+    chords.forEach((c, k) => c.at = k * 8);
+    const s = { id: uid(), name, sig: '4/4', bars: chords.length, strum: 'bossa', chords }; sections.push(s); arr.push(s.id); editing = s.id;
     toast(`Saved ${name}. It's at the end of the song in Arrange.`);
   }
   saveArr(); $('#pSaveRow').hidden = true; renderPaths();
@@ -1692,10 +1780,13 @@ $('#pNameGo').onclick = () => saveSection($('#pName').value);
 $('#pName').addEventListener('keydown', e => { if (e.key === 'Enter') saveSection(e.target.value); else if (e.key === 'Escape') $('#pSaveRow').hidden = true; });
 $('#pNameX').onclick = () => $('#pSaveRow').hidden = true;
 
-const barsOf = ids => ids.reduce((n, id) => n + secOf(id).chords.length, 0);
+const barsOf = ids => ids.reduce((n, id) => n + secOf(id).bars, 0);
+// Sections back to back, each with its start in eighths.
+const partsOf = ids => { let off = 0; return ids.map(id => { const sec = secOf(id), p = { sec, off }; off += secLen(sec); return p; }); };
 function aInfo() {
-  const bars = barsOf(arr), sec = Math.round(bars * 4 * 60 / pBpm);
-  $('#aInfo').textContent = arr.length ? `${arr.length} part${arr.length > 1 ? 's' : ''} · ${bars} bars · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} at ${pBpm} bpm` : '';
+  const e8 = arr.reduce((n, id) => n + secLen(secOf(id)), 0), sec = Math.round(e8 * 30 / pBpm);
+  const six = arr.some(id => secOf(id).sig === '6/8') ? ` · tempo counts quarters, so 6/8 sways at ${Math.round(pBpm / 1.5)}` : '';
+  $('#aInfo').textContent = arr.length ? `${arr.length} part${arr.length > 1 ? 's' : ''} · ${barsOf(arr)} bars · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} at ${pBpm} bpm${six}` : '';
 }
 const playLabel = () => aSel >= 0 && arr[aSel] && aSel > 0 ? `&#9654; Play from ${mk('i', '', secOf(arr[aSel]).name).innerHTML}` : '&#9654; Play song';
 function renderArr() {
@@ -1713,15 +1804,21 @@ function renderArr() {
   const z = ZOOM[aZoom];
   $('#aTrack').replaceChildren(...arr.map((id, i) => {
     const s = secOf(id), e = mk('div', 'blk' + (i === aSel ? ' sel' : '')); e.dataset.i = i;
-    e.style.setProperty('--c', `var(--c-${kindOf(s.name)})`); e.style.width = s.chords.length * z + 12 + 'px'; e.style.minWidth = Math.min(s.name.length, 12) * 8 + 16 + 'px';
-    e.append(mk('b', '', s.name));
-    if (z >= 40) { const b = mk('div', 'bars'); b.append(...s.chords.map(n => mk('i', '', pName(n)))); e.append(b); }
-    else e.append(mk('span', '', s.chords.length + (z >= 20 ? ' bars' : '')));
+    e.style.setProperty('--c', `var(--c-${kindOf(s.name)})`); e.style.width = secLen(s) / 8 * z + 12 + 'px'; e.style.minWidth = Math.min(s.name.length, 12) * 8 + 16 + 'px';
+    const nm = mk('b', '', s.name); if (s.sig !== '4/4') nm.append(mk('em', '', s.sig)); e.append(nm);
+    if (z >= 40) {
+      // Each chord as wide as it lasts, with a gap for any rest before the first.
+      const b = mk('div', 'bars'), ds = durs(s);
+      if (s.chords[0].at > 0) { const r = mk('i', 'rest'); r.style.flexGrow = s.chords[0].at; b.append(r); }
+      b.append(...s.chords.map((n, k) => { const c = mk('i', '', pName(n)); c.dataset.k = k; c.style.flexGrow = ds[k]; return c; }));
+      e.append(b);
+    }
+    else e.append(mk('span', '', s.bars + (z >= 20 ? ' bars' : '')));
     return e;
   }));
   if (!arr.length) $('#aTrack').append(mk('div', 'aEmpty', sections.length ? 'Drag a section here' : 'Your song shows up here'));
   const s = aSel >= 0 && secOf(arr[aSel]);
-  $('#aSelRow').hidden = !s; if (s) $('#aName').value = s.name;
+  $('#aSelRow').hidden = $('#aEd').hidden = !s; if (s) { $('#aName').value = s.name; renderLane(s); }
   $('#aPlay').disabled = $('#aMidi').disabled = !arr.length;
   if (!seq) $('#aPlay').innerHTML = playLabel();
   $('#aOut').disabled = aZoom === 0; $('#aIn').disabled = aZoom === ZOOM.length - 1;
@@ -1733,17 +1830,18 @@ function delSection(id) {
   saveArr(); renderArr(); toast(`Deleted ${s.name}. Undo brings it back.`);
 }
 
-// Play blocks from..to (exclusive), lighting each block and, zoomed in, each bar.
+// Play blocks from..to (exclusive), lighting each block, its chord when zoomed in, and the chord in the timing lane.
 function playArr(from, to = arr.length) {
-  const chs = [], at = [];
-  for (let b = from; b < to; b++) secOf(arr[b]).chords.forEach((n, k) => { chs.push(n); at.push([b, k]); });
-  if (!chs.length) return;
-  playSeq(chs, i => {
-    document.querySelectorAll('#aTrack .playing').forEach(e => e.classList.remove('playing'));
+  const ids = arr.slice(from, to), at = [];
+  ids.forEach((id, j) => secOf(id).chords.forEach((n, k) => at.push([from + j, k])));
+  if (!at.length) return;
+  playParts(partsOf(ids), i => {
+    document.querySelectorAll('#arr .playing').forEach(e => e.classList.remove('playing'));
     $('#aPlay').innerHTML = i === -1 ? playLabel() : '&#9632; Stop';
     if (i < 0) return;
-    const blk = $('#aTrack').children[at[i][0]]; if (!blk) return;
-    blk.classList.add('playing'); const bar = blk.querySelector('.bars')?.children[at[i][1]]; if (bar) bar.classList.add('playing');
+    const [b, k] = at[i], blk = $('#aTrack').children[b]; if (!blk) return;
+    blk.classList.add('playing'); blk.querySelector(`.bars i[data-k="${k}"]`)?.classList.add('playing');
+    if (arr[b] === arr[aSel]) $(`#aLaneIn .clip[data-k="${k}"]`)?.classList.add('playing');
   });
 }
 $('#aPlay').onclick = () => { if (seq) stopSeq(); else playArr(Math.max(0, aSel)); };
@@ -1765,10 +1863,96 @@ $('#aEdit').onclick = () => {
 $('#aRep').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel + 1, 0, arr[aSel]); aSel++; saveArr(); renderArr(); };
 $('#aSplit').onclick = () => {
   const s = secOf(arr[aSel]); if (!s) return;
-  pushA(); const c = { id: uid(), name: nextName(s.name.replace(/ \d+$/, '')), chords: s.chords.map(n => ({ ...n })) };
+  pushA(); const c = { ...s, id: uid(), name: nextName(s.name.replace(/ \d+$/, '')), chords: s.chords.map(n => ({ ...n })) };
   sections.push(c); arr[aSel] = c.id; saveArr(); renderArr(); toast(`This one is now ${c.name}, its own section.`);
 };
 $('#aRm').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel, 1); aSel = -1; saveArr(); renderArr(); };
+
+/* ---------- timing lane ----------
+   The selected section's chords on a beat grid. Drag one (or focus it and use the arrow keys) to move where it starts;
+   it snaps to the grid and can't pass the chord either side, so the order never changes. Every copy of the section moves. */
+const durs = s => s.chords.map((c, k) => (k + 1 < s.chords.length ? s.chords[k + 1].at : secLen(s)) - c.at);
+const gridStep = s => aGrid === 'e' ? 1 : SIG[s.sig].beat;
+// Where chord k may start: one grid step past the chord before, one short of the chord after (or the section's end).
+function room(s, k) {
+  const st = gridStep(s), cs = s.chords;
+  return [k ? (Math.floor(cs[k - 1].at / st) + 1) * st : 0, (Math.ceil((k + 1 < cs.length ? cs[k + 1].at : secLen(s)) / st) - 1) * st];
+}
+// "Bar 2 · beat 3&", or in 6/8, which of the six eighths.
+function posName(s, at) {
+  const n = SIG[s.sig].n, b = Math.floor(at / n) + 1, o = at % n;
+  return s.sig === '6/8' ? `Bar ${b} · eighth ${o + 1} of 6` : `Bar ${b} · beat ${Math.floor(o / 2) + 1}${o % 2 ? '&' : ''}`;
+}
+let lanePx = 18;
+function renderLane(s) {
+  $('#aSig').replaceChildren(...Object.keys(SIG).map(g => { const b = mk('button', g === s.sig ? 'on' : '', g); b.dataset.g = g; return b; }));
+  $('#aStrum').replaceChildren(...Object.entries(STRUMS[s.sig]).map(([k, v]) => { const o = mk('option', '', v.name); o.value = k; return o; }));
+  $('#aStrum').value = s.strum; $('#aStrumDesc').textContent = STRUMS[s.sig][s.strum].desc;
+  for (const b of $('#aGrid').children) b.classList.toggle('on', b.dataset.g === aGrid);
+  const len = secLen(s), n = SIG[s.sig].n, inner = $('#aLaneIn');
+  lanePx = clamp(($('#aLane').clientWidth - 2) / len, 14, 40);
+  inner.style.width = len * lanePx + 'px';
+  const ruler = mk('div', 'ruler'), beats = mk('div', 'beats');
+  for (let b = 0; b < s.bars; b++) { const r = mk('span', '', b + 1); r.style.left = b * n * lanePx + 'px'; ruler.append(r); }
+  beats.style.setProperty('--e8', lanePx + 'px'); beats.style.setProperty('--beat', SIG[s.sig].beat * lanePx + 'px'); beats.style.setProperty('--bar', n * lanePx + 'px');
+  inner.replaceChildren(ruler, beats, ...s.chords.map((c, k) => {
+    const e = mk('div', 'clip', pName(c)); e.dataset.k = k; e.tabIndex = 0; e.title = `${pName(c)}: ${posName(s, c.at)}`; return e;
+  }));
+  layLane(s);
+}
+function layLane(s) {
+  const ds = durs(s);
+  $('#aLaneIn').querySelectorAll('.clip').forEach(e => { const k = +e.dataset.k; e.style.left = s.chords[k].at * lanePx + 1 + 'px'; e.style.width = Math.max(4, ds[k] * lanePx - 2) + 'px'; });
+}
+// Commit a move: undo gets the old spot, then save and redraw.
+function moveChord(s, k, at, from) {
+  if (at === from) return false;
+  s.chords[k].at = from; pushA(); s.chords[k].at = at; saveArr(); renderArr(); return true;
+}
+let ldrag = null;
+const laneIn = $('#aLaneIn');
+laneIn.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.clip'), s = secOf(arr[aSel]); if (!el || !s || e.button > 0) return;
+  const k = +el.dataset.k;
+  ldrag = { el, s, k, x: e.clientX, from: s.chords[k].at, pid: e.pointerId, on: false };
+  el.setPointerCapture(e.pointerId);
+});
+laneIn.addEventListener('pointermove', e => {
+  const d = ldrag; if (!d || e.pointerId !== d.pid) return;
+  const dx = e.clientX - d.x;
+  if (!d.on) { if (Math.abs(dx) < 6) return; d.on = true; stopSeq(); d.el.classList.add('drag'); }
+  const st = gridStep(d.s), [lo, hi] = room(d.s, d.k);
+  const at = lo > hi ? d.from : clamp(Math.round((d.from + dx / lanePx) / st) * st, lo, hi);
+  if (at !== d.s.chords[d.k].at) { d.s.chords[d.k].at = at; layLane(d.s); }
+  $('#aPos').textContent = `${pName(d.s.chords[d.k])} at ${posName(d.s, at)}`;
+});
+laneIn.addEventListener('pointerup', e => {
+  const d = ldrag; if (!d || e.pointerId !== d.pid) return;
+  ldrag = null; d.el.classList.remove('drag');
+  if (!d.on) { const c = d.s.chords[d.k]; $('#aPos').textContent = `${pName(c)} at ${posName(d.s, c.at)}`; playChord(c.ch, near(c.ch, c.pos)); return; }
+  if (!moveChord(d.s, d.k, d.s.chords[d.k].at, d.from)) layLane(d.s);
+});
+laneIn.addEventListener('pointercancel', () => { const d = ldrag; if (!d) return; ldrag = null; d.el.classList.remove('drag'); if (d.on) { d.s.chords[d.k].at = d.from; layLane(d.s); } });
+laneIn.addEventListener('keydown', e => {
+  const el = e.target.closest('.clip'), s = secOf(arr[aSel]); if (!el || !s || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+  e.preventDefault();
+  const k = +el.dataset.k, from = s.chords[k].at, st = gridStep(s), [lo, hi] = room(s, k);
+  const at = clamp(e.key === 'ArrowLeft' ? Math.ceil(from / st) * st - st : Math.floor(from / st) * st + st, lo, hi);
+  if (lo <= hi && moveChord(s, k, at, from)) { $(`#aLaneIn .clip[data-k="${k}"]`).focus(); $('#aPos').textContent = `${pName(s.chords[k])} at ${posName(s, at)}`; }
+});
+// A new meter keeps each chord in its bar, at the same offset where it fits, then nudges apart any that now collide.
+$('#aSig').onclick = e => {
+  const b = e.target.closest('[data-g]'), s = secOf(arr[aSel]); if (!b || !s || b.dataset.g === s.sig) return;
+  pushA();
+  const o = SIG[s.sig].n, n = SIG[b.dataset.g].n, cs = s.chords;
+  cs.forEach(c => c.at = Math.floor(c.at / o) * n + Math.min(c.at % o, n - 1));
+  s.sig = b.dataset.g;
+  cs.forEach((c, k) => { if (k) c.at = Math.max(c.at, cs[k - 1].at + 1); });
+  for (let k = cs.length - 1; k >= 0; k--) cs[k].at = Math.min(cs[k].at, (k + 1 < cs.length ? cs[k + 1].at : secLen(s)) - 1);
+  timed(s); saveArr(); renderArr();
+};
+$('#aStrum').onchange = e => { const s = secOf(arr[aSel]); if (!s) return; pushA(); s.strum = e.target.value; saveArr(); renderArr(); };
+$('#aGrid').onclick = e => { const b = e.target.closest('[data-g]'); if (!b) return; aGrid = b.dataset.g; const s = secOf(arr[aSel]); if (s) renderLane(s); };
 
 // Dragging: pointer events so it works with a finger too. Sections copy in; blocks move; a block dropped outside the song is removed.
 let adrag = null;
@@ -1788,7 +1972,7 @@ arrEl.addEventListener('pointerup', e => {
   const d = adrag; if (!d || e.pointerId !== d.pid) return;
   adrag = null;
   if (d.on) { land(d); drop(d); }
-  else if (d.lib) { stopSeq(); playSeq(secOf(d.id).chords, () => {}); }
+  else if (d.lib) { stopSeq(); playParts(partsOf([d.id]), () => {}); }
   else { aSel = d.from; renderArr(); playArr(d.from, d.from + 1); }
 });
 arrEl.addEventListener('pointercancel', () => { if (adrag && adrag.on) land(adrag); adrag = null; });
@@ -1841,26 +2025,25 @@ function drop(d) {
   saveArr(); renderArr();
 }
 
-// MIDI: one track, nylon guitar, a marker per section, strummed the same way it plays here.
+// MIDI: one track, nylon guitar, a marker per section and chord, a meter change wherever it changes, strummed the same way it plays here.
 function exportMidi() {
   if (!arr.length) return;
   const PPQ = 480, ev = [], vlq = n => { const b = [n & 127]; while (n >>= 7) b.unshift((n & 127) | 128); return b; };
   const meta = (type, data) => [0xff, type, ...vlq(data.length), ...data], text = s => [...new TextEncoder().encode(s)];
   const us = Math.round(60e6 / pBpm);
-  ev.push({ t: 0, o: 0, b: meta(3, text('strung_along')) }, { t: 0, o: 0, b: meta(0x51, [us >> 16 & 255, us >> 8 & 255, us & 255]) },
-    { t: 0, o: 0, b: meta(0x58, [4, 2, 24, 8]) }, { t: 0, o: 0, b: [0xc0, 24] });
-  const note = (m, t, len, v) => { ev.push({ t, o: 2, b: [0x90, m, v] }, { t: t + len, o: 1, b: [0x80, m, 0] }); };
-  const stroke = (ns, beat, len, v, up) => (up ? [...ns].reverse() : ns).forEach((m, k) => note(m, Math.round(beat * PPQ) + k * 8, Math.round(len * PPQ) - k * 8, v));
-  let bar = 0;
-  for (const id of arr) {
-    const s = secOf(id); ev.push({ t: bar * 4 * PPQ, o: 0, b: meta(6, text(s.name)) });
-    for (const n of s.chords) {
-      const ns = voicing(n.ch, n.pos), top = ns.slice(1), b0 = bar * 4;
-      ev.push({ t: b0 * PPQ, o: 0, b: meta(1, text(nameIn(n.ch, n.key))) });
-      stroke(ns, b0, 1.5, 104); stroke(top, b0 + 1.5, 0.5, 48, true); stroke(top, b0 + 2, 1.5, 70); stroke(top, b0 + 3.5, 0.5, 48, true);
-      bar++;
-    }
+  ev.push({ t: 0, o: 0, b: meta(3, text('strung_along')) }, { t: 0, o: 0, b: meta(0x51, [us >> 16 & 255, us >> 8 & 255, us & 255]) }, { t: 0, o: 0, b: [0xc0, 24] });
+  const E8 = PPQ / 2, parts = partsOf(arr), names = parts.flatMap(p => p.sec.chords.map(n => nameIn(n.ch, n.key)));
+  let sig = null;
+  for (const { sec, off } of parts) {
+    if (sec.sig !== sig) { sig = sec.sig; const [num, den] = sig.split('/').map(Number); ev.push({ t: off * E8, o: 0, b: meta(0x58, [num, Math.log2(den), den === 8 ? 36 : 24, 8]) }); }
+    ev.push({ t: off * E8, o: 0, b: meta(6, text(sec.name)) });
   }
+  const st = strokes(parts);
+  st.forEach((s, j) => {
+    const t = s.e * E8, len = Math.round((s.len + (j === st.length - 1 ? 4 : 0)) * E8);
+    if (s.start) ev.push({ t, o: 0, b: meta(1, text(names[s.i])) });
+    (s.u ? [...s.notes].reverse() : s.notes).forEach((m, k) => { ev.push({ t: t + k * 8, o: 2, b: [0x90, m, Math.round(s.v * 110)] }, { t: t + len, o: 1, b: [0x80, m, 0] }); });
+  });
   ev.sort((a, b) => a.t - b.t || a.o - b.o);
   const trk = []; let last = 0;
   for (const e of ev) { trk.push(...vlq(e.t - last), ...e.b); last = e.t; }
