@@ -498,10 +498,12 @@ async function analyse(file, ctl) {
 
 /* ---------- loading ---------- */
 let job = null;
+// Only one load at a time: a new one cancels whatever is still analysing (e.g. the sample song), or it would land on top.
+function cancelJob() { if (job) { job.cancelled = true; job.ac?.abort(); } job = null; }
 async function load(file, opt = {}) {
   if (!file) return;
   if (!/^(audio|video)\//.test(file.type) && !/\.(mp3|wav|m4a|aac|ogg|oga|opus|flac|mp4|m4v|mov|webm)$/i.test(file.name)) { toast('That file is not audio or video.'); return; }
-  pause(); closeEdit();
+  pause(); closeEdit(); cancelJob();
   const my = job = { cancelled: false };
   $('#modal').hidden = false; $('#mTitle').textContent = 'Listening'; $('#mInfo').textContent = file.name; $('#mBar').style.width = '0%';
   const ctl = {
@@ -516,7 +518,7 @@ async function load(file, opt = {}) {
     if (my.cancelled) return;
     if (song) URL.revokeObjectURL(song.url);
     song = { ...res, name: opt.name || file.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(file), yt: opt.yt || null };
-    if (song.yt) { audio.removeAttribute('src'); rate = ytRate(rate); }
+    if (song.yt) { audio.removeAttribute('src'); rate = ytRate(rate); $('#vid').hidden = false; }
     else { audio.src = song.url; audio.playbackRate = rate; $('#vid').hidden = true; if (ytp) ytp.stopVideo(); }
     setRate(rate);
     t = 0; loop = null; history = []; transpose = 0; capo = 0;
@@ -528,7 +530,7 @@ async function load(file, opt = {}) {
     if (job === my) { $('#modal').hidden = true; job = null; }
   }
 }
-$('#mCancel').onclick = () => { if (job) { job.cancelled = true; job.ac?.abort(); } $('#modal').hidden = true; job = null; if (!song) renderAll(); };
+$('#mCancel').onclick = () => { cancelJob(); $('#modal').hidden = true; if (!song) renderAll(); };
 $('#open').onclick = () => $('#pick').click();
 $('#pick').onchange = e => { load(e.target.files[0]); e.target.value = ''; };
 
@@ -584,7 +586,7 @@ async function loadLink(link) {
     try { await fetch(`${API}/ping`); } catch (e) { toast(`YouTube won't play in a page opened as a file. Start the helper (python3 server.py), then try again.`); return; }
     location.href = `${API}/?yt=${encodeURIComponent('https://youtu.be/' + id)}`; return;
   }
-  pause(); closeEdit();
+  pause(); closeEdit(); cancelJob();
   const my = job = { cancelled: false, ac: new AbortController() };
   $('#modal').hidden = false; $('#mTitle').textContent = 'Listening'; $('#mInfo').textContent = link.trim(); $('#mBar').style.width = '1%';
   let file;
