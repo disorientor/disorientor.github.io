@@ -198,6 +198,16 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .clip.drag{cursor:grabbing;z-index:2}
 .clip.playing{background:var(--accent);color:var(--accent-ink)}
 #aPos{min-height:1.4em}
+/* Melody lane: chord names under the ruler, then a row per semitone, G3 to G5. Each chord's tones are tinted under it. */
+#aLaneIn.mel{height:334px;cursor:cell;touch-action:pan-x}
+#aLaneIn .chs{position:absolute;left:0;right:0;top:18px;height:16px;border-bottom:1px solid var(--line)}
+#aLaneIn .chs span{position:absolute;top:1px;padding-left:4px;color:var(--muted);font-size:11px;line-height:14px;white-space:nowrap;overflow:hidden}
+#aLaneIn .oct{position:absolute;left:0;right:0;height:12px;background:color-mix(in srgb,var(--line) 45%,transparent);pointer-events:none}
+#aLaneIn .oct span{position:absolute;font-size:9px;line-height:12px;padding-left:3px;color:var(--muted)}
+#aLaneIn .tone{position:absolute;height:12px;background:color-mix(in srgb,var(--accent) 16%,transparent);pointer-events:none}
+.mn{position:absolute;height:11px;border-radius:3px;background:var(--text-hi);color:#1a1a20;font-size:9px;line-height:11px;padding-left:3px;white-space:nowrap;overflow:hidden;cursor:grab;touch-action:none;outline:none}
+.mn::after{content:'';position:absolute;right:0;top:0;bottom:0;width:6px;cursor:ew-resize;background:color-mix(in srgb,#000 18%,transparent)}
+.mn:focus-visible,.mn.drag{box-shadow:0 0 0 2px var(--accent);z-index:2}
 #pBpm,#aBpm{width:7ch}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
@@ -206,6 +216,7 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <div id="app">
   <header class="pad">
     <div class="mark">STRUNG<i>_</i>ALONG</div>
+    <button id="inst" title="Switch the chord diagrams and the chord sound: guitar, ukulele, piano">Guitar</button>
     <button id="undo" disabled title="Undo (Ctrl+Z)">Undo</button>
     <button id="open" class="primary">Open</button>
   </header>
@@ -299,11 +310,15 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
       <div class="pRow">
         <span class="lab">Time</span><div id="aSig" class="seg" aria-label="Time signature"></div>
         <span class="lab">Strum</span><select id="aStrum" aria-label="Strum pattern"></select>
-        <span class="lab">Grid</span><div id="aGrid" class="seg" aria-label="Snap to"><button data-g="q" title="Snap to beats">1/4</button><button data-g="e" title="Snap to eighths">1/8</button></div>
+        <span class="lab">Bass</span><select id="aBass" aria-label="Bass line"></select>
       </div>
       <div id="aStrumDesc" class="lab"></div>
+      <div class="pRow">
+        <div id="aMode" class="seg" aria-label="Lane"><button data-m="c" title="Move where each chord starts">Chords</button><button data-m="m" title="Write a lead or vocal line">Melody</button></div>
+        <span class="lab">Grid</span><div id="aGrid" class="seg" aria-label="Snap to"><button data-g="q" title="Snap to beats">1/4</button><button data-g="e" title="Snap to eighths">1/8</button></div>
+      </div>
       <div id="aLane"><div id="aLaneIn"></div></div>
-      <div id="aPos" class="lab">Drag a chord to move it. It stops next to its neighbours.</div>
+      <div id="aPos" class="lab"></div>
     </div>
   </section>
 
@@ -905,37 +920,41 @@ function diagram(v, pos) {
   return diaCache.get(k);
 }
 
-/* ---------- sound: nylon guitar ----------
-   General MIDI nylon guitar (the FluidR3 soundfont), fetched from GitHub Pages the first time anything plays.
-   Offline, or if that fails, a plucked-string synth stands in. Chords sound the voicing the diagram shows. */
-const NYLON = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_guitar_nylon-mp3.js';
-let fontP = null, fontState = '', outNode = null;
-const bufs = new Map(), ready = new Map(), voices = new Set();
-function soundfont() {
-  if (!fontP) {
-    fontState = 'Loading nylon guitar...'; soundState();
-    fontP = fetch(NYLON).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-      .then(t => { const m = {}; for (const [, k, v] of t.matchAll(/"([A-G]b?\d)":\s*"data:audio\/mp3;base64,([^"]+)"/g)) m[k] = v; fontState = 'Nylon guitar'; return m; })
-      .catch(e => { console.warn('nylon soundfont:', e); fontState = 'Synth guitar (soundfont unavailable)'; return null; })
-      .finally(soundState);
+/* ---------- sound ----------
+   General MIDI soundfonts (FluidR3), fetched from GitHub Pages the first time each one plays: nylon guitar for guitar
+   and ukulele, grand piano for piano, plus an upright bass and a flute for Arrange's bass and melody. Offline, or if
+   one fails, a plucked-string synth stands in. Chords sound the voicing the diagram shows. */
+const FONTS = { guitar: ['acoustic_guitar_nylon', 'Nylon guitar'], piano: ['acoustic_grand_piano', 'Piano'], bass: ['acoustic_bass', 'Upright bass'], lead: ['flute', 'Flute'] };
+const fontUrl = f => `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/${FONTS[f][0]}-mp3.js`;
+const chordFont = () => inst === 'piano' ? 'piano' : 'guitar';
+let outNode = null;
+const fontPs = new Map(), fontStates = {}, bufs = new Map(), ready = new Map(), voices = new Set();
+function soundfont(f) {
+  if (!fontPs.has(f)) {
+    fontStates[f] = `Loading ${FONTS[f][1].toLowerCase()}...`; soundState();
+    fontPs.set(f, fetch(fontUrl(f)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(t => { const m = {}; for (const [, k, v] of t.matchAll(/"([A-G]b?\d)":\s*"data:audio\/mp3;base64,([^"]+)"/g)) m[k] = v; fontStates[f] = FONTS[f][1]; return m; })
+      .catch(e => { console.warn(f + ' soundfont:', e); fontStates[f] = `Synth ${FONTS[f][1].toLowerCase()} (soundfont unavailable)`; return null; })
+      .finally(soundState));
   }
-  return fontP;
+  return fontPs.get(f);
 }
-function soundState() { const e = $('#pSound'); if (e) e.textContent = fontState; }
+function soundState() { const e = $('#pSound'); if (e) e.textContent = fontStates[chordFont()] || ''; }
 function out() {
   if (outNode) return outNode;
   const ctx = decodeCtx(), g = ctx.createGain(), c = ctx.createDynamicsCompressor();
   g.gain.value = 0.8; g.connect(c); c.connect(ctx.destination);
   return outNode = g;
 }
-function noteBuf(m) {
-  if (!bufs.has(m)) bufs.set(m, (async () => {
-    const font = await soundfont(), ctx = decodeCtx(), k = FLAT[m % 12] + (Math.floor(m / 12) - 1);
+function noteBuf(m, f = chordFont()) {
+  const key = f + '|' + m;
+  if (!bufs.has(key)) bufs.set(key, (async () => {
+    const font = await soundfont(f), ctx = decodeCtx(), k = FLAT[m % 12] + (Math.floor(m / 12) - 1);
     let buf = null;
     if (font && font[k]) try { buf = await new Promise((res, rej) => ctx.decodeAudioData(Uint8Array.from(atob(font[k]), c => c.charCodeAt(0)).buffer, res, rej)); } catch (e) { console.warn(e); }
-    buf = buf || pluck(ctx, m); ready.set(m, buf); return buf;
+    buf = buf || pluck(ctx, m); ready.set(key, buf); return buf;
   })());
-  return bufs.get(m);
+  return bufs.get(key);
 }
 // Karplus-Strong: a burst of noise fed round a delay line one period long, averaged each pass so it mellows like a string.
 function pluck(ctx, m) {
@@ -946,10 +965,10 @@ function pluck(ctx, m) {
   for (let i = 0; i < len; i++) y[i] *= 0.5;
   return buf;
 }
-function strum(notes, at, { vel = 0.8, up = false, gap = 0.02, len = 2.4 } = {}) {
+function strum(notes, at, { vel = 0.8, up = false, gap = 0.02, len = 2.4, font = chordFont() } = {}) {
   const ctx = decodeCtx();
   (up ? [...notes].reverse() : notes).forEach((m, k) => {
-    const buf = ready.get(m); if (!buf) return;
+    const buf = ready.get(font + '|' + m); if (!buf) return;
     const src = ctx.createBufferSource(), g = ctx.createGain(), t0 = at + k * gap, v = vel * 0.5;
     src.buffer = buf; g.gain.setValueAtTime(v, t0); g.gain.setValueAtTime(v, t0 + Math.max(0.05, len - 0.12)); g.gain.linearRampToValueAtTime(0, t0 + len);
     src.connect(g).connect(out()); src.start(t0); src.stop(t0 + len + 0.05);
@@ -970,7 +989,7 @@ function voicing(v, pos) {
 async function playChord(v, sh) {
   const ctx = decodeCtx(); ctx.resume();
   const tun = inst === 'ukulele' ? UKE : GTR, notes = sh ? sh.frets.map((f, s) => f < 0 ? -1 : tun[s] + f).filter(m => m >= 0) : voicing(v);
-  await Promise.all(notes.map(noteBuf));
+  await Promise.all(notes.map(m => noteBuf(m)));
   strum(notes, ctx.currentTime + 0.02, { vel: 0.85, len: 2.4 });
 }
 /* Meters and strum patterns. Time is counted in eighths; tempo counts quarters, so an eighth is the same length in every meter.
@@ -1004,6 +1023,47 @@ const STRUMS = {
 };
 const secLen = s => s.bars * SIG[s.sig].n;
 const patOf = s => (STRUMS[s.sig][s.strum] || Object.values(STRUMS[s.sig])[0]).st;
+/* Bass lines, made from the chords. h: [eighth, role] per meter, one bar, repeated; every chord change is also a root.
+   Roles: r the chord's bass note (its slash bass, else its root), 5 its fifth, w walking (root, third, fifth, third...,
+   and a semitone step into the next chord on the last note before it changes). */
+const BASS = {
+  off: { name: 'Off', desc: 'No bass.', h: {} },
+  root: { name: 'Root', desc: 'Bass note on every change and every bar\'s 1, held.', h: { '4/4': [[0, 'r']], '3/4': [[0, 'r']], '5/4': [[0, 'r']], '6/8': [[0, 'r']] } },
+  fifth: { name: 'Root-fifth', desc: 'Root on the 1, the fifth halfway through the bar. Folk, country, two-beat.', h: { '4/4': [[0, 'r'], [4, '5']], '3/4': [[0, 'r'], [4, '5']], '5/4': [[0, 'r'], [6, '5']], '6/8': [[0, 'r'], [3, '5']] } },
+  walk: { name: 'Walking', desc: 'A note every beat through the chord tones, stepping a semitone into each new chord.', h: { '4/4': [0, 2, 4, 6], '3/4': [0, 2, 4], '5/4': [0, 2, 4, 6, 8], '6/8': [0, 3] } },
+};
+for (const g in BASS.walk.h) BASS.walk.h[g] = BASS.walk.h[g].map(e => [e, 'w']);
+const ivNear = (ch, lo, hi, d) => QUAL[ch.q].iv.find(i => i >= lo && i <= hi) ?? d;
+const lowNote = pc => 28 + mod12(pc - 4);  // E1 to Eb2
+// Every bass note for a run of sections, in time order: { e, m, len, v }, e and len in eighths.
+function bassNotes(parts) {
+  const out = [];
+  for (const { sec, off } of parts) {
+    const pat = (BASS[sec.bass] || BASS.off).h[sec.sig]; if (!pat) continue;
+    const cs = sec.chords, n = SIG[sec.sig].n, end = secLen(sec), at = new Map();
+    for (let b = 0; b < sec.bars; b++) for (const [e, r] of pat) at.set(b * n + e, r);
+    cs.forEach(c => at.set(c.at, 'r'));
+    const es = [...at.keys()].filter(e => e < end).sort((a, b) => a - b), kAt = e => { let k = cs.length - 1; while (k >= 0 && cs[k].at > e) k--; return k; };
+    let cnt = 0, prev = -1, last = null;
+    es.forEach((e, j) => {
+      const k = kAt(e); if (k < 0) return;
+      if (k !== prev) { cnt = 0; prev = k; } else cnt++;
+      const ch = cs[k].ch, root = lowNote(ch.r), bass = lowNote(ch.b ?? ch.r), nx = es[j + 1], nk = nx == null ? -1 : kAt(nx), role = at.get(e);
+      let m = bass;
+      if (role === '5') m = root + ivNear(ch, 6, 8, 7);
+      else if (role === 'w' && cnt) {
+        if (nk !== k && nk >= 0) { const t = lowNote(cs[nk].ch.b ?? cs[nk].ch.r); m = last != null && last > t ? t + 1 : t - 1; }
+        else m = root + [0, ivNear(ch, 2, 5, 7), ivNear(ch, 6, 8, 7), ivNear(ch, 2, 5, 7)][cnt % 4];
+      }
+      if (m > 43) m -= 12;
+      last = m;
+      out.push({ e: off + e, m, len: (nx ?? end) - e, v: cnt ? 0.7 : 0.85 });
+    });
+  }
+  return out;
+}
+// The melody notes of a run of sections, offset to where each plays.
+const melNotes = parts => parts.flatMap(({ sec, off }) => (sec.mel || []).map(n => ({ e: off + n.at, m: n.m, len: n.len })));
 // Every stroke for a run of sections [{ sec, off }] (off in eighths), in time order. The pattern repeats each bar and each
 // stroke plays whichever chord is sounding; a chord change always gets a full stroke even between pattern strokes.
 // Before a section's first chord is a rest. i counts chords across all the parts, start marks a chord's first stroke.
@@ -1031,15 +1091,17 @@ async function playParts(parts, onStep) {
   const ctx = decodeCtx(); ctx.resume();
   const my = seq = { timers: [], onStep };
   onStep(-2);
-  const st = strokes(parts);
-  await Promise.all([...new Set(st.flatMap(s => s.notes))].map(noteBuf));
+  const st = strokes(parts), bs = bassNotes(parts), ms = melNotes(parts), cf = chordFont(), load = (ns, f) => [...new Set(ns)].map(m => noteBuf(m, f));
+  await Promise.all([...load(st.flatMap(s => s.notes), cf), ...load(bs.map(b => b.m), 'bass'), ...load(ms.map(n => n.m), 'lead')]);
   if (seq !== my) return;
   const e8 = 30 / pBpm, t0 = ctx.currentTime + 0.08, at = s => (s - ctx.currentTime) * 1000, last = parts[parts.length - 1];
   st.forEach((s, j) => {
     const t = t0 + s.e * e8;
-    strum(s.notes, t, { vel: s.v, up: s.u, gap: s.gap, len: s.len * e8 + (j === st.length - 1 ? 1.6 : 0.06) });
+    strum(s.notes, t, { vel: s.v, up: s.u, gap: s.gap, len: s.len * e8 + (j === st.length - 1 ? 1.6 : 0.06), font: cf });
     if (s.start) my.timers.push(setTimeout(() => onStep(s.i), at(t)));
   });
+  bs.forEach(b => strum([b.m], t0 + b.e * e8, { vel: b.v, len: b.len * e8 + 0.04, font: 'bass' }));
+  ms.forEach(n => strum([n.m], t0 + n.e * e8, { vel: 0.85, len: n.len * e8 + 0.03, font: 'lead' }));
   my.timers.push(setTimeout(() => { if (seq === my) { seq = null; onStep(-1); } }, at(t0 + (last.off + secLen(last.sec)) * e8)));
 }
 // A bar per node ({ ch, pos }), 4/4 bossa: how Paths plays a line.
@@ -1249,7 +1311,6 @@ function renderTools() {
     T('+1', 'Key', () => setView(() => transpose = (transpose + 13 + 6) % 12 - 6)),
     T('|' + capo, 'Capo', () => setView(() => capo = (capo + 1) % 8), capo > 0),
     T(simple ? 'C' : 'C7', 'Simple', () => setView(() => simple = !simple), simple),
-    T({ guitar: '#=', ukulele: '#-', piano: '[|]' }[inst], inst === 'ukulele' ? 'Uke' : inst, () => { inst = { guitar: 'ukulele', ukulele: 'piano', piano: 'guitar' }[inst]; renderTools(); updateNow(true); }),
     T(loop ? `[${loop.n}]` : '[ ]', 'Loop', cycleLoop, !!loop),
     T('Aa', 'Edit', () => openEdit(beatAt(t))),
     T('o>', 'Paths', () => { fromSong(); setMode('paths'); }),
@@ -1325,6 +1386,12 @@ function undo() {
 }
 const undoAny = () => mode === 'paths' ? pUndo() : mode === 'arrange' ? aUndo() : undo();
 $('#undo').onclick = () => undoAny();
+// The instrument lives up top so it works on every tab, song or not.
+$('#inst').onclick = () => {
+  inst = { guitar: 'ukulele', ukulele: 'piano', piano: 'guitar' }[inst];
+  $('#inst').textContent = { guitar: 'Guitar', ukulele: 'Uke', piano: 'Piano' }[inst];
+  updateNow(true); soundState(); if (mode === 'paths') renderPaths(); else if (mode === 'arrange') renderArr();
+};
 
 /* ---------- export ---------- */
 function exportText() {
@@ -1726,13 +1793,22 @@ $('#pClear').onclick = () => { if (!line.length) return; pushP(); stopSeq(); lin
 /* ---------- sections + arrange ----------
    Save a Paths line under a name; the arrangement is a list of section ids, so a section can appear many times
    and editing it changes every copy. Kept in this browser's storage, so it's there next visit on this device only.
-   A section has its own meter (sig), length in bars, strum pattern, and each chord's start (at, in eighths from the top). */
+   A section has its own meter (sig), length in bars, strum pattern, bass pattern, each chord's start (at, in eighths
+   from the top) and a melody (mel: notes { at, len, m }, eighths and MIDI). */
 const AKEY = 'strung_along.arrange', ZOOM = [12, 22, 44, 72], PRESETS = ['Intro', 'Verse', 'Pre-chorus', 'Chorus', 'Bridge', 'Solo', 'Outro'];
 let sections = [], arr = [], aHist = [], aSel = -1, aZoom = 2, editing = null, aGrid = 'q';
 // Sections saved before timing existed: one chord per bar, 4/4 bossa, which is how they always played.
 function timed(s) {
   if (!SIG[s.sig]) { s.sig = '4/4'; s.bars = s.chords.length; s.chords.forEach((c, k) => c.at = k * 8); }
   if (!STRUMS[s.sig][s.strum]) s.strum = Object.keys(STRUMS[s.sig])[0];
+  if (!BASS[s.bass]) s.bass = 'off';
+  if (!Array.isArray(s.mel)) s.mel = [];
+  return fitMel(s);
+}
+// Melody notes stay inside the section: any past the end go, any running over are cut short.
+function fitMel(s) {
+  const end = secLen(s);
+  s.mel = s.mel.filter(n => n.at < end); s.mel.forEach(n => n.len = Math.max(1, Math.min(n.len, end - n.at)));
   return s;
 }
 try {
@@ -1766,11 +1842,11 @@ function saveSection(name) {
     // Same number of chords: keep where they sit. Otherwise back to one a bar.
     if (chords.length === ed.chords.length) chords.forEach((c, k) => c.at = ed.chords[k].at);
     else { ed.bars = chords.length; chords.forEach((c, k) => c.at = k * SIG[ed.sig].n); }
-    ed.chords = chords; const n = arr.filter(id => id === ed.id).length;
+    ed.chords = chords; fitMel(ed); const n = arr.filter(id => id === ed.id).length;
     toast(`Updated ${ed.name}${n > 1 ? `, all ${n} times it plays` : ''}.`);
   } else {
     chords.forEach((c, k) => c.at = k * 8);
-    const s = { id: uid(), name, sig: '4/4', bars: chords.length, strum: 'bossa', chords }; sections.push(s); arr.push(s.id); editing = s.id;
+    const s = { id: uid(), name, sig: '4/4', bars: chords.length, strum: 'bossa', bass: 'off', mel: [], chords }; sections.push(s); arr.push(s.id); editing = s.id;
     toast(`Saved ${name}. It's at the end of the song in Arrange.`);
   }
   saveArr(); $('#pSaveRow').hidden = true; renderPaths();
@@ -1863,7 +1939,7 @@ $('#aEdit').onclick = () => {
 $('#aRep').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel + 1, 0, arr[aSel]); aSel++; saveArr(); renderArr(); };
 $('#aSplit').onclick = () => {
   const s = secOf(arr[aSel]); if (!s) return;
-  pushA(); const c = { ...s, id: uid(), name: nextName(s.name.replace(/ \d+$/, '')), chords: s.chords.map(n => ({ ...n })) };
+  pushA(); const c = { ...s, id: uid(), name: nextName(s.name.replace(/ \d+$/, '')), chords: s.chords.map(n => ({ ...n })), mel: s.mel.map(n => ({ ...n })) };
   sections.push(c); arr[aSel] = c.id; saveArr(); renderArr(); toast(`This one is now ${c.name}, its own section.`);
 };
 $('#aRm').onclick = () => { if (aSel < 0) return; pushA(); arr.splice(aSel, 1); aSel = -1; saveArr(); renderArr(); };
@@ -1883,15 +1959,19 @@ function posName(s, at) {
   const n = SIG[s.sig].n, b = Math.floor(at / n) + 1, o = at % n;
   return s.sig === '6/8' ? `Bar ${b} · eighth ${o + 1} of 6` : `Bar ${b} · beat ${Math.floor(o / 2) + 1}${o % 2 ? '&' : ''}`;
 }
-let lanePx = 18;
+let lanePx = 18, aMode = 'c';
 function renderLane(s) {
   $('#aSig').replaceChildren(...Object.keys(SIG).map(g => { const b = mk('button', g === s.sig ? 'on' : '', g); b.dataset.g = g; return b; }));
   $('#aStrum').replaceChildren(...Object.entries(STRUMS[s.sig]).map(([k, v]) => { const o = mk('option', '', v.name); o.value = k; return o; }));
-  $('#aStrum').value = s.strum; $('#aStrumDesc').textContent = STRUMS[s.sig][s.strum].desc;
+  $('#aBass').replaceChildren(...Object.entries(BASS).map(([k, v]) => { const o = mk('option', '', v.name); o.value = k; return o; }));
+  $('#aStrum').value = s.strum; $('#aBass').value = s.bass;
+  $('#aStrumDesc').textContent = STRUMS[s.sig][s.strum].desc + (s.bass !== 'off' ? ' Bass: ' + BASS[s.bass].desc : '');
   for (const b of $('#aGrid').children) b.classList.toggle('on', b.dataset.g === aGrid);
+  for (const b of $('#aMode').children) b.classList.toggle('on', b.dataset.m === aMode);
+  if (aMode === 'm') return renderMel(s);
   const len = secLen(s), n = SIG[s.sig].n, inner = $('#aLaneIn');
   lanePx = clamp(($('#aLane').clientWidth - 2) / len, 14, 40);
-  inner.style.width = len * lanePx + 'px';
+  inner.style.width = len * lanePx + 'px'; inner.classList.remove('mel');
   const ruler = mk('div', 'ruler'), beats = mk('div', 'beats');
   for (let b = 0; b < s.bars; b++) { const r = mk('span', '', b + 1); r.style.left = b * n * lanePx + 'px'; ruler.append(r); }
   beats.style.setProperty('--e8', lanePx + 'px'); beats.style.setProperty('--beat', SIG[s.sig].beat * lanePx + 'px'); beats.style.setProperty('--bar', n * lanePx + 'px');
@@ -1944,15 +2024,117 @@ laneIn.addEventListener('keydown', e => {
 $('#aSig').onclick = e => {
   const b = e.target.closest('[data-g]'), s = secOf(arr[aSel]); if (!b || !s || b.dataset.g === s.sig) return;
   pushA();
-  const o = SIG[s.sig].n, n = SIG[b.dataset.g].n, cs = s.chords;
-  cs.forEach(c => c.at = Math.floor(c.at / o) * n + Math.min(c.at % o, n - 1));
+  const o = SIG[s.sig].n, n = SIG[b.dataset.g].n, cs = s.chords, re = at => Math.floor(at / o) * n + Math.min(at % o, n - 1);
+  cs.forEach(c => c.at = re(c.at)); s.mel.forEach(m => m.at = re(m.at));
   s.sig = b.dataset.g;
   cs.forEach((c, k) => { if (k) c.at = Math.max(c.at, cs[k - 1].at + 1); });
   for (let k = cs.length - 1; k >= 0; k--) cs[k].at = Math.min(cs[k].at, (k + 1 < cs.length ? cs[k + 1].at : secLen(s)) - 1);
   timed(s); saveArr(); renderArr();
 };
 $('#aStrum').onchange = e => { const s = secOf(arr[aSel]); if (!s) return; pushA(); s.strum = e.target.value; saveArr(); renderArr(); };
+$('#aBass').onchange = e => { const s = secOf(arr[aSel]); if (!s) return; pushA(); s.bass = e.target.value; saveArr(); renderArr(); };
+$('#aMode').onclick = e => {
+  const b = e.target.closest('[data-m]'); if (!b || b.dataset.m === aMode) return;
+  aMode = b.dataset.m; $('#aPos').textContent = LANE_HINT[aMode]; const s = secOf(arr[aSel]); if (s) renderLane(s);
+};
 $('#aGrid').onclick = e => { const b = e.target.closest('[data-g]'); if (!b) return; aGrid = b.dataset.g; const s = secOf(arr[aSel]); if (s) renderLane(s); };
+
+/* ---------- melody lane ----------
+   A lead or vocal line for the selected section, on the same beat grid as the chord lane. Tap a cell to add a note,
+   tap a note to take it out, drag it to move it, drag its right end to make it longer. Every copy of the section changes. */
+const LANE_HINT = { c: 'Drag a chord to move it. It stops next to its neighbours.', m: 'Tap to add a note, tap one to take it out. Drag to move, drag its right end to lengthen. Tinted rows are the chord\'s notes.' };
+$('#aPos').textContent = LANE_HINT.c;
+const MEL_LO = 55, MEL_HI = 79, ROW = 12, MEL_TOP = 34;
+const rowY = m => MEL_TOP + (MEL_HI - m) * ROW;
+const noteName = (s, m) => spell(s.chords[0].key)[mod12(m)] + (Math.floor(m / 12) - 1);
+function playNote(m) {
+  const ctx = decodeCtx(); ctx.resume();
+  noteBuf(m, 'lead').then(() => strum([m], ctx.currentTime + 0.02, { vel: 0.85, len: 0.5, font: 'lead' }));
+}
+function renderMel(s) {
+  const len = secLen(s), n = SIG[s.sig].n, inner = $('#aLaneIn'), ds = durs(s);
+  lanePx = clamp(($('#aLane').clientWidth - 2) / len, 14, 40);
+  inner.style.width = len * lanePx + 'px'; inner.classList.add('mel');
+  const ruler = mk('div', 'ruler'), chs = mk('div', 'chs'), beats = mk('div', 'beats'), bg = [];
+  for (let b = 0; b < s.bars; b++) { const r = mk('span', '', b + 1); r.style.left = b * n * lanePx + 'px'; ruler.append(r); }
+  beats.style.setProperty('--e8', lanePx + 'px'); beats.style.setProperty('--beat', SIG[s.sig].beat * lanePx + 'px'); beats.style.setProperty('--bar', n * lanePx + 'px');
+  for (let m = MEL_LO; m <= MEL_HI; m += 1) if (m % 12 === 0) { const o = mk('div', 'oct'); o.style.top = rowY(m) + 'px'; o.append(mk('span', '', 'C' + (m / 12 - 1))); bg.push(o); }
+  s.chords.forEach((c, k) => {
+    const l = mk('span', '', pName(c)); l.style.left = c.at * lanePx + 'px'; l.style.width = ds[k] * lanePx + 'px'; chs.append(l);
+    const ts = tones(c.ch);
+    for (let m = MEL_LO; m <= MEL_HI; m++) if (ts.has(mod12(m))) { const t = mk('div', 'tone'); Object.assign(t.style, { left: c.at * lanePx + 'px', width: ds[k] * lanePx + 'px', top: rowY(m) + 'px' }); bg.push(t); }
+  });
+  inner.replaceChildren(ruler, chs, beats, ...bg, ...s.mel.map((nt, j) => {
+    const e = mk('div', 'mn'); e.dataset.j = j; e.tabIndex = 0; e.title = `${noteName(s, nt.m)}: ${posName(s, nt.at)}`; return e;
+  }));
+  layMel(s);
+}
+function layMel(s) {
+  $('#aLaneIn').querySelectorAll('.mn').forEach(e => {
+    const nt = s.mel[+e.dataset.j], w = Math.max(4, nt.len * lanePx - 2);
+    Object.assign(e.style, { left: nt.at * lanePx + 1 + 'px', top: rowY(nt.m) + 'px', width: w + 'px' });
+    e.textContent = w >= 24 ? noteName(s, nt.m) : '';
+  });
+}
+// Commit a change made in place: undo gets the melody as it was before.
+function commitMel(s, before) {
+  if (JSON.stringify(s.mel) === before) return false;
+  const now = s.mel; s.mel = JSON.parse(before); pushA(); s.mel = now; saveArr(); renderArr(); return true;
+}
+const melAt = (s, n) => `${noteName(s, n.m)} · ${posName(s, n.at)}`;
+let mdrag = null;
+laneIn.addEventListener('pointerdown', e => {
+  const s = secOf(arr[aSel]); if (aMode !== 'm' || !s || e.button > 0) return;
+  const el = e.target.closest('.mn'), r = laneIn.getBoundingClientRect();
+  mdrag = { s, el, x: e.clientX, y: e.clientY, pid: e.pointerId, on: false, before: JSON.stringify(s.mel), px: e.clientX - r.left, py: e.clientY - r.top };
+  if (el) {
+    const j = +el.dataset.j, er = el.getBoundingClientRect();
+    Object.assign(mdrag, { j, from: { ...s.mel[j] }, edge: e.clientX > er.right - 8 });
+    el.setPointerCapture(e.pointerId);
+  }
+});
+laneIn.addEventListener('pointermove', e => {
+  const d = mdrag; if (!d || e.pointerId !== d.pid || !d.el) return;
+  const dx = e.clientX - d.x, dy = e.clientY - d.y;
+  if (!d.on) { if (Math.hypot(dx, dy) < 6) return; d.on = true; stopSeq(); d.el.classList.add('drag'); }
+  const s = d.s, st = gridStep(s), end = secLen(s), nt = s.mel[d.j], f = d.from;
+  if (d.edge) nt.len = clamp(Math.round((f.at + f.len + dx / lanePx) / st) * st - f.at, 1, end - f.at);
+  else {
+    nt.at = clamp(Math.round((f.at + dx / lanePx) / st) * st, 0, end - f.len);
+    const m = clamp(f.m - Math.round(dy / ROW), MEL_LO, MEL_HI);
+    if (m !== nt.m) { nt.m = m; playNote(m); }
+  }
+  layMel(s); $('#aPos').textContent = melAt(s, nt) + (d.edge ? ` · ${nt.len} eighth${nt.len > 1 ? 's' : ''}` : '');
+});
+laneIn.addEventListener('pointerup', e => {
+  const d = mdrag; if (!d || e.pointerId !== d.pid) return;
+  mdrag = null; const s = d.s;
+  if (d.el) {
+    d.el.classList.remove('drag');
+    if (d.on) { commitMel(s, d.before); return; }
+    const nt = s.mel[d.j]; s.mel.splice(d.j, 1); commitMel(s, d.before); $('#aPos').textContent = `Took out ${melAt(s, nt)}.`; return;
+  }
+  if (Math.hypot(e.clientX - d.x, e.clientY - d.y) >= 6 || d.py < MEL_TOP) return;
+  const st = gridStep(s), end = secLen(s), at = Math.floor(d.px / lanePx / st) * st, m = clamp(MEL_HI - Math.floor((d.py - MEL_TOP) / ROW), MEL_LO, MEL_HI);
+  if (at >= end) return;
+  const nt = { at, len: Math.min(st, end - at), m };
+  s.mel.push(nt); s.mel.sort((a, b) => a.at - b.at || a.m - b.m); commitMel(s, d.before); playNote(m);
+  $('#aPos').textContent = melAt(s, nt);
+});
+laneIn.addEventListener('pointercancel', () => {
+  const d = mdrag; if (!d) return; mdrag = null;
+  if (d.el) { d.el.classList.remove('drag'); if (d.on) { d.s.mel[d.j] = d.from; layMel(d.s); } }
+});
+// Arrow keys move a focused note (up and down in pitch), Delete takes it out.
+laneIn.addEventListener('keydown', e => {
+  const el = e.target.closest('.mn'), s = secOf(arr[aSel]); if (!el || !s) return;
+  const j = +el.dataset.j, nt = s.mel[j], st = gridStep(s), end = secLen(s), before = JSON.stringify(s.mel);
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); s.mel.splice(j, 1); commitMel(s, before); return; }
+  const mv = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key]; if (!mv) return;
+  e.preventDefault();
+  nt.at = clamp(nt.at + mv[0], 0, end - nt.len); nt.m = clamp(nt.m + mv[1], MEL_LO, MEL_HI);
+  if (commitMel(s, before)) { if (mv[1]) playNote(nt.m); $(`#aLaneIn .mn[data-j="${j}"]`)?.focus(); $('#aPos').textContent = melAt(s, nt); }
+});
 
 // Dragging: pointer events so it works with a finger too. Sections copy in; blocks move; a block dropped outside the song is removed.
 let adrag = null;
@@ -2025,13 +2207,13 @@ function drop(d) {
   saveArr(); renderArr();
 }
 
-// MIDI: one track, nylon guitar, a marker per section and chord, a meter change wherever it changes, strummed the same way it plays here.
+// MIDI: one track, a marker per section and chord, chords on channel 1 (piano or nylon guitar), bass on 2, melody on 3, a meter change wherever it changes, strummed the same way it plays here.
 function exportMidi() {
   if (!arr.length) return;
   const PPQ = 480, ev = [], vlq = n => { const b = [n & 127]; while (n >>= 7) b.unshift((n & 127) | 128); return b; };
   const meta = (type, data) => [0xff, type, ...vlq(data.length), ...data], text = s => [...new TextEncoder().encode(s)];
   const us = Math.round(60e6 / pBpm);
-  ev.push({ t: 0, o: 0, b: meta(3, text('strung_along')) }, { t: 0, o: 0, b: meta(0x51, [us >> 16 & 255, us >> 8 & 255, us & 255]) }, { t: 0, o: 0, b: [0xc0, 24] });
+  ev.push({ t: 0, o: 0, b: meta(3, text('strung_along')) }, { t: 0, o: 0, b: meta(0x51, [us >> 16 & 255, us >> 8 & 255, us & 255]) }, { t: 0, o: 0, b: [0xc0, inst === 'piano' ? 0 : 24] });
   const E8 = PPQ / 2, parts = partsOf(arr), names = parts.flatMap(p => p.sec.chords.map(n => nameIn(n.ch, n.key)));
   let sig = null;
   for (const { sec, off } of parts) {
@@ -2043,6 +2225,12 @@ function exportMidi() {
     const t = s.e * E8, len = Math.round((s.len + (j === st.length - 1 ? 4 : 0)) * E8);
     if (s.start) ev.push({ t, o: 0, b: meta(1, text(names[s.i])) });
     (s.u ? [...s.notes].reverse() : s.notes).forEach((m, k) => { ev.push({ t: t + k * 8, o: 2, b: [0x90, m, Math.round(s.v * 110)] }, { t: t + len, o: 1, b: [0x80, m, 0] }); });
+  });
+  // Bass and melody, each on its own channel with its own instrument, left out when there's none.
+  [[bassNotes(parts), 1, 32, b => b.v], [melNotes(parts), 2, 73, () => 0.85]].forEach(([ns, ch, prog, vel]) => {
+    if (!ns.length) return;
+    ev.push({ t: 0, o: 0, b: [0xc0 | ch, prog] });
+    ns.forEach(n => ev.push({ t: n.e * E8, o: 2, b: [0x90 | ch, n.m, Math.round(vel(n) * 110)] }, { t: (n.e + n.len) * E8 - 1, o: 1, b: [0x80 | ch, n.m, 0] }));
   });
   ev.sort((a, b) => a.t - b.t || a.o - b.o);
   const trk = []; let last = 0;
