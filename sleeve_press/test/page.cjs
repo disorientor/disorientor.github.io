@@ -16,11 +16,12 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'sleeve-page-'));
   const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless=new', '--remote-debugging-port=9232', '--user-data-dir=' + profile, '--no-first-run', '--use-angle=metal', `--window-size=${phone ? '390,844' : '1440,900'}`, 'about:blank'], { stdio: 'ignore' });
   let code = 1;
+  const errors = [];
   try {
     let targets; for (let i = 0; i < 40 && !targets; i++) { await sleep(250); try { targets = await (await fetch('http://127.0.0.1:9232/json')).json(); } catch {} }
     const ws = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
     await new Promise(r => ws.onopen = r);
-    let id = 0; const pending = new Map(), errors = [];
+    let id = 0; const pending = new Map();
     ws.onmessage = e => { const m = JSON.parse(e.data);
       if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text);
       if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map(a => a.value || a.description).join(' '));
@@ -30,6 +31,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
     const shot = async name => { const r = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(outDir, name + '.png'), Buffer.from(r.result.data, 'base64')); };
     await send('Runtime.enable'); await send('Page.enable');
     if (phone) await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    // The tools sit behind tools-access/; mark this tab unlocked the way a correct password does.
+    await send('Page.navigate', { url: 'http://127.0.0.1:8132/tools-access/' }); await sleep(1200);
+    await evaluate(`sessionStorage.setItem('disorientor-tools:' + TOOLS_ACCESS_CONFIG.verifier, 'unlocked')`);
     await send('Page.navigate', { url: 'http://127.0.0.1:8132/sleeve-press/' }); await sleep(2500);
     await evaluate('localStorage.clear(); location.reload()').catch(() => {}); await sleep(3000);
     await evaluate('document.fonts.ready.then(() => new Promise(r => setTimeout(r, 800)))');
@@ -65,6 +69,19 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       await shot('shaders-tab');
       await evaluate(`state.template = 'strip'; activeTab = 'graphics'; activeSlot = 'feature'; renderTabs(); renderPanel(); scheduleRender(); new Promise(r => setTimeout(r, 1200))`);
       await shot('graphics-tab');
+      // Drag the artist wordmark 120 px right and 60 px down in Move mode, then wheel it larger.
+      await evaluate(`state.template = 'headline'; setMode('move'); activeTab = 'arrange'; renderTabs(); renderPanel(); scheduleRender(); new Promise(r => setTimeout(r, 800))`);
+      const pt = JSON.parse(await evaluate(`(() => { const h = lastHits.hits.find(h => h.id === 'artist'), r = cv.getBoundingClientRect(); return JSON.stringify([r.left + h.cx / lastHits.W * r.width, r.top + h.cy / lastHits.H * r.height]); })()`));
+      const mouse = (type, x, y, extra = {}) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, ...extra });
+      await mouse('mousePressed', pt[0], pt[1]);
+      for (let i = 1; i <= 6; i++) await mouse('mouseMoved', pt[0] + i * 20, pt[1] + i * 10);
+      await mouse('mouseReleased', pt[0] + 120, pt[1] + 60);
+      await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pt[0] + 120, y: pt[1] + 60, deltaX: 0, deltaY: -200 });
+      await sleep(900);
+      const moved = JSON.parse(await evaluate(`JSON.stringify(state.layout.headline.artist)`));
+      console.log('drag', JSON.stringify(moved));
+      assert(moved.x > .05 && moved.y > .02 && moved.s > 1.1, 'drag/scale did not move the wordmark');
+      await shot('arrange-tab');
       const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
       console.log('slots', slots);
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-1');
@@ -80,5 +97,5 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
     }
     console.log(errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors');
     code = errors.length ? 1 : 0;
-  } catch (e) { console.error(e); } finally { chrome.kill(); server.close(); process.exitCode = code; }
+  } catch (e) { console.error(e.message, "\nPAGE ERRORS:\n" + errors.join("\n")); } finally { chrome.kill(); server.close(); process.exitCode = code; }
 })();

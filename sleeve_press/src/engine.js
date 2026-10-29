@@ -97,7 +97,7 @@ class SpEngine {
   upload(source, tex) {
     const gl = this.gl;
     const w = source.naturalWidth || source.videoWidth || source.width, h = source.naturalHeight || source.videoHeight || source.height;
-    if (!tex || tex.w !== w || tex.h !== h) tex = this.texture(w, h);
+    if (!tex || tex.w !== w || tex.h !== h) { if (tex) gl.deleteTexture(tex); tex = this.texture(w, h); }
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, source);

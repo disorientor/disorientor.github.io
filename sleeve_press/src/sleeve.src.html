@@ -30,7 +30,12 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px;flex-wrap:wrap
 .mark{flex:1;font-size:22px;letter-spacing:.02em;white-space:nowrap}
 .mark i{font-style:normal;color:var(--accent)}
 main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding-bottom:16px}
-#stage{min-height:0;min-width:0;display:grid;place-items:center;position:relative;overflow:hidden}
+#stage{min-height:0;min-width:0;display:grid;grid-template-rows:1fr auto;place-items:center;position:relative;overflow:hidden}
+#frame{position:relative;line-height:0}
+#ov{position:absolute;inset:0;pointer-events:none}
+#tool{justify-self:start;padding-top:8px}
+#tool .mini{padding:5px 10px}
+#selName{margin-left:6px}
 #cv{display:block;background:#000;box-shadow:0 10px 40px rgba(0,0,0,.6);touch-action:none;cursor:grab}
 #busy{position:absolute;right:8px;top:8px;color:var(--muted)}
 #side{min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -89,7 +94,15 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
     <button id="exportBtn" class="primary">Export</button>
   </header>
   <main class="pad">
-    <div id="stage"><canvas id="cv" width="1024" height="1024" aria-label="Album cover preview"></canvas><div id="busy" hidden>rendering…</div></div>
+    <div id="stage">
+      <div id="frame"><canvas id="cv" width="1024" height="1024" aria-label="Album cover preview"></canvas><canvas id="ov" aria-hidden="true"></canvas></div>
+      <div id="tool" class="row">
+        <button id="mMove" class="mini on" title="Drag anything on the cover; wheel or pinch scales it, Shift+wheel rotates (V)">Move</button>
+        <button id="mPan" class="mini" title="Drag the picture inside its frame; wheel or pinch zooms it (P)">Pan photo</button>
+        <span id="selName" class="note"></span>
+      </div>
+      <div id="busy" hidden>rendering…</div>
+    </div>
     <div id="side">
       <nav id="tabs" role="tablist"></nav>
       <div id="panel"></div>
@@ -127,6 +140,9 @@ const hex2rgb = h => { h = h.replace('#', ''); if (h.length === 3) h = h.replace
 const rgb2hex = a => '#' + a.slice(0, 3).map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
 let toastTimer;
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); }
+// The candidate colour that stands out most against bg (by luminance).
+const lumOf = h => { const [r, g, b] = hex2rgb(h); return .2126 * r + .7152 * g + .0722 * b; };
+const contrastOn = (bg, list) => list.reduce((a, c) => Math.abs(lumOf(c) - lumOf(bg)) > Math.abs(lumOf(a) - lumOf(bg)) ? c : a);
 const isCJK = s => /[　-ヿ㐀-鿿＀-￯]/.test(s);
 
 /* ---------- katakana ----------
@@ -210,22 +226,105 @@ const fam = id => { const f = FONT_BY[id] || FONT_BY['archivo-black']; loadFont(
 const fontsReady = () => Promise.all(Object.values(fontLoads));
 
 /* ---------- palettes and templates ---------- */
+// Palettes: [family, name, paper, ink 1, ink 2, accent, type on band]. Names describe colours, nothing more.
 const PALETTES = [
-  ['kiln','#2a6fa8','#0d1424','#5fb4e0','#ec5b1b','#f3efe6'],
-  ['shock','#c8c6cc','#1b1a1f','#ff2a86','#ff2a86','#1b1a1f'],
-  ['rose','#f2c3c0','#191315','#e2232a','#e2232a','#f6efe9'],
-  ['ultraviolet','#f3f1ea','#13105a','#3d6bff','#ff3fbf','#13105a'],
-  ['signal','#e11d16','#0a0a0a','#5c0906','#0a0a0a','#f2eee5'],
-  ['lime','#a5e46c','#e3201b','#2f62ff','#e3201b','#ffffff'],
-  ['cyan','#14a6cb','#e2261c','#0a1a2a','#ffffff','#f5f2ea'],
-  ['flesh','#cbb48e','#141210','#4a3a2a','#141210','#e8dcc0'],
-  ['xerox','#f1efe9','#121212','#e43a2f','#e43a2f','#121212'],
-  ['void','#0b0b0b','#d8241c','#f2f2f2','#f2f2f2','#d8241c'],
-  ['riso','#f4f1e4','#ff48b0','#0078bf','#ffe800','#0078bf'],
-  ['acid','#efff3a','#141414','#ff3d00','#141414','#ff3d00'],
-  ['sakura','#ffd9e4','#2b1a33','#ff4f79','#2b1a33','#ffffff'],
-  ['noir','#e9e7e1','#0c0c0c','#6b6b6b','#0c0c0c','#e9e7e1']
-].map(([id, paper, ink1, ink2, accent, text]) => ({ id, paper, ink1, ink2, accent, text }));
+  ['Print', 'rose', '#f2c3c0', '#191315', '#e2232a', '#e2232a', '#f6efe9'],
+  ['Print', 'kiln', '#2a6fa8', '#0d1424', '#5fb4e0', '#ec5b1b', '#f3efe6'],
+  ['Print', 'signal', '#e11d16', '#0a0a0a', '#5c0906', '#0a0a0a', '#f2eee5'],
+  ['Print', 'xerox', '#f1efe9', '#121212', '#e43a2f', '#e43a2f', '#121212'],
+  ['Print', 'newsprint', '#e8e2d2', '#1d1d1b', '#6f6a5e', '#1d1d1b', '#e8e2d2'],
+  ['Print', 'kraft', '#c9a978', '#1f1a14', '#7a4b23', '#1f1a14', '#e9dcc4'],
+  ['Print', 'blueprint', '#1d4e89', '#e9f1fb', '#9fc3ea', '#e9f1fb', '#1d4e89'],
+  ['Print', 'carbon copy', '#e6e8f0', '#1e2a78', '#5a66b8', '#1e2a78', '#e6e8f0'],
+  ['Print', 'stamp red', '#f4efe2', '#b3131b', '#2a2a2a', '#b3131b', '#f4efe2'],
+  ['Print', 'flesh', '#cbb48e', '#141210', '#4a3a2a', '#141210', '#e8dcc0'],
+  ['Print', 'noir', '#e9e7e1', '#0c0c0c', '#6b6b6b', '#0c0c0c', '#e9e7e1'],
+  ['Print', 'ledger', '#eef3e6', '#1b3a2a', '#c23b22', '#1b3a2a', '#eef3e6'],
+  ['Riso', 'riso', '#f4f1e4', '#ff48b0', '#0078bf', '#ffe800', '#0078bf'],
+  ['Riso', 'fluoro pink / blue', '#f6f3ea', '#ff48b0', '#3255a4', '#3255a4', '#f6f3ea'],
+  ['Riso', 'teal / orange', '#f3efe4', '#00838a', '#ff6c2f', '#ff6c2f', '#f3efe4'],
+  ['Riso', 'green / yellow', '#f5f2e3', '#00a95c', '#ffe800', '#00a95c', '#f5f2e3'],
+  ['Riso', 'burgundy / aqua', '#f3eee6', '#914e72', '#5ec8e5', '#914e72', '#f3eee6'],
+  ['Riso', 'violet / sunflower', '#f4f0ea', '#765ba7', '#ffb511', '#765ba7', '#f4f0ea'],
+  ['Riso', 'red / federal blue', '#f5f1e8', '#ff665e', '#3d5588', '#3d5588', '#f5f1e8'],
+  ['Riso', 'mint / scarlet', '#f2f4ec', '#82d8d5', '#f65058', '#f65058', '#f2f4ec'],
+  ['Riso', 'black / fluoro orange', '#f2efe7', '#141414', '#ff7477', '#ff7477', '#141414'],
+  ['Riso', 'cornflower / pink', '#f6f2ef', '#6c8ee2', '#ff8ac4', '#6c8ee2', '#f6f2ef'],
+  ['Vaporwave', 'mall', '#ffd6ec', '#3b1f63', '#00c2c7', '#ff71ce', '#fffbff'],
+  ['Vaporwave', 'pastel sunset', '#fbe3ff', '#4b2c7a', '#ff8fb1', '#ffb36b', '#4b2c7a'],
+  ['Vaporwave', 'aqua marble', '#e8fbf9', '#20304f', '#01cdfe', '#b967ff', '#ffffff'],
+  ['Vaporwave', 'plaza', '#c4f1ff', '#1b1446', '#ff5fa2', '#7a5cff', '#ffffff'],
+  ['Vaporwave', 'dial-up', '#c0c0c0', '#000080', '#008080', '#000080', '#ffffff'],
+  ['Vaporwave', 'lagoon', '#05ffa1', '#1a0b3b', '#fffb96', '#b967ff', '#1a0b3b'],
+  ['Vaporwave', 'neon grid', '#120024', '#ff2ec4', '#00f0ff', '#ff2ec4', '#120024'],
+  ['Vaporwave', 'peach terminal', '#ffe0cc', '#2f0f3d', '#ff6f91', '#845ec2', '#ffe0cc'],
+  ['Vaporwave', 'chrome lilac', '#d9d4ff', '#26174a', '#8e7dff', '#ff9de2', '#26174a'],
+  ['Vaporwave', 'late night tv', '#0a0f2c', '#e6e9ff', '#ff4fa3', '#36d1dc', '#0a0f2c'],
+  ['Vaporwave', 'palm pink', '#ffcfe1', '#0e4c45', '#ff4f81', '#0e4c45', '#ffcfe1'],
+  ['Vaporwave', 'teal room', '#7fe0d4', '#1c1236', '#f7f0ff', '#ff6ec7', '#1c1236'],
+  ['Neon', 'acid', '#efff3a', '#141414', '#ff3d00', '#141414', '#ff3d00'],
+  ['Neon', 'ultraviolet', '#f3f1ea', '#13105a', '#3d6bff', '#ff3fbf', '#13105a'],
+  ['Neon', 'toxic', '#0d0d0d', '#b6ff00', '#ff00a8', '#b6ff00', '#0d0d0d'],
+  ['Neon', 'laser', '#000000', '#ff1744', '#00e5ff', '#ff1744', '#000000'],
+  ['Neon', 'safety', '#ff5f00', '#111111', '#ffffff', '#111111', '#ff5f00'],
+  ['Neon', 'highlighter', '#fbff00', '#2400ff', '#ff0090', '#2400ff', '#fbff00'],
+  ['Neon', 'magenta cyan', '#ff00b4', '#00151f', '#00e0ff', '#00151f', '#ff00b4'],
+  ['Neon', 'arcade', '#16001e', '#ffe600', '#ff2079', '#ffe600', '#16001e'],
+  ['Neon', 'lime', '#a5e46c', '#e3201b', '#2f62ff', '#e3201b', '#ffffff'],
+  ['Neon', 'cyan', '#14a6cb', '#e2261c', '#0a1a2a', '#ffffff', '#f5f2ea'],
+  ['Earth', 'clay', '#d9b99b', '#3b2418', '#a2502d', '#3b2418', '#f2e6d8'],
+  ['Earth', 'moss', '#d6d8b8', '#2b331a', '#6b7b2c', '#2b331a', '#eef0dc'],
+  ['Earth', 'rust', '#e6d2bd', '#2a1a12', '#b4451f', '#b4451f', '#f5ece2'],
+  ['Earth', 'sandstone', '#e9d8b4', '#4a2f1d', '#c27a3a', '#4a2f1d', '#f7eedc'],
+  ['Earth', 'olive drab', '#b9b48a', '#22241a', '#5d5a2f', '#22241a', '#e6e3c8'],
+  ['Earth', 'terracotta', '#f0dfcf', '#5b2a1c', '#d0643c', '#d0643c', '#fff4ea'],
+  ['Earth', 'forest', '#203a2a', '#e9e4cf', '#c8a24a', '#e9e4cf', '#203a2a'],
+  ['Earth', 'tobacco', '#3a2a1e', '#f0e1c8', '#c98a3e', '#f0e1c8', '#3a2a1e'],
+  ['Pastel', 'sakura', '#ffd9e4', '#2b1a33', '#ff4f79', '#2b1a33', '#ffffff'],
+  ['Pastel', 'mint milk', '#dff6ec', '#21413a', '#5ec9a4', '#21413a', '#ffffff'],
+  ['Pastel', 'lavender', '#e8e0fb', '#2c2550', '#9c8ae6', '#2c2550', '#ffffff'],
+  ['Pastel', 'butter', '#fff3c4', '#3b3220', '#f0a830', '#3b3220', '#fff9e3'],
+  ['Pastel', 'sky', '#d9edff', '#16304d', '#6aa9e9', '#16304d', '#ffffff'],
+  ['Pastel', 'peach', '#ffe2d1', '#43231a', '#ff8a65', '#43231a', '#fff4ee'],
+  ['Pastel', 'lilac / lemon', '#f1e7ff', '#3a2a5c', '#f3e45a', '#3a2a5c', '#f1e7ff'],
+  ['Pastel', 'powder', '#e4ecf5', '#2e3440', '#e5a5b5', '#2e3440', '#ffffff'],
+  ['Mono', 'ink', '#ffffff', '#000000', '#555555', '#000000', '#ffffff'],
+  ['Mono', 'void', '#0b0b0b', '#d8241c', '#f2f2f2', '#f2f2f2', '#d8241c'],
+  ['Mono', 'graphite', '#d7d7d2', '#1a1a1a', '#7d7d78', '#1a1a1a', '#d7d7d2'],
+  ['Mono', 'negative', '#000000', '#f0f0f0', '#7a7a7a', '#f0f0f0', '#000000'],
+  ['Mono', 'bone', '#efe9dc', '#2a2723', '#a49c8c', '#2a2723', '#efe9dc'],
+  ['Mono', 'cobalt mono', '#e7ecf7', '#0f2fa8', '#7a8fd6', '#0f2fa8', '#e7ecf7'],
+  ['Mono', 'oxblood mono', '#f1e6e2', '#5a0f14', '#a8656a', '#5a0f14', '#f1e6e2'],
+  ['Mono', 'night print', '#121417', '#e3e1da', '#5d6168', '#e3e1da', '#121417'],
+  ['Cold', 'glacier', '#e6f4f8', '#0d2c3d', '#4fa3c7', '#0d2c3d', '#e6f4f8'],
+  ['Cold', 'midnight', '#0d1530', '#c7d3ff', '#4d6cfa', '#c7d3ff', '#0d1530'],
+  ['Cold', 'steel', '#c8d0d8', '#141c24', '#55697d', '#141c24', '#e6ebf0'],
+  ['Cold', 'arctic violet', '#eef0ff', '#251d5c', '#6f62e8', '#251d5c', '#eef0ff'],
+  ['Cold', 'deep sea', '#03363d', '#9be7e1', '#f1fffd', '#9be7e1', '#03363d'],
+  ['Cold', 'griffin', '#14a6cb', '#e2261c', '#0a1a2a', '#ffffff', '#f5f2ea'],
+  ['Warm', 'ember', '#2b0f0a', '#ff9a3c', '#ff3d2e', '#ff9a3c', '#2b0f0a'],
+  ['Warm', 'tangerine', '#ffb347', '#2d1600', '#d83f00', '#2d1600', '#ffb347'],
+  ['Warm', 'marigold', '#f6c344', '#2e1f05', '#c0392b', '#2e1f05', '#f6c344'],
+  ['Warm', 'crimson', '#f3e2dc', '#7a0016', '#e0412b', '#7a0016', '#f3e2dc'],
+  ['Warm', 'saffron night', '#1b1022', '#ffb627', '#ff5d73', '#ffb627', '#1b1022'],
+  ['Warm', 'brick', '#e7d6c8', '#3d1410', '#a8321f', '#a8321f', '#f6ede6'],
+  ['Tropical', 'reef', '#ffe9d6', '#004e64', '#ff6f59', '#00a5cf', '#ffffff'],
+  ['Tropical', 'pineapple', '#fff1a8', '#14532d', '#ff7a00', '#14532d', '#fff1a8'],
+  ['Tropical', 'flamingo', '#ffc2d4', '#1b4332', '#ff4d6d', '#1b4332', '#ffc2d4'],
+  ['Tropical', 'lagoon teal', '#c6fff1', '#0b3954', '#ff5a5f', '#087e8b', '#ffffff'],
+  ['Tropical', 'mango', '#ffd166', '#26213b', '#ef476f', '#118ab2', '#ffffff'],
+  ['Tropical', 'jungle', '#1f3d2b', '#f2e8cf', '#e76f51', '#f2e8cf', '#1f3d2b']
+].map(([group, id, paper, ink1, ink2, accent, text]) => ({ group, id, paper, ink1, ink2, accent, text }));
+const PALETTE_GROUPS = [...new Set(PALETTES.map(p => p.group))];
+// A random palette: one hue family for paper and inks, a complementary accent, type picked for contrast.
+function generatePalette(r = Math.random) {
+  const h = r() * 360, dark = r() < .3, hsl = (H, S, L) => { const k = n => (n + H / 30) % 12, a = S * Math.min(L, 1 - L); const f = n => L - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return rgb2hex([f(0), f(8), f(4)]); };
+  const paper = dark ? hsl(h, .4, .08 + r() * .08) : hsl(h, .3 + r() * .6, .82 + r() * .12);
+  const ink1 = dark ? hsl(h + 180 * r(), .8, .65) : hsl(h + 20 * (r() - .5), .5 + r() * .5, .1 + r() * .2);
+  const ink2 = hsl(h + 120 + r() * 120, .6 + r() * .4, .45 + r() * .15);
+  const accent = hsl(h + 180 + (r() - .5) * 60, .7 + r() * .3, .5);
+  return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: contrastOn(accent, [paper, ink1, '#ffffff', '#000000']) };
+}
 
 const TEMPLATES = {};
 const T = (id, name, fn, opts = {}) => TEMPLATES[id] = { id, name, fn, ...opts };
@@ -253,7 +352,11 @@ function fitText(ctx, text, family, x, y, w, h, o = {}) {
   ctx.translate(ax, ay); ctx.scale(sx, 1);
   ctx.textBaseline = 'alphabetic';
   if (o.stroke) { ctx.lineWidth = Math.max(1, size * o.stroke); ctx.strokeStyle = o.color; ctx.lineJoin = 'round'; ctx.strokeText(text, 0, 0); }
-  else { ctx.fillStyle = o.color; ctx.fillText(text, 0, 0); }
+  else {
+    if (o.gradient) { const g = ctx.createLinearGradient(0, -asc * size / 100, 0, desc * size / 100); o.gradient.forEach((c, i) => g.addColorStop(i / (o.gradient.length - 1), c)); ctx.fillStyle = g; }
+    else ctx.fillStyle = o.color;
+    ctx.fillText(text, 0, 0);
+  }
   ctx.restore();
   return { width, height: realH };
 }
@@ -289,12 +392,13 @@ function lines(ctx, list, family, x, y, w, size, color, o = {}) {
 const SLOTS = { emblem: 'Emblem', corner: 'Corner mark', feature: 'Feature shape', strip: 'Strip' };
 const INKS = [['auto', 'Template colour'], ['ink1', 'Ink 1'], ['ink2', 'Ink 2'], ['accent', 'Accent'], ['paper', 'Paper'], ['text', 'Type on band']];
 let usedSlots = new Set();
+let GFX = null;  // the graphics layer's canvas while a cover is being laid out
 function G(c, slot, x, y, w, h, fallback) {
   usedSlots.add(slot);
   const g = (state.graphics || {})[slot] || {};
   if (!g.id || g.id === 'none') return;
   const ink = g.ink && g.ink !== 'auto' ? state.colors[g.ink] : fallback;
-  drawMicro(c, g.id, x, y, w, h, ink, state.seed + slot.length * 31);
+  E(GFX, 'g:' + slot, SLOTS[slot] + ' graphic', 'graphics', x, y, w, h, k => drawMicro(k, g.id, x, y, w, h, ink, state.seed + slot.length * 31));
 }
 function splitTwo(s) {
   const w = s.trim().split(/\s+/);
@@ -305,7 +409,7 @@ function splitTwo(s) {
 // Wordmark: drawn on its own canvas so warp can slice it into displaced rows.
 function wordmark(ctx, text, x, y, w, h, o) {
   const S = state.type;
-  const opts = { stretch: o.stretch ?? S.stretch, condense: S.condense, tracking: S.tracking, color: o.color, stroke: S.outline ? .035 : 0, align: o.align, valign: o.valign };
+  const opts = { stretch: o.stretch ?? S.stretch, condense: S.condense, tracking: S.tracking, color: o.color, gradient: o.gradient, stroke: S.outline || o.outline ? .035 : 0, align: o.align, valign: o.valign };
   if (!S.warp) return o.vertical ? vertText(ctx, text, fam(S.wordFont), x, y, w, h, { ...opts, rotate: true, ccw: o.ccw }) : fitText(ctx, text, fam(S.wordFont), x, y, w, h, opts);
   const c = document.createElement('canvas'); c.width = Math.ceil(w); c.height = Math.ceil(h);
   const k = c.getContext('2d');
@@ -318,17 +422,42 @@ function wordmark(ctx, text, x, y, w, h, o) {
   }
 }
 
+/* Placement: every element of a template goes through E() with an id. The user's move (x, y as fractions of
+   the cover), scale, rotation and hide for that id are applied around the element's box, and the box is
+   recorded so the element can be picked and dragged on the cover. */
+let LAY = { W: 1, H: 1, hits: [] };
+const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...((state.layout || {})[state.template] || {})[id] });
+function E(c, id, name, kind, x, y, w, h, fn) {
+  const o = place(id);
+  const cx = x + w / 2 + o.x * LAY.W, cy = y + h / 2 + o.y * LAY.H;
+  LAY.hits.push({ id, name, kind, cx, cy, w: w * o.s, h: h * o.s, r: o.r, hide: o.hide });
+  if (o.hide || !c) return;
+  c.save(); c.translate(cx, cy); c.rotate(o.r * Math.PI / 180); c.scale(o.s, o.s); c.translate(-(x + w / 2), -(y + h / 2));
+  fn(c);
+  c.restore();
+}
+// Shorthands: a type element, a band (flat shape under the photo), the photo frame.
+const TX = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'type', x, y, w, h, fn);
+const BAND = (c, id, name, x, y, w, h, color) => E(c, id, name, 'band', x, y, w, h, k => { k.fillStyle = color; k.fillRect(x, y, w, h); });
+function photoRect(r) {
+  const o = place('photo');
+  LAY.hits.push({ id: 'photo', name: 'Photo frame', kind: 'photo', cx: r[0] + r[2] / 2 + o.x * LAY.W, cy: r[1] + r[3] / 2 + o.y * LAY.H, w: r[2] * o.s, h: r[3] * o.s, r: 0, hide: o.hide });
+  if (o.hide) return [0, 0, 0, 0];
+  const w = r[2] * o.s, h = r[3] * o.s;
+  return [r[0] + r[2] / 2 + o.x * LAY.W - w / 2, r[1] + r[3] / 2 + o.y * LAY.H - h / 2, w, h];
+}
+
 /* Each template returns { photo: [x, y, w, h], under(ctx), over(ctx) } for a W x H render. */
 T('band', 'Band', (W, H, p, t) => {
   const u = W / 100;
   return {
     photo: [0, 31 * u, W, H - 31 * u],
-    under(c) { c.fillStyle = p.accent; c.fillRect(0, 0, W, 31 * u); },
+    under(c) { BAND(c, 'band', 'Top band', 0, 0, W, 31 * u, p.accent); },
     over(c) {
       G(c, 'emblem', 5 * u, 6 * u, 20 * u, 20 * u, p.ink1);
-      fitText(c, t.kanaTitle, fam(t.kanaFont), 48 * u, 4 * u, 47 * u, 5 * u, { color: p.ink1, align: 'right' });
+      TX(c, 'kanaTitle', 'Title (katakana)', 48 * u, 4 * u, 47 * u, 5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 48 * u, 4 * u, 47 * u, 5 * u, { color: p.ink1, align: 'right' }));
       const two = splitTwo(t.artist);
-      two.forEach((s, i) => wordmark(c, s, 40 * u, (11 + i * 9.5 * (2 / two.length)) * u, 55 * u, (two.length > 1 ? 8.5 : 15) * u, { color: p.ink1, align: 'right' }));
+      TX(c, 'artist', 'Artist wordmark', 40 * u, 11 * u, 55 * u, 18 * u, k => two.forEach((s, i) => wordmark(k, s, 40 * u, (11 + i * 9.5 * (2 / two.length)) * u, 55 * u, (two.length > 1 ? 8.5 : 15) * u, { color: p.ink1, align: 'right' })));
     }
   };
 });
@@ -338,10 +467,10 @@ T('split', 'Split', (W, H, p, t) => {
     photo: [6 * u, 25 * u, 88 * u, 70 * u],
     under() {},
     over(c) {
-      wordmark(c, t.artist, 5 * u, 4 * u, 90 * u, 12 * u, { color: p.ink1, stretch: true });
-      fitText(c, t.kanaArtist, fam(t.kanaFont), 6 * u, 18 * u, 30 * u, 3.6 * u, { color: p.ink2 });
-      fitText(c, t.kanaTitle, fam(t.kanaFont), 50 * u, 18 * u, 44 * u, 3.6 * u, { color: p.ink2, align: 'right' });
-      vertText(c, t.title, fam(t.kanaFont), 86 * u, 78 * u, 8 * u, 16 * u, { color: p.ink1 });
+      TX(c, 'artist', 'Artist wordmark', 5 * u, 4 * u, 90 * u, 12 * u, k => wordmark(k, t.artist, 5 * u, 4 * u, 90 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaArtist', 'Artist (katakana)', 6 * u, 18 * u, 30 * u, 3.6 * u, k => fitText(k, t.kanaArtist, fam(t.kanaFont), 6 * u, 18 * u, 30 * u, 3.6 * u, { color: p.ink2 }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 50 * u, 18 * u, 44 * u, 3.6 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 50 * u, 18 * u, 44 * u, 3.6 * u, { color: p.ink2, align: 'right' }));
+      TX(c, 'title', 'Title', 86 * u, 78 * u, 8 * u, 16 * u, k => vertText(k, t.title, fam(t.kanaFont), 86 * u, 78 * u, 8 * u, 16 * u, { color: p.ink1 }));
       G(c, 'corner', 76 * u, 84 * u, 9 * u, 9 * u, p.ink1);
     }
   };
@@ -350,15 +479,14 @@ T('headline', 'Headline', (W, H, p, t) => {
   const u = W / 100;
   return {
     photo: [0, 36 * u, W, H - 36 * u],
-    under(c) { c.fillStyle = p.accent; c.fillRect(0, 0, W, 36 * u); },
+    under(c) { BAND(c, 'band', 'Top band', 0, 0, W, 36 * u, p.accent); },
     over(c) {
       const two = splitTwo(t.artist);
-      two.forEach((s, i) => wordmark(c, s, 3 * u, (3 + i * 15) * u, 40 * u, (two.length > 1 ? 13 : 28) * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true }));
+      TX(c, 'artist', 'Artist wordmark', 3 * u, 3 * u, 40 * u, 28 * u, k => two.forEach((s, i) => wordmark(k, s, 3 * u, (3 + i * 15) * u, 40 * u, (two.length > 1 ? 13 : 28) * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true })));
       const tt = t.kanaTitle || t.title;
-      fitText(c, tt, fam(t.kanaFont), 46 * u, 3 * u, 51 * u, 14 * u, { color: p.text, stretch: true });
-      fitText(c, tt, fam(t.kanaFont), 46 * u, 19 * u, 51 * u, 14 * u, { color: p.text, stretch: true, stroke: .02 });
-      c.fillStyle = p.ink1; c.fillRect(88 * u, 50 * u, 9 * u, 46 * u);
-      vertText(c, t.tagline, fam(t.smallFont), 89 * u, 52 * u, 7 * u, 42 * u, { color: p.paper, rotate: true });
+      TX(c, 'title', 'Title', 46 * u, 3 * u, 51 * u, 14 * u, k => fitText(k, tt, fam(t.kanaFont), 46 * u, 3 * u, 51 * u, 14 * u, { color: p.text, stretch: true }));
+      TX(c, 'titleOutline', 'Title (outline)', 46 * u, 19 * u, 51 * u, 14 * u, k => fitText(k, tt, fam(t.kanaFont), 46 * u, 19 * u, 51 * u, 14 * u, { color: p.text, stretch: true, stroke: .02 }));
+      TX(c, 'tagline', 'Tagline bar', 88 * u, 50 * u, 9 * u, 46 * u, k => { k.fillStyle = p.ink1; k.fillRect(88 * u, 50 * u, 9 * u, 46 * u); vertText(k, t.tagline, fam(t.smallFont), 89 * u, 52 * u, 7 * u, 42 * u, { color: p.paper, rotate: true }); });
       G(c, 'corner', 88 * u, 38 * u, 9 * u, 9 * u, p.ink1);
     }
   };
@@ -367,28 +495,26 @@ T('strip', 'Strip', (W, H, p, t) => {
   const u = W / 100;
   return {
     photo: [36 * u, 4 * u, 60 * u, 82 * u],
-    under(c) { G(c, 'feature', 1 * u, 40 * u, 32 * u, 32 * u, p.accent); },
+    under() {},
     over(c) {
+      G(c, 'feature', 1 * u, 40 * u, 32 * u, 32 * u, p.accent);
       G(c, 'strip', 2 * u, 4 * u, 8 * u, 30 * u, p.ink1);
-      vertText(c, t.kanaTitle || t.title, fam(t.kanaFont), 21 * u, 4 * u, 13 * u, 50 * u, { color: p.ink1 });
-      vertText(c, t.artist.toLowerCase(), fam(t.smallFont), 11 * u, 4 * u, 4.5 * u, 34 * u, { color: p.ink1, rotate: true, align: 'left' });
-      c.strokeStyle = p.ink2; c.lineWidth = .5 * u; c.strokeRect(35 * u, 3 * u, 62 * u, 84 * u);
+      TX(c, 'title', 'Title (vertical)', 21 * u, 4 * u, 13 * u, 50 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 21 * u, 4 * u, 13 * u, 50 * u, { color: p.ink1 }));
+      TX(c, 'artist', 'Artist (vertical)', 11 * u, 4 * u, 4.5 * u, 34 * u, k => vertText(k, t.artist.toLowerCase(), fam(t.smallFont), 11 * u, 4 * u, 4.5 * u, 34 * u, { color: p.ink1, rotate: true, align: 'left' }));
+      TX(c, 'frame', 'Photo outline', 35 * u, 3 * u, 62 * u, 84 * u, k => { k.strokeStyle = p.ink2; k.lineWidth = .5 * u; k.strokeRect(35 * u, 3 * u, 62 * u, 84 * u); });
       G(c, 'corner', 4 * u, 84 * u, 10 * u, 10 * u, p.ink1);
-      fitText(c, t.catalogue, fam(t.smallFont), 70 * u, 90 * u, 27 * u, 3 * u, { color: p.ink2, align: 'right' });
+      TX(c, 'catalogue', 'Catalogue no.', 70 * u, 90 * u, 27 * u, 3 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 70 * u, 90 * u, 27 * u, 3 * u, { color: p.ink2, align: 'right' }));
     }
   };
 });
-// The candidate colour that stands out most against bg (by luminance).
-const lumOf = h => { const [r, g, b] = hex2rgb(h); return .2126 * r + .7152 * g + .0722 * b; };
-const contrastOn = (bg, list) => list.reduce((a, c) => Math.abs(lumOf(c) - lumOf(bg)) > Math.abs(lumOf(a) - lumOf(bg)) ? c : a);
 T('bleed', 'Full bleed', (W, H, p, t) => {
   const u = W / 100, ink = contrastOn(p.ink1, [p.accent, p.text, p.paper]);
   return {
     photo: [0, 0, W, H], under() {},
     over(c) {
-      wordmark(c, t.artist, 3 * u, 3 * u, 94 * u, 15 * u, { color: ink, stretch: true });
-      fitText(c, t.title.toUpperCase(), fam(t.smallFont), 50 * u, 20 * u, 47 * u, 2.6 * u, { color: ink, align: 'right' });
-      fitText(c, t.kanaTitle, fam(t.kanaFont), 3 * u, 92 * u, 40 * u, 4 * u, { color: p.text });
+      TX(c, 'artist', 'Artist wordmark', 3 * u, 3 * u, 94 * u, 15 * u, k => wordmark(k, t.artist, 3 * u, 3 * u, 94 * u, 15 * u, { color: ink, stretch: true }));
+      TX(c, 'title', 'Title', 50 * u, 20 * u, 47 * u, 2.6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 50 * u, 20 * u, 47 * u, 2.6 * u, { color: ink, align: 'right' }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 3 * u, 92 * u, 40 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 3 * u, 92 * u, 40 * u, 4 * u, { color: p.text }));
       G(c, 'corner', 87 * u, 87 * u, 10 * u, 10 * u, ink);
     }
   };
@@ -398,10 +524,10 @@ T('inset', 'Inset', (W, H, p, t) => {
   return {
     photo: [13 * u, 13 * u, 74 * u, 68 * u], under() {},
     over(c) {
-      fitText(c, t.artist, fam(t.wordFont), 13 * u, 6 * u, 35 * u, 3.4 * u, { color: p.accent });
-      fitText(c, t.title.toLowerCase(), fam(t.smallFont), 52 * u, 6.5 * u, 35 * u, 2.6 * u, { color: p.accent, align: 'right' });
-      c.strokeStyle = p.ink1; c.lineWidth = .35 * u; c.strokeRect(12 * u, 12 * u, 76 * u, 70 * u);
-      fitText(c, t.side, fam(t.smallFont), 30 * u, 86 * u, 40 * u, 2.2 * u, { color: p.accent, align: 'center' });
+      TX(c, 'artist', 'Artist', 13 * u, 6 * u, 35 * u, 3.4 * u, k => fitText(k, t.artist, fam(t.wordFont), 13 * u, 6 * u, 35 * u, 3.4 * u, { color: p.accent }));
+      TX(c, 'title', 'Title', 52 * u, 6.5 * u, 35 * u, 2.6 * u, k => fitText(k, t.title.toLowerCase(), fam(t.smallFont), 52 * u, 6.5 * u, 35 * u, 2.6 * u, { color: p.accent, align: 'right' }));
+      TX(c, 'frame', 'Photo outline', 12 * u, 12 * u, 76 * u, 70 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(12 * u, 12 * u, 76 * u, 70 * u); });
+      TX(c, 'side', 'Side line', 30 * u, 86 * u, 40 * u, 2.2 * u, k => fitText(k, t.side, fam(t.smallFont), 30 * u, 86 * u, 40 * u, 2.2 * u, { color: p.accent, align: 'center' }));
       G(c, 'corner', 46 * u, 90 * u, 8 * u, 8 * u, p.accent);
     }
   };
@@ -411,11 +537,10 @@ T('column', 'Column', (W, H, p, t) => {
   return {
     photo: [33 * u, 0, 67 * u, H], under() {},
     over(c) {
-      const tt = t.kanaTitle || t.title;
-      vertText(c, tt, fam(t.kanaFont), 4 * u, 5 * u, 18 * u, 90 * u, { color: p.ink1, squeeze: 1.25 });
-      c.fillStyle = p.ink1; const n = [...tt].length;
-      for (let i = 0; i < Math.min(n, 12); i++) { c.beginPath(); c.arc(26 * u, (5 + 90 / n * (i + .5)) * u, .9 * u, 0, 7); c.fill(); }
-      vertText(c, t.artist, fam(t.wordFont), 28 * u, 5 * u, 4 * u, 60 * u, { color: p.ink1, rotate: true, align: 'left' });
+      const tt = t.kanaTitle || t.title, n = [...tt].length;
+      TX(c, 'title', 'Title column', 4 * u, 5 * u, 18 * u, 90 * u, k => vertText(k, tt, fam(t.kanaFont), 4 * u, 5 * u, 18 * u, 90 * u, { color: p.ink1, squeeze: 1.25 }));
+      TX(c, 'dots', 'Dots', 25 * u, 5 * u, 2 * u, 90 * u, k => { k.fillStyle = p.ink1; for (let i = 0; i < Math.min(n, 12); i++) { k.beginPath(); k.arc(26 * u, (5 + 90 / n * (i + .5)) * u, .9 * u, 0, 7); k.fill(); } });
+      TX(c, 'artist', 'Artist (vertical)', 28 * u, 5 * u, 4 * u, 60 * u, k => vertText(k, t.artist, fam(t.wordFont), 28 * u, 5 * u, 4 * u, 60 * u, { color: p.ink1, rotate: true, align: 'left' }));
       G(c, 'corner', 86 * u, 87 * u, 10 * u, 10 * u, p.accent);
     }
   };
@@ -425,14 +550,14 @@ T('poster', 'Poster', (W, H, p, t) => {
   return {
     photo: [4 * u, 4 * u, 58 * u, 92 * u], under() {},
     over(c) {
-      fitText(c, t.artist, fam(t.wordFont), 66 * u, 5 * u, 30 * u, 6 * u, { color: p.ink1, stretch: true });
-      fitText(c, t.kanaArtist, fam(t.kanaFont), 66 * u, 12.5 * u, 30 * u, 2.6 * u, { color: p.ink1 });
+      TX(c, 'artist', 'Artist', 66 * u, 5 * u, 30 * u, 6 * u, k => fitText(k, t.artist, fam(t.wordFont), 66 * u, 5 * u, 30 * u, 6 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaArtist', 'Artist (katakana)', 66 * u, 12.5 * u, 30 * u, 2.6 * u, k => fitText(k, t.kanaArtist, fam(t.kanaFont), 66 * u, 12.5 * u, 30 * u, 2.6 * u, { color: p.ink1 }));
       const tt = [...(t.title && isCJK(t.title) ? t.title : (t.kanaTitle || t.title))].filter(ch => ch.trim());
       const per = Math.max(1, Math.ceil(tt.length / 3)), rowsT = [];
       for (let i = 0; i < tt.length; i += per) rowsT.push(tt.slice(i, i + per).join(''));
       const rh = Math.min(26, 78 / Math.max(1, rowsT.length));
-      rowsT.forEach((r, i) => fitText(c, r, fam(t.kanaFont), 64 * u, (18 + i * rh) * u, 33 * u, rh * .92 * u, { color: p.ink1, align: 'center' }));
-      fitText(c, t.catalogue, fam(t.smallFont), 66 * u, 92 * u, 30 * u, 2.2 * u, { color: p.ink1, align: 'right' });
+      TX(c, 'title', 'Title block', 64 * u, 18 * u, 33 * u, rh * rowsT.length * u, k => rowsT.forEach((r, i) => fitText(k, r, fam(t.kanaFont), 64 * u, (18 + i * rh) * u, 33 * u, rh * .92 * u, { color: p.ink1, align: 'center' })));
+      TX(c, 'catalogue', 'Catalogue no.', 66 * u, 92 * u, 30 * u, 2.2 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 66 * u, 92 * u, 30 * u, 2.2 * u, { color: p.ink1, align: 'right' }));
       G(c, 'corner', 66 * u, 86 * u, 8 * u, 8 * u, p.ink1);
     }
   };
@@ -440,17 +565,223 @@ T('poster', 'Poster', (W, H, p, t) => {
 T('spine', 'Spine', (W, H, p, t) => {
   const u = W / 100;
   return {
-    photo: [30 * u, 26 * u, 52 * u, 70 * u], under(c) { c.fillStyle = p.accent; c.fillRect(0, 0, 26 * u, H); },
+    photo: [30 * u, 26 * u, 52 * u, 70 * u], under(c) { BAND(c, 'band', 'Side band', 0, 0, 26 * u, H, p.accent); },
     over(c) {
-      fitText(c, t.kanaTitle || t.title, fam(t.kanaFont), 30 * u, 6 * u, 52 * u, 14 * u, { color: p.ink1, stretch: true });
-      wordmark(c, t.artist, 85 * u, 4 * u, 12 * u, 92 * u, { color: p.ink1, vertical: true });
-      vertText(c, t.tagline, fam(t.smallFont), 3 * u, 4 * u, 4 * u, 56 * u, { color: p.paper, rotate: true, align: 'left' });
-      vertText(c, t.kanaArtist, fam(t.kanaFont), 10 * u, 4 * u, 8 * u, 56 * u, { color: p.paper });
+      TX(c, 'title', 'Title', 30 * u, 6 * u, 52 * u, 14 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 30 * u, 6 * u, 52 * u, 14 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'artist', 'Artist wordmark', 85 * u, 4 * u, 12 * u, 92 * u, k => wordmark(k, t.artist, 85 * u, 4 * u, 12 * u, 92 * u, { color: p.ink1, vertical: true }));
+      TX(c, 'tagline', 'Tagline', 3 * u, 4 * u, 4 * u, 56 * u, k => vertText(k, t.tagline, fam(t.smallFont), 3 * u, 4 * u, 4 * u, 56 * u, { color: p.paper, rotate: true, align: 'left' }));
+      TX(c, 'kanaArtist', 'Artist (katakana)', 10 * u, 4 * u, 8 * u, 56 * u, k => vertText(k, t.kanaArtist, fam(t.kanaFont), 10 * u, 4 * u, 8 * u, 56 * u, { color: p.paper }));
       G(c, 'emblem', 4 * u, 74 * u, 18 * u, 18 * u, p.ink1);
-      fitText(c, t.catalogue, fam(t.smallFont), 3 * u, 67 * u, 20 * u, 2.6 * u, { color: p.paper });
+      TX(c, 'catalogue', 'Catalogue no.', 3 * u, 67 * u, 20 * u, 2.6 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 3 * u, 67 * u, 20 * u, 2.6 * u, { color: p.paper }));
     }
   };
 });
+/* Vaporwave-era conventions: OS windows, grid horizons, VHS and teletext screens, broadcast graphics, obi strips,
+   chrome type. Built from those general forms only. */
+const SHAPE = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'band', x, y, w, h, fn);
+function gridFloor(k, x, y, w, h, line, lw) {
+  k.save(); k.beginPath(); k.rect(x, y, w, h); k.clip(); k.strokeStyle = line; k.lineWidth = lw;
+  for (let i = -12; i <= 12; i++) { k.beginPath(); k.moveTo(x + w / 2 + i * w * .02, y); k.lineTo(x + w / 2 + i * w * .16, y + h); k.stroke(); }
+  for (let j = 1; j < 12; j++) { const yy = y + h * Math.pow(j / 11, 1.8); k.beginPath(); k.moveTo(x, yy); k.lineTo(x + w, yy); k.stroke(); }
+  k.restore();
+}
+function slicedSun(k, cx, cy, rad, top, bottom) {
+  k.save(); k.beginPath(); k.arc(cx, cy, rad, 0, Math.PI * 2); k.clip();
+  const g = k.createLinearGradient(0, cy - rad, 0, cy + rad); g.addColorStop(0, top); g.addColorStop(1, bottom); k.fillStyle = g;
+  // Solid above the middle, then bands that thin out towards the bottom.
+  k.fillRect(cx - rad, cy - rad, rad * 2, rad * 1.05);
+  for (let i = 0, yy = cy + rad * .05; i < 7; i++) { const band = rad * (.13 - i * .016), gap = rad * (.025 + i * .012); yy += gap; k.fillRect(cx - rad, yy, rad * 2, Math.max(1, band)); yy += band; }
+  k.restore();
+}
+T('window', 'OS window', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 23 * u, 72 * u, 54 * u], under() {},
+    over(c) {
+      TX(c, 'kanaTitle', 'Title (katakana)', 12 * u, 4 * u, 76 * u, 7 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 12 * u, 4 * u, 76 * u, 7 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'window', 'Window frame', 12 * u, 14 * u, 76 * u, 70 * u, k => {
+        const x = 12 * u, y = 14 * u, w = 76 * u, h = 70 * u, bar = 7 * u;
+        // The frame is hollow where the picture sits, so the photo layer shows through.
+        const hole = [x + 2 * u, y + bar + 2 * u, w - 4 * u, h - bar - 9 * u];
+        const frame = (dx, dy) => { k.beginPath(); k.rect(x + dx, y + dy, w, h); k.rect(...hole); k.fill('evenodd'); };
+        k.fillStyle = p.ink1; frame(.8 * u, .8 * u);
+        k.fillStyle = p.paper; frame(0, 0);
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(x, y, w, h);
+        k.fillStyle = p.accent; k.fillRect(x + .6 * u, y + .6 * u, w - 1.2 * u, bar);
+        fitText(k, (t.title || '').toLowerCase() + '.exe', fam(t.smallFont), x + 2 * u, y + 2 * u, w - 22 * u, bar - 2.8 * u, { color: p.text });
+        for (let i = 0; i < 3; i++) { const bx = x + w - (i + 1) * 5.6 * u - .8 * u, by = y + 1.5 * u, bs = 4.4 * u; k.fillStyle = p.paper; k.fillRect(bx, by, bs, bs); k.strokeStyle = p.ink1; k.lineWidth = .3 * u; k.strokeRect(bx, by, bs, bs);
+          k.beginPath(); if (i === 0) { k.moveTo(bx + bs * .25, by + bs * .25); k.lineTo(bx + bs * .75, by + bs * .75); k.moveTo(bx + bs * .75, by + bs * .25); k.lineTo(bx + bs * .25, by + bs * .75); } else if (i === 1) k.rect(bx + bs * .25, by + bs * .25, bs * .5, bs * .5); else { k.moveTo(bx + bs * .25, by + bs * .7); k.lineTo(bx + bs * .75, by + bs * .7); } k.stroke(); }
+        k.strokeStyle = p.ink1; k.lineWidth = .25 * u; k.strokeRect(x + 2 * u, y + bar + 2 * u, w - 4 * u, h - bar - 9 * u);
+        k.fillStyle = p.ink2; k.fillRect(x + .6 * u, y + h - 5.6 * u, w - 1.2 * u, 5 * u);
+        fitText(k, t.catalogue + '  ·  ' + (t.side || ''), fam(t.smallFont), x + 2 * u, y + h - 4.6 * u, w - 4 * u, 2.8 * u, { color: p.paper });
+      });
+      TX(c, 'artist', 'Artist wordmark', 12 * u, 87 * u, 76 * u, 9 * u, k => wordmark(k, t.artist, 12 * u, 87 * u, 76 * u, 9 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaArtist', 'Artist (katakana)', 90 * u, 14 * u, 7 * u, 70 * u, k => vertText(k, t.kanaArtist, fam(t.kanaFont), 90 * u, 14 * u, 7 * u, 70 * u, { color: p.ink1 }));
+      G(c, 'corner', 2 * u, 2 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+});
+T('horizon', 'Grid horizon', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [30 * u, 28 * u, 40 * u, 48 * u],
+    under(c) {
+      SHAPE(c, 'sky', 'Sky', 0, 0, W, 62 * u, k => { const g = k.createLinearGradient(0, 0, 0, 62 * u); g.addColorStop(0, p.ink2); g.addColorStop(1, p.paper); k.fillStyle = g; k.fillRect(0, 0, W, 62 * u); });
+      SHAPE(c, 'sun', 'Sun', 24 * u, 18 * u, 52 * u, 52 * u, k => slicedSun(k, 50 * u, 44 * u, 26 * u, p.accent, p.ink2));
+      SHAPE(c, 'floor', 'Grid floor', 0, 62 * u, W, 38 * u, k => { k.fillStyle = p.ink1; k.fillRect(0, 62 * u, W, 38 * u); gridFloor(k, 0, 62 * u, W, 38 * u, p.accent, .35 * u); });
+    },
+    over(c) {
+      TX(c, 'artist', 'Artist wordmark', 6 * u, 5 * u, 88 * u, 13 * u, k => wordmark(k, t.artist, 6 * u, 5 * u, 88 * u, 13 * u, { gradient: [p.text, p.paper, p.accent, p.ink1, p.text], stretch: true }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 6 * u, 19.5 * u, 88 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 19.5 * u, 88 * u, 4 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'title', 'Title', 6 * u, 88 * u, 88 * u, 4 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 6 * u, 88 * u, 88 * u, 4 * u, { color: p.text, align: 'center' }));
+      G(c, 'corner', 88 * u, 88 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+});
+T('vhs', 'VHS sleeve', (W, H, p, t) => {
+  const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
+  return {
+    photo: [30 * u, 10 * u, 64 * u, 54 * u],
+    under(c) {
+      BAND(c, 'field', 'Sleeve field', 0, 0, W, H, p.ink1);
+      SHAPE(c, 'stripes', 'Stripes', 4 * u, 0, 20 * u, H, k => [p.accent, p.ink2, p.text, p.paper, p.accent].forEach((col, i) => { k.fillStyle = col; k.fillRect((4 + i * 4) * u, 0, 4 * u, H); }));
+    },
+    over(c) {
+      TX(c, 'timecode', 'Timecode', 60 * u, 3 * u, 34 * u, 3.5 * u, k => { const r = rng(state.seed); fitText(k, `PLAY  ${String(Math.floor(r() * 2)).padStart(2, '0')}:${String(Math.floor(r() * 60)).padStart(2, '0')}:${String(Math.floor(r() * 60)).padStart(2, '0')}`, fam(t.smallFont), 60 * u, 3 * u, 34 * u, 3.5 * u, { color: on, align: 'right' }); });
+      TX(c, 'artist', 'Artist wordmark', 30 * u, 68 * u, 64 * u, 13 * u, k => wordmark(k, t.artist, 30 * u, 68 * u, 64 * u, 13 * u, { color: on, stretch: true }));
+      TX(c, 'title', 'Title', 30 * u, 84 * u, 64 * u, 4 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 30 * u, 84 * u, 64 * u, 4 * u, { color: p.accent }));
+      TX(c, 'tagline', 'Tagline', 30 * u, 91 * u, 50 * u, 2.6 * u, k => fitText(k, t.tagline, fam(t.smallFont), 30 * u, 91 * u, 50 * u, 2.6 * u, { color: on }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 8 * u, 8 * u, 12 * u, 84 * u, k => vertText(k, t.kanaTitle, fam(t.kanaFont), 8 * u, 8 * u, 12 * u, 84 * u, { color: p.ink1 }));
+      G(c, 'corner', 86 * u, 86 * u, 9 * u, 9 * u, p.accent);
+    }
+  };
+});
+T('teletext', 'Teletext', (W, H, p, t) => {
+  const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
+  return {
+    photo: [6 * u, 24 * u, 88 * u, 50 * u],
+    under(c) { BAND(c, 'field', 'Screen', 0, 0, W, H, p.ink1); },
+    over(c) {
+      TX(c, 'header', 'Header row', 4 * u, 2.5 * u, 92 * u, 3.6 * u, k => fitText(k, `P${100 + (state.seed % 800)}  ${t.artist.toUpperCase()}  ${t.catalogue}`, fam('vt323'), 4 * u, 2.5 * u, 92 * u, 3.6 * u, { color: on }));
+      TX(c, 'masthead', 'Masthead', 6 * u, 8 * u, 88 * u, 13 * u, k => { k.fillStyle = p.accent; k.fillRect(6 * u, 8 * u, 88 * u, 13 * u); fitText(k, t.artist.toUpperCase(), fam('dotgothic16'), 8 * u, 9.5 * u, 84 * u, 10 * u, { color: contrastOn(p.accent, [p.ink1, p.paper, p.text]), stretch: true }); });
+      const rows = [[t.title.toUpperCase(), p.ink2], [t.kanaTitle, p.paper], [t.tagline, p.accent]];
+      rows.forEach(([txt, col], i) => TX(c, 'row' + i, 'Row ' + (i + 1), 6 * u, (77 + i * 7) * u, 88 * u, 5.5 * u, k => { k.fillStyle = col; k.fillRect(6 * u, (77 + i * 7) * u, 88 * u, 5.5 * u); fitText(k, txt, fam(i === 1 ? t.kanaFont : 'vt323'), 8 * u, (78 + i * 7) * u, 84 * u, 3.6 * u, { color: contrastOn(col, [p.ink1, p.paper, p.text]) }); }));
+      G(c, 'corner', 88 * u, 92 * u - 8 * u, 6 * u, 6 * u, on);
+    }
+  };
+});
+T('magazine', 'Magazine', (W, H, p, t) => {
+  const u = W / 100, on = contrastOn(p.ink1, [p.accent, p.text, p.paper]);
+  return {
+    photo: [0, 0, W, H], under() {},
+    over(c) {
+      TX(c, 'artist', 'Masthead', 4 * u, 3 * u, 92 * u, 18 * u, k => wordmark(k, t.artist, 4 * u, 3 * u, 92 * u, 18 * u, { color: on, stretch: true }));
+      TX(c, 'issue', 'Issue line', 54 * u, 22 * u, 42 * u, 2.4 * u, k => fitText(k, `VOL. 01  /  ${t.catalogue}`, fam(t.smallFont), 54 * u, 22 * u, 42 * u, 2.4 * u, { color: on, align: 'right' }));
+      TX(c, 'title', 'Coverline', 5 * u, 58 * u, 40 * u, 8 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 5 * u, 58 * u, 40 * u, 8 * u, { color: p.accent }));
+      TX(c, 'kanaTitle', 'Coverline (katakana)', 5 * u, 67.5 * u, 40 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 5 * u, 67.5 * u, 40 * u, 4 * u, { color: on }));
+      TX(c, 'tagline', 'Kicker', 5 * u, 73 * u, 34 * u, 2.4 * u, k => fitText(k, t.tagline, fam(t.smallFont), 5 * u, 73 * u, 34 * u, 2.4 * u, { color: on }));
+      G(c, 'strip', 78 * u, 86 * u, 17 * u, 8 * u, on);
+      G(c, 'corner', 5 * u, 86 * u, 9 * u, 9 * u, p.accent);
+    }
+  };
+});
+T('obi', 'Obi strip', (W, H, p, t) => {
+  const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
+  return {
+    photo: [0, 0, W, H], under() {},
+    over(c) {
+      TX(c, 'obi', 'Obi strip', 82 * u, 0, 14 * u, H, k => {
+        k.fillStyle = p.paper; k.fillRect(82 * u, 0, 14 * u, H);
+        k.fillStyle = p.accent; k.fillRect(82 * u, 0, 14 * u, 3.5 * u); k.fillRect(82 * u, H - 3.5 * u, 14 * u, 3.5 * u);
+        vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 83.5 * u, 6 * u, 11 * u, 58 * u, { color: p.ink1 });
+        vertText(k, t.artist, fam(t.wordFont), 86 * u, 66 * u, 6 * u, 20 * u, { color: p.ink1, rotate: true });
+        fitText(k, t.catalogue, fam(t.smallFont), 83 * u, 89 * u, 12 * u, 2.4 * u, { color: p.ink1, align: 'center' });
+      });
+      TX(c, 'artist', 'Artist', 5 * u, 5 * u, 44 * u, 7 * u, k => wordmark(k, t.artist, 5 * u, 5 * u, 44 * u, 7 * u, { color: on }));
+      G(c, 'corner', 5 * u, 87 * u, 8 * u, 8 * u, on);
+    }
+  };
+});
+T('lowerthird', 'Lower third', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [0, 0, W, H], under() {},
+    over(c) {
+      TX(c, 'live', 'Clock', 6 * u, 6 * u, 34 * u, 3.4 * u, k => { const r = rng(state.seed + 3); fitText(k, `LIVE  ${String(Math.floor(r() * 24)).padStart(2, '0')}:${String(Math.floor(r() * 60)).padStart(2, '0')}`, fam(t.smallFont), 6 * u, 6 * u, 34 * u, 3.4 * u, { color: contrastOn(p.ink1, [p.paper, p.text, p.accent]) }); });
+      TX(c, 'lowerThird', 'Lower third', 6 * u, 74 * u, 72 * u, 16 * u, k => {
+        k.fillStyle = p.accent; k.fillRect(6 * u, 74 * u, 72 * u, 9 * u);
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 8 * u, 75.5 * u, 68 * u, 6 * u, { color: p.text });
+        k.fillStyle = p.ink1; k.fillRect(6 * u, 83 * u, 54 * u, 6.5 * u);
+        fitText(k, `${t.artist}  ${t.kanaArtist}`, fam(t.kanaFont), 8 * u, 84.5 * u, 50 * u, 3.4 * u, { color: p.paper });
+      });
+      TX(c, 'bug', 'Channel box', 84 * u, 6 * u, 10 * u, 10 * u, k => { k.fillStyle = p.accent; k.fillRect(84 * u, 6 * u, 10 * u, 10 * u); });
+      G(c, 'corner', 85.5 * u, 7.5 * u, 7 * u, 7 * u, p.text);
+    }
+  };
+});
+T('minimal', 'Minimal', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [30 * u, 30 * u, 40 * u, 40 * u], under() {},
+    over(c) {
+      TX(c, 'artist', 'Artist', 6 * u, 6 * u, 40 * u, 3 * u, k => fitText(k, t.artist, fam(t.wordFont), 6 * u, 6 * u, 40 * u, 3 * u, { color: p.ink1 }));
+      TX(c, 'title', 'Title', 54 * u, 6 * u, 40 * u, 3 * u, k => fitText(k, t.title.toLowerCase(), fam(t.smallFont), 54 * u, 6 * u, 40 * u, 3 * u, { color: p.ink1, align: 'right' }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 6 * u, 91 * u, 40 * u, 3 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 91 * u, 40 * u, 3 * u, { color: p.ink1 }));
+      TX(c, 'catalogue', 'Catalogue no.', 54 * u, 91 * u, 40 * u, 3 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 54 * u, 91 * u, 40 * u, 3 * u, { color: p.ink1, align: 'right' }));
+      G(c, 'corner', 47 * u, 76 * u, 6 * u, 6 * u, p.accent);
+    }
+  };
+});
+T('echo', 'Echo', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [22 * u, 26 * u, 56 * u, 56 * u],
+    under(c) { SHAPE(c, 'echo', 'Echoed wordmark', 4 * u, 4 * u, 92 * u, 92 * u, k => { for (let i = 0; i < 8; i++) fitText(k, t.artist, fam(t.wordFont), 4 * u, (4 + i * 11.5) * u, 92 * u, 10.5 * u, { color: p.ink2, stretch: true, stroke: .012 }); }); },
+    over(c) {
+      TX(c, 'artist', 'Artist wordmark', 4 * u, 85 * u, 92 * u, 11 * u, k => wordmark(k, t.artist, 4 * u, 85 * u, 92 * u, 11 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 22 * u, 20 * u, 56 * u, 4.5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 22 * u, 20 * u, 56 * u, 4.5 * u, { color: p.ink1, align: 'center' }));
+      G(c, 'corner', 80 * u, 26 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+});
+T('diagonal', 'Diagonal band', (W, H, p, t) => {
+  const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
+  return {
+    photo: [0, 0, W, H], under() {},
+    over(c) {
+      TX(c, 'band', 'Diagonal band', -10 * u, 38 * u, 120 * u, 22 * u, k => { k.save(); k.translate(50 * u, 49 * u); k.rotate(-.21); k.fillStyle = p.accent; k.fillRect(-75 * u, -9 * u, 150 * u, 18 * u); wordmark(k, t.artist, -44 * u, -7 * u, 88 * u, 14 * u, { color: p.text, stretch: true }); k.restore(); });
+      TX(c, 'kanaTitle', 'Title (katakana)', 6 * u, 6 * u, 50 * u, 5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 6 * u, 50 * u, 5 * u, { color: on }));
+      TX(c, 'title', 'Title', 44 * u, 90 * u, 50 * u, 3.4 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 44 * u, 90 * u, 50 * u, 3.4 * u, { color: on, align: 'right' }));
+      G(c, 'corner', 6 * u, 86 * u, 9 * u, 9 * u, on);
+    }
+  };
+});
+T('sunset', 'Sunset', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [27 * u, 44 * u, 46 * u, 46 * u],
+    under(c) { SHAPE(c, 'sun', 'Sun', 12 * u, 8 * u, 76 * u, 76 * u, k => slicedSun(k, 50 * u, 46 * u, 38 * u, p.accent, p.ink2)); },
+    over(c) {
+      TX(c, 'kanaTitle', 'Title (katakana)', 6 * u, 3 * u, 88 * u, 7 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 3 * u, 88 * u, 7 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'artist', 'Artist', 6 * u, 92.5 * u, 88 * u, 4 * u, k => fitText(k, t.artist, fam(t.wordFont), 6 * u, 92.5 * u, 88 * u, 4 * u, { color: p.ink1, align: 'center' }));
+      G(c, 'corner', 4 * u, 88 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+});
+T('chrome', 'Chrome', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [10 * u, 33 * u, 80 * u, 56 * u],
+    under(c) { SHAPE(c, 'field', 'Gradient field', 0, 0, W, H, k => { const g = k.createLinearGradient(0, 0, 0, H); g.addColorStop(0, p.ink1); g.addColorStop(1, p.ink2); k.fillStyle = g; k.fillRect(0, 0, W, H); }); },
+    over(c) {
+      TX(c, 'artist', 'Chrome wordmark', 5 * u, 5 * u, 90 * u, 19 * u, k => wordmark(k, t.artist, 5 * u, 5 * u, 90 * u, 19 * u, { gradient: ['#ffffff', p.paper, p.ink2, '#ffffff', p.accent], stretch: true }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 5 * u, 25.5 * u, 90 * u, 5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 5 * u, 25.5 * u, 90 * u, 5 * u, { color: p.accent, align: 'center' }));
+      TX(c, 'title', 'Title', 10 * u, 92 * u, 72 * u, 3 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 10 * u, 92 * u, 72 * u, 3 * u, { color: contrastOn(p.ink2, [p.paper, p.text, p.accent]) }));
+      G(c, 'corner', 85 * u, 91 * u, 5 * u, 5 * u, p.accent);
+    }
+  };
+});
+
 /* The tape template is a cassette J-card laid flat: back flap | spine | front, 101.6 mm tall. */
 const JCARD = { flap: 15, spine: 12.7, front: 65, height: 101.6, bleed: 3 };
 JCARD.width = JCARD.flap + JCARD.spine + JCARD.front;
@@ -460,31 +791,25 @@ T('tape', 'Tape (J-card)', (W, H, p, t) => {
   const u = fw / 100;
   return {
     photo: [frx + 8 * u, b + 22 * mm, fw - 16 * u, hh - 38 * mm],
-    under(c) { c.fillStyle = p.accent; c.fillRect(0, 0, sx, H); },
+    under(c) { BAND(c, 'band', 'Flap band', 0, 0, sx, H, p.accent); BAND(c, 'spinePanel', 'Spine panel', sx, 0, JCARD.spine * mm, H, p.paper); },
     over(c) {
       const tp = t.tracksA.split('\n').filter(Boolean), tb = t.tracksB.split('\n').filter(Boolean);
-      const small = 2.3 * mm;
+      const small = 2.3 * mm, fl = contrastOn(p.accent, [p.ink1, p.paper, p.text]), lw = JCARD.flap * mm - 3 * mm;
       // Flap: track lists, Side A over Side B, in whichever ink reads on the band.
-      const fl = contrastOn(p.accent, [p.ink1, p.paper, p.text]);
-      fitText(c, 'A', fam(t.wordFont), fx + 1.5 * mm, b + 3 * mm, 6 * mm, 9 * mm, { color: fl });
-      lines(c, tp.map((s, i) => `A${i + 1} ${s}`), fam(t.smallFont), fx + 1.5 * mm, b + 14 * mm, JCARD.flap * mm - 3 * mm, small, fl, { lead: 1.35 });
-      fitText(c, 'B', fam(t.wordFont), fx + 1.5 * mm, b + 52 * mm, 6 * mm, 9 * mm, { color: fl });
-      lines(c, tb.map((s, i) => `B${i + 1} ${s}`), fam(t.smallFont), fx + 1.5 * mm, b + 63 * mm, JCARD.flap * mm - 3 * mm, small, fl, { lead: 1.35 });
+      TX(c, 'sideA', 'Side A tracks', fx + 1.5 * mm, b + 3 * mm, lw, 46 * mm, k => { fitText(k, 'A', fam(t.wordFont), fx + 1.5 * mm, b + 3 * mm, 6 * mm, 9 * mm, { color: fl }); lines(k, tp.map((s, i) => `A${i + 1} ${s}`), fam(t.smallFont), fx + 1.5 * mm, b + 14 * mm, lw, small, fl, { lead: 1.35 }); });
+      TX(c, 'sideB', 'Side B tracks', fx + 1.5 * mm, b + 52 * mm, lw, 46 * mm, k => { fitText(k, 'B', fam(t.wordFont), fx + 1.5 * mm, b + 52 * mm, 6 * mm, 9 * mm, { color: fl }); lines(k, tb.map((s, i) => `B${i + 1} ${s}`), fam(t.smallFont), fx + 1.5 * mm, b + 63 * mm, lw, small, fl, { lead: 1.35 }); });
       // Spine: artist and title stacked vertically, catalogue number at the foot.
-      c.fillStyle = p.paper; c.fillRect(sx, 0, JCARD.spine * mm, H);
-      vertText(c, t.artist, fam(t.wordFont), sx + 1.2 * mm, b + 4 * mm, 4.6 * mm, 44 * mm, { color: p.ink1, rotate: true, align: 'left' });
-      vertText(c, t.title, fam(t.smallFont), sx + 6.6 * mm, b + 4 * mm, 4.6 * mm, 60 * mm, { color: p.ink1, rotate: true, align: 'left' });
+      TX(c, 'spineArtist', 'Spine artist', sx + 1.2 * mm, b + 4 * mm, 4.6 * mm, 44 * mm, k => vertText(k, t.artist, fam(t.wordFont), sx + 1.2 * mm, b + 4 * mm, 4.6 * mm, 44 * mm, { color: p.ink1, rotate: true, align: 'left' }));
+      TX(c, 'spineTitle', 'Spine title', sx + 6.6 * mm, b + 4 * mm, 4.6 * mm, 60 * mm, k => vertText(k, t.title, fam(t.smallFont), sx + 6.6 * mm, b + 4 * mm, 4.6 * mm, 60 * mm, { color: p.ink1, rotate: true, align: 'left' }));
       G(c, 'corner', sx + 2.5 * mm, b + hh - 18 * mm, 7.5 * mm, 7.5 * mm, p.accent);
-      vertText(c, t.catalogue, fam(t.smallFont), sx + 3.5 * mm, b + hh - 9 * mm, 5 * mm, 8 * mm, { color: p.ink1, rotate: true });
+      TX(c, 'spineCat', 'Spine catalogue no.', sx + 3.5 * mm, b + hh - 9 * mm, 5 * mm, 8 * mm, k => vertText(k, t.catalogue, fam(t.smallFont), sx + 3.5 * mm, b + hh - 9 * mm, 5 * mm, 8 * mm, { color: p.ink1, rotate: true }));
       // Front: A/B strip, title block, photo, label line.
-      c.fillStyle = p.accent; c.fillRect(frx, b, 7 * u, hh);
-      fitText(c, 'A', fam(t.wordFont), frx + .8 * u, b + 3 * mm, 5.4 * u, 8 * mm, { color: p.paper });
-      fitText(c, 'B', fam(t.wordFont), frx + .8 * u, b + hh - 11 * mm, 5.4 * u, 8 * mm, { color: p.paper });
+      TX(c, 'abStrip', 'A/B strip', frx, b, 7 * u, hh, k => { k.fillStyle = p.accent; k.fillRect(frx, b, 7 * u, hh); fitText(k, 'A', fam(t.wordFont), frx + .8 * u, b + 3 * mm, 5.4 * u, 8 * mm, { color: p.paper }); fitText(k, 'B', fam(t.wordFont), frx + .8 * u, b + hh - 11 * mm, 5.4 * u, 8 * mm, { color: p.paper }); });
       const two = splitTwo(t.title.toUpperCase());
-      two.forEach((s, i) => fitText(c, s, fam(t.wordFont), frx + 10 * u, b + (3 + i * 8) * mm, fw - 13 * u, 7 * mm, { color: p.ink1, align: 'right', stretch: false }));
-      c.fillStyle = p.ink1; c.fillRect(frx + 8 * u, b + hh - 13 * mm, fw - 16 * u, .3 * mm);
-      fitText(c, t.artist, fam(t.smallFont), frx + 8 * u, b + hh - 11 * mm, 40 * u, 3 * mm, { color: p.ink1 });
-      fitText(c, t.catalogue, fam(t.smallFont), frx + 52 * u, b + hh - 11 * mm, fw - 60 * u, 3 * mm, { color: p.ink1, align: 'right' });
+      TX(c, 'title', 'Front title', frx + 10 * u, b + 3 * mm, fw - 13 * u, (two.length * 8 - 1) * mm, k => two.forEach((s, i) => fitText(k, s, fam(t.wordFont), frx + 10 * u, b + (3 + i * 8) * mm, fw - 13 * u, 7 * mm, { color: p.ink1, align: 'right', stretch: false })));
+      TX(c, 'rule', 'Rule', frx + 8 * u, b + hh - 13.2 * mm, fw - 16 * u, .7 * mm, k => { k.fillStyle = p.ink1; k.fillRect(frx + 8 * u, b + hh - 13 * mm, fw - 16 * u, .3 * mm); });
+      TX(c, 'artist', 'Front artist', frx + 8 * u, b + hh - 11 * mm, 40 * u, 3 * mm, k => fitText(k, t.artist, fam(t.smallFont), frx + 8 * u, b + hh - 11 * mm, 40 * u, 3 * mm, { color: p.ink1 }));
+      TX(c, 'catalogue', 'Front catalogue no.', frx + 52 * u, b + hh - 11 * mm, fw - 60 * u, 3 * mm, k => fitText(k, t.catalogue, fam(t.smallFont), frx + 52 * u, b + hh - 11 * mm, fw - 60 * u, 3 * mm, { color: p.ink1, align: 'right' }));
       G(c, 'strip', frx + fw - 30 * u, b + hh - 7 * mm, 22 * u, 5 * mm, p.ink1);
       if (state.export.guides) {
         c.save(); c.strokeStyle = 'rgba(0,160,255,.8)'; c.lineWidth = Math.max(1, .15 * mm); c.setLineDash([mm * 1.2, mm * .8]);
@@ -522,7 +847,7 @@ function layerInfo(id) {
 const DEFAULT_GRAPHICS = () => ({ emblem: { id: 'disorientor', ink: 'auto' }, corner: { id: 'disorientor', ink: 'auto' }, feature: { id: 'burst16', ink: 'auto' }, strip: { id: 'barcode', ink: 'auto' } });
 const DEFAULT = () => ({
   v: 3, seed: 1234, template: 'headline', palette: 'rose',
-  colors: { ...PALETTES[2] },
+  colors: { ...PALETTES[0] },
   photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, src: 'shader' },
   print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2 },
   type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
@@ -530,7 +855,8 @@ const DEFAULT = () => ({
     wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
     tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
   graphics: DEFAULT_GRAPHICS(),
-  layers: [ { id: 'PHOTO', fixed: true }, { id: 'TYPE', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }) ],
+  layout: {},
+  layers: [ { id: 'PHOTO', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }), { id: 'TYPE', fixed: true }, { id: 'GRAPHICS', fixed: true } ],
   export: { size: 3000, guides: false, dpi: 300 }
 });
 function mkLayer(id, extra = {}) {
@@ -550,7 +876,13 @@ const undoStack = [];
 function snapshot() { undoStack.push(JSON.stringify(state)); if (undoStack.length > 64) undoStack.shift(); }
 function commit(fn, noHistory) { if (!noHistory) snapshot(); fn && fn(); save(); scheduleRender(); }
 function save() { try { localStorage.setItem('sleeve-press', JSON.stringify(state)); } catch {} }
-function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); if (s && s.v === 2) { s.v = 3; s.graphics = DEFAULT_GRAPHICS(); delete s.type.mark; } return s && s.v === 3 ? s : null; } catch { return null; } }
+function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); if (s && s.v === 2) { s.v = 3; s.graphics = DEFAULT_GRAPHICS(); delete s.type.mark; } return s && s.v === 3 ? normalize(s) : null; } catch { return null; } }
+// Older saves have no graphics layer or layout map; graphics then go straight above the type.
+function normalize(s) {
+  s.layout = s.layout || {};
+  if (!s.layers.some(l => l.id === 'GRAPHICS')) s.layers.splice(s.layers.findIndex(l => l.id === 'TYPE') + 1, 0, { id: 'GRAPHICS', fixed: true });
+  return s;
+}
 function savePhoto() {
   if (!photoImg) return;
   try {
@@ -631,7 +963,7 @@ void godot_fragment() {
   COLOR = vec4(o, 1.0);
 }`, { photo: 'photo' });
 const COMP_SH = own('sp_comp', `
-uniform sampler2D base; uniform sampler2D layer; uniform sampler2D typ;
+uniform sampler2D base; uniform sampler2D layer; uniform sampler2D typ; uniform sampler2D gfx;
 uniform float opacity; uniform float mode; uniform float mask; uniform vec4 rect;
 vec3 blendOp(vec3 a, vec3 b, int m) {
   if (m == 1) return a * b;
@@ -648,9 +980,10 @@ void godot_fragment() {
   vec2 px = UV * sp_res;
   float inside = step(rect.x, px.x) * step(rect.y, px.y) * step(px.x, rect.x + rect.z) * step(px.y, rect.y + rect.w);
   int mk = int(mask + .5);
-  float m = mk == 1 ? inside : mk == 2 ? 1.0 - inside : mk == 3 ? texture(typ, UV).a : mk == 4 ? 1.0 - texture(typ, UV).a : 1.0;
+  float m = mk == 1 ? inside : mk == 2 ? 1.0 - inside : mk == 3 ? texture(typ, UV).a : mk == 4 ? 1.0 - texture(typ, UV).a
+    : mk == 5 ? texture(gfx, UV).a : mk == 6 ? 1.0 - texture(gfx, UV).a : 1.0;
   COLOR = vec4(mix(a.rgb, blendOp(a.rgb, b.rgb, int(mode + .5)), clamp(b.a * opacity * m, 0.0, 1.0)), 1.0);
-}`, { base: 'base', layer: 'layer', typ: 'typ' });
+}`, { base: 'base', layer: 'layer', typ: 'typ', gfx: 'gfx' });
 const PRESS_SH = own('sp_press', `
 uniform sampler2D stack; uniform vec3 paper; uniform float misreg; uniform float grain; uniform float spread; uniform float seed;
 float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
@@ -685,13 +1018,24 @@ function tgt(name, w, h, float) {
   return targets[name] = eng.target(w, h, float);
 }
 const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'difference', 'add', 'darken', 'lighten'];
-const MASKS = [['all', 'Whole cover'], ['photo', 'Photo only'], ['outside', 'Outside photo'], ['type', 'Type only'], ['untyped', 'Not type']];
+const MASKS = [['all', 'Whole cover'], ['photo', 'Photo only'], ['outside', 'Outside photo'], ['type', 'Type only'], ['untyped', 'Not type'], ['graphics', 'Graphics only'], ['ungraphic', 'Not graphics']];
 
 function dims(maxSide) {
   const tp = TEMPLATES[state.template], a = tp.aspect || 1;
   return a >= 1 ? [maxSide, Math.round(maxSide / a)] : [Math.round(maxSide * a), maxSide];
 }
-function layout(W, H) { return TEMPLATES[state.template].fn(W, H, state.colors, state.type); }
+// Lays out the template at W x H: the paper/bands, type and graphics canvases, the placed photo frame and
+// every element's box (LAY.hits) for picking on the cover.
+function buildCover(W, H) {
+  LAY = { W, H, hits: [] };
+  const L = TEMPLATES[state.template].fn(W, H, state.colors, state.type);
+  const rect = photoRect(L.photo);
+  const under = canvasLayer(W, H, k => L.under(k), state.colors.paper);
+  const gfx = document.createElement('canvas'); gfx.width = W; gfx.height = H; GFX = gfx.getContext('2d');
+  let type;
+  try { type = canvasLayer(W, H, k => L.over(k)); } finally { GFX = null; }
+  return { rect, under, type, gfx, hits: LAY.hits };
+}
 function canvasLayer(W, H, draw, bg) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const k = c.getContext('2d');
@@ -799,14 +1143,13 @@ function runLayer(layer, src, W, H) {
   }
   return b.tex;
 }
-let renderQueued = false, rendering = false, lastError = '';
+let renderQueued = false, rendering = false, lastError = '', lastHits = { W: 1, H: 1, hits: [] };
 function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderPreview(); }); } }
 function renderTo(W, H) {
-  const L = layout(W, H), col = state.colors;
-  const rect = L.photo;
-  const under = canvasLayer(W, H, k => L.under(k), col.paper);
-  const type = canvasLayer(W, H, k => L.over(k));
-  const underTex = eng.upload(under), typeTex = eng.upload(type);
+  const C = buildCover(W, H), col = state.colors, rect = C.rect;
+  const underTex = eng.upload(C.under, targets._underTex), typeTex = eng.upload(C.type, targets._typeTex), gfxTex = eng.upload(C.gfx, targets._gfxTex);
+  targets._underTex = underTex; targets._typeTex = typeTex; targets._gfxTex = gfxTex;
+  lastHits = { W, H, hits: C.hits };
   let stack = tgt('sA', W, H, false), spare = tgt('sB', W, H, false);
   eng.run(SHADER_BY['composition_copy'], stack, { src: underTex, clear: true });
   if (photoImg && !photoTex) photoTex = eng.upload(photoImg);
@@ -814,7 +1157,7 @@ function renderTo(W, H) {
   const pw = state.photo.src === 'upload' && photoTex ? [photoTex.w, photoTex.h] : [1024, 1024];
   const pr = state.print, ph = state.photo, mode = PRINT_MODES.findIndex(m => m[0] === pr.mode);
   const comp = (layerTex, opacity, blend, mask) => {
-    eng.run(COMP_SH, spare, { bind: { base: stack.tex, layer: layerTex, typ: typeTex }, values: { opacity: [opacity], mode: [BLENDS.indexOf(blend)], mask: [Math.max(0, MASKS.findIndex(m => m[0] === mask))], rect }, res: [W, H] });
+    eng.run(COMP_SH, spare, { bind: { base: stack.tex, layer: layerTex, typ: typeTex, gfx: gfxTex }, values: { opacity: [opacity], mode: [BLENDS.indexOf(blend)], mask: [Math.max(0, MASKS.findIndex(m => m[0] === mask))], rect }, res: [W, H] });
     [stack, spare] = [spare, stack];
   };
   const solo = state.layers.some(l => l.solo);
@@ -830,6 +1173,8 @@ function renderTo(W, H) {
       comp(t.tex, 1, 'normal', 'all');
     } else if (layer.id === 'TYPE') {
       comp(typeTex, 1, 'normal', 'all');
+    } else if (layer.id === 'GRAPHICS') {
+      comp(gfxTex, 1, 'normal', 'all');
     } else {
       const info = layerInfo(layer.id);
       if (!info) continue;
@@ -850,9 +1195,12 @@ function renderPreview() {
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   // Fit the cover inside the stage at its aspect ratio.
   const fit = Math.min(box.width / W, (box.height || box.width) / H);
-  cv.style.width = Math.floor(W * fit) + 'px'; cv.style.height = Math.floor(H * fit) + 'px';
+  const tb = $('tool').getBoundingClientRect().height + 8;
+  const fit2 = Math.min(box.width / W, Math.max(80, (box.height || box.width) - tb) / H);
+  cv.style.width = Math.floor(W * fit2) + 'px'; cv.style.height = Math.floor(H * fit2) + 'px';
   const out = renderTo(W, H);
   eng.blit(out.tex, null, true);
+  drawOverlay();
   if (lastError && activeTab === 'shaders') renderPanel();
 }
 async function renderPixels(W, H) {
@@ -927,7 +1275,7 @@ function openProject(file) {
     const d = JSON.parse(t);
     if (!d || !(d.v >= 1) || !Array.isArray(d.layers)) throw new Error('not a sleeve+press project');
     const photo = d.photoData; delete d.photoData;
-    commit(() => { state = { ...DEFAULT(), ...d, graphics: d.graphics || DEFAULT_GRAPHICS(), v: 3 }; });
+    commit(() => { state = normalize({ ...DEFAULT(), ...d, graphics: d.graphics || DEFAULT_GRAPHICS(), v: 3 }); });
     if (photo) loadPhotoURL(photo, true), localStorage.setItem('sleeve-press-photo', photo);
     renderPanel(); toast('Project opened.');
   }).catch(e => toast("Couldn't open that project: " + e.message));
@@ -936,7 +1284,7 @@ function openProject(file) {
 // Which slots a template places, found by laying it out once on a scratch canvas.
 function slotsFor(id) {
   const scratch = document.createElement('canvas').getContext('2d');
-  usedSlots = new Set();
+  usedSlots = new Set(); LAY = { W: 200, H: 200, hits: [] };
   const L = TEMPLATES[id].fn(200, 200, state.colors, state.type);
   L.under(scratch); L.over(scratch);
   return Object.keys(SLOTS).filter(sl => usedSlots.has(sl));
@@ -977,13 +1325,14 @@ function randomize() {
       for (const u of s.uniforms) if (!u.role && u.min !== undefined && u.t === 'float' && r() < .5) lay.values[u.n] = [+(u.min + (u.max - u.min) * (0.15 + r() * .6)).toFixed(3)];
       fx.push(lay);
     }
-    state.layers = [...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [keep.find(l => l.id === 'TYPE'), ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), keep.find(l => l.id === 'TYPE')])];
+    const top = r() < .5 ? [keep.find(l => l.id === 'TYPE'), keep.find(l => l.id === 'GRAPHICS')] : [keep.find(l => l.id === 'GRAPHICS'), keep.find(l => l.id === 'TYPE')];
+    state.layers = [...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [...top, ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), ...top])];
   });
   renderPanel();
 }
 
 /* ---------- controls ---------- */
-const TABS = [['template', 'Template'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
+const TABS = [['template', 'Template'], ['arrange', 'Arrange'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
 let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'emblem';
 function renderTabs() {
   $('tabs').replaceChildren(...TABS.map(([id, label]) => el('button', { className: activeTab === id ? 'on' : '', role: 'tab', 'aria-selected': activeTab === id, onclick: () => { activeTab = id; renderTabs(); renderPanel(); } }, label)));
@@ -1034,11 +1383,14 @@ function templateThumb(id) {
   const W = a >= 1 ? 120 : 120 * a, H = a >= 1 ? 120 / a : 120;
   k.fillStyle = '#0c0c10'; k.fillRect(0, 0, 120, 120);
   k.save(); k.translate((120 - W) / 2, (120 - H) / 2);
-  const L = tp.fn(W, H, state.colors, state.type);
-  k.fillStyle = state.colors.paper; k.fillRect(0, 0, W, H);
-  L.under(k);
-  k.fillStyle = state.colors.ink2; k.globalAlpha = .55; k.fillRect(...L.photo); k.globalAlpha = 1;
-  try { L.over(k); } catch {}
+  const keep = state.template; state.template = id; LAY = { W, H, hits: [] };
+  try {
+    const L = tp.fn(W, H, state.colors, state.type);
+    k.fillStyle = state.colors.paper; k.fillRect(0, 0, W, H);
+    L.under(k);
+    k.fillStyle = state.colors.ink2; k.globalAlpha = .55; const pr = photoRect(L.photo); k.fillRect(...pr); k.globalAlpha = 1;
+    GFX = k; L.over(k);
+  } catch {} finally { GFX = null; state.template = keep; }
   k.restore();
   return c;
 }
@@ -1051,7 +1403,9 @@ function renderPanel() {
     kids.push(el('h3', {}, 'Layout'),
       el('div', { className: 'grid' }, ...Object.values(TEMPLATES).map(tp => el('button', { className: 'tpl' + (S.template === tp.id ? ' on' : ''), onclick: () => { commit(() => S.template = tp.id); renderPanel(); } }, templateThumb(tp.id), el('span', {}, tp.name)))),
       el('h3', {}, 'Palette'),
-      el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(70px,1fr))' }, ...PALETTES.map(p => el('button', { className: 'pal' + (S.palette === p.id ? ' on' : ''), title: p.id, 'aria-label': 'Palette ' + p.id, onclick: () => { commit(() => { S.palette = p.id; S.colors = { ...p }; }); renderPanel(); } }, ...[p.paper, p.ink1, p.ink2, p.accent].map(c => el('i', { style: `background:${c}` }))))),
+      el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => { const g = generatePalette(); S.palette = g.id; S.colors = g; }); renderPanel(); } }, 'Generate palette'),
+        el('button', { onclick: () => { commit(() => { const g = pick(Math.random, PALETTES); S.palette = g.id; S.colors = { ...g }; }); renderPanel(); } }, 'Random from library'), el('span', { className: 'note' }, `${PALETTES.length} palettes`)),
+      ...PALETTE_GROUPS.flatMap(g => [el('h3', {}, g), el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(70px,1fr))' }, ...PALETTES.filter(p => p.group === g).map(p => el('button', { className: 'pal' + (S.palette === p.id ? ' on' : ''), title: p.id, 'aria-label': 'Palette ' + p.id, onclick: () => { commit(() => { S.palette = p.id; S.colors = { ...p }; }); renderPanel(); } }, ...[p.paper, p.ink1, p.ink2, p.accent].map(c => el('i', { style: `background:${c}` })))))]),
       el('h3', {}, 'Colours'),
       color('Paper', () => S.colors.paper, v => S.colors.paper = v),
       color('Ink 1 (shadow)', () => S.colors.ink1, v => S.colors.ink1 = v),
@@ -1113,6 +1467,8 @@ function renderPanel() {
       slider('Slice warp', () => T2.warp, v => T2.warp = v, 0, 1),
       check('Outline', () => T2.outline, v => T2.outline = v));
     if (S.template === 'tape') kids.push(text('Side A tracks', () => T2.tracksA, v => T2.tracksA = v, true), text('Side B tracks', () => T2.tracksB, v => T2.tracksB = v, true));
+  } else if (activeTab === 'arrange') {
+    kids.push(...arrangePanel());
   } else if (activeTab === 'graphics') {
     kids.push(...graphicsPanel());
   } else if (activeTab === 'shaders') {
@@ -1138,6 +1494,27 @@ function renderPanel() {
   P.replaceChildren(...kids.flat());
 }
 
+function arrangePanel() {
+  const out = [el('div', { className: 'note' }, 'Drag anything on the cover in Move mode. Wheel or pinch scales it, Shift+wheel rotates; arrow keys nudge (Shift for bigger steps), + / − scale, [ / ] rotate, Esc deselects. Positions are kept per layout.')];
+  const items = lastHits.hits.filter((h, i, a) => a.findIndex(x => x.id === h.id) === i);
+  const list = el('div', { style: 'display:flex;flex-direction:column;gap:4px' });
+  for (const h of items) {
+    const o = place(h.id);
+    list.append(el('div', { className: 'layer' + (selId === h.id ? ' sel' : '') },
+      el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selectItem(selId === h.id ? null : h.id); renderPanel(); } },
+        el('b', {}, h.name + (o.hide ? ' (hidden)' : '')), el('span', { className: 'note' }, h.kind),
+        el('button', { className: 'mini' + (o.hide ? ' on' : ''), title: o.hide ? 'Show' : 'Hide', onclick: () => { commit(() => placement(h.id).hide = !o.hide); renderPanel(); } }, o.hide ? 'Show' : 'Hide'))));
+    if (selId === h.id) {
+      const pl = placement(h.id);
+      list.lastChild.append(el('div', { className: 'lb' },
+        slider('Move X', () => pl.x, v => pl.x = v, -1, 1, .001), slider('Move Y', () => pl.y, v => pl.y = v, -1, 1, .001),
+        slider('Scale', () => pl.s, v => pl.s = v, .05, 4, .01), h.kind === 'photo' ? el('div', { className: 'note' }, 'The photo frame moves and scales; rotate the picture itself in Image.') : slider('Rotate', () => pl.r, v => pl.r = v, -180, 180, .5),
+        el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => Object.assign(placement(h.id), { x: 0, y: 0, s: 1, r: 0, hide: false })); renderPanel(); } }, 'Reset item'))));
+    }
+  }
+  out.push(list, el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => { if (state.layout) delete state.layout[state.template]; }); selectItem(null); renderPanel(); } }, 'Reset whole layout')));
+  return out;
+}
 function graphicsPanel() {
   const S = state, slots = slotsFor(S.template), out = [];
   S.graphics = S.graphics || DEFAULT_GRAPHICS();
@@ -1171,7 +1548,7 @@ function shaderPanel() {
   const list = el('div', { style: 'display:flex;flex-direction:column;gap:6px' });
   S.layers.forEach((layer, i) => {
     const info = layer.fixed ? null : layerInfo(layer.id);
-    const name = layer.fixed ? (layer.id === 'PHOTO' ? 'PHOTO (print treatment)' : 'TYPE + ORNAMENTS') : (info ? info.name : layer.id);
+    const name = layer.fixed ? { PHOTO: 'PHOTO (print treatment)', TYPE: 'TYPE', GRAPHICS: 'GRAPHICS (micrographics)' }[layer.id] : (info ? info.name : layer.id);
     const move = d => commit(() => { const j = i + d; if (j < 0 || j >= S.layers.length) return; [S.layers[i], S.layers[j]] = [S.layers[j], S.layers[i]]; });
     const head = el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selected = selected === (layer.uid || layer.id) ? null : (layer.uid || layer.id); renderPanel(); } },
       el('b', { title: name }, name),
@@ -1257,28 +1634,103 @@ addEventListener('drop', e => {
   if (f.name.endsWith('.json')) openProject(f); else if (f.type.startsWith('image/')) loadPhotoURL(URL.createObjectURL(f));
 });
 addEventListener('paste', e => { const f = [...(e.clipboardData || {}).files || []].find(f => f.type.startsWith('image/')); if (f) loadPhotoURL(URL.createObjectURL(f)); });
-// Dragging on the cover pans the photo; wheel or two-finger pinch zooms it.
+/* Cover gestures. Move mode: drag picks the topmost element under the pointer (graphics and type, then the
+   photo frame, then bands) and moves it; wheel or pinch scales it, Shift+wheel rotates. Pan mode: drag pans the
+   picture inside its frame, wheel or pinch zooms it. Positions are stored per template in state.layout. */
+let mode = 'move', selId = null, hoverId = null;
+const ov = $('ov');
+function setMode(m) { mode = m; $('mMove').classList.toggle('on', m === 'move'); $('mPan').classList.toggle('on', m === 'pan'); cv.style.cursor = m === 'move' ? 'default' : 'grab'; drawOverlay(); }
+$('mMove').onclick = () => setMode('move'); $('mPan').onclick = () => setMode('pan');
+const toCover = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * lastHits.W, (e.clientY - r.top) / r.height * lastHits.H]; };
+function inHit(h, [x, y]) {
+  const a = -h.r * Math.PI / 180, dx = x - h.cx, dy = y - h.cy;
+  const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+  const pad = lastHits.W * .006;
+  return Math.abs(lx) <= Math.abs(h.w) / 2 + pad && Math.abs(ly) <= Math.abs(h.h) / 2 + pad;
+}
+const RANK = { graphics: 3, type: 3, photo: 2, band: 1 };
+function pickAt(pt) {
+  let best = null;
+  lastHits.hits.forEach((h, i) => { if (h.hide || !inHit(h, pt)) return; const score = RANK[h.kind] * 1e4 + i - (h.w * h.h) / (lastHits.W * lastHits.H); if (!best || score > best.score) best = { h, score }; });
+  return best && best.h;
+}
+function placement(id) {
+  state.layout = state.layout || {};
+  const T3 = state.layout[state.template] || (state.layout[state.template] = {});
+  return T3[id] || (T3[id] = { x: 0, y: 0, s: 1, r: 0, hide: false });
+}
+function selectItem(id) { selId = id; const h = lastHits.hits.find(h => h.id === id); $('selName').textContent = h ? h.name : ''; drawOverlay(); if (activeTab === 'arrange') renderPanel(); }
+function drawOverlay() {
+  const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+  ov.width = Math.round(r.width * d); ov.height = Math.round(r.height * d);
+  const k = ov.getContext('2d'); k.clearRect(0, 0, ov.width, ov.height);
+  if (mode !== 'move') return;
+  const sx = ov.width / lastHits.W, sy = ov.height / lastHits.H;
+  for (const [id, style] of [[hoverId, 'rgba(242,211,91,.45)'], [selId, '#f2d35b']]) {
+    const h = id && lastHits.hits.find(h => h.id === id);
+    if (!h) continue;
+    k.save(); k.translate(h.cx * sx, h.cy * sy); k.rotate(h.r * Math.PI / 180);
+    k.strokeStyle = 'rgba(0,0,0,.6)'; k.lineWidth = 3 * d; k.strokeRect(-h.w * sx / 2, -h.h * sy / 2, h.w * sx, h.h * sy);
+    k.strokeStyle = style; k.lineWidth = 1.5 * d; k.setLineDash(id === selId ? [] : [4 * d, 3 * d]); k.strokeRect(-h.w * sx / 2, -h.h * sy / 2, h.w * sx, h.h * sy);
+    if (id === selId) { k.fillStyle = style; for (const [cx, cy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) k.fillRect(cx * h.w * sx / 2 - 3 * d, cy * h.h * sy / 2 - 3 * d, 6 * d, 6 * d); }
+    k.restore();
+  }
+}
 const pointers = new Map();
 let gesture = null;
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); pointers.set(e.pointerId, [e.clientX, e.clientY]);
-  if (!gesture) { snapshot(); gesture = { x: state.photo.x, y: state.photo.y, zoom: state.photo.zoom, start: [e.clientX, e.clientY], dist: 0 }; }
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture.dist = Math.hypot(a[0] - b[0], a[1] - b[1]); gesture.zoom = state.photo.zoom; }
+  if (pointers.size === 1) {
+    if (mode === 'move') {
+      const h = pickAt(toCover(e));
+      selectItem(h ? h.id : null);
+      if (h) { snapshot(); const o = placement(h.id); gesture = { id: h.id, start: [e.clientX, e.clientY], x: o.x, y: o.y, s: o.s }; }
+    } else { snapshot(); gesture = { pan: true, x: state.photo.x, y: state.photo.y, zoom: state.photo.zoom, start: [e.clientX, e.clientY] }; }
+  }
+  if (pointers.size === 2 && gesture) { const [a, b] = [...pointers.values()]; gesture.dist = Math.hypot(a[0] - b[0], a[1] - b[1]); gesture.s0 = gesture.pan ? state.photo.zoom : placement(gesture.id).s; }
 });
 cv.addEventListener('pointermove', e => {
-  if (!pointers.has(e.pointerId) || !gesture) return;
+  if (!pointers.has(e.pointerId)) {
+    if (mode === 'move') { const h = pickAt(toCover(e)); const id = h ? h.id : null; if (id !== hoverId) { hoverId = id; cv.style.cursor = h ? 'move' : 'default'; drawOverlay(); } }
+    return;
+  }
   pointers.set(e.pointerId, [e.clientX, e.clientY]);
-  const r = cv.getBoundingClientRect(), L = layout(r.width, r.height), pw = L.photo[2], ph = L.photo[3];
-  if (pointers.size === 2 && gesture.dist) { const [a, b] = [...pointers.values()]; state.photo.zoom = clamp(gesture.zoom * Math.hypot(a[0] - b[0], a[1] - b[1]) / gesture.dist, .3, 4); }
-  else if (pointers.size === 1) {
-    state.photo.x = clamp(gesture.x + (e.clientX - gesture.start[0]) / pw / state.photo.zoom, -.6, .6);
-    state.photo.y = clamp(gesture.y + (e.clientY - gesture.start[1]) / ph / state.photo.zoom, -.6, .6);
+  if (!gesture) return;
+  const r = cv.getBoundingClientRect();
+  if (pointers.size === 2 && gesture.dist) {
+    const [a, b] = [...pointers.values()], f = Math.hypot(a[0] - b[0], a[1] - b[1]) / gesture.dist;
+    if (gesture.pan) state.photo.zoom = clamp(gesture.s0 * f, .3, 4); else placement(gesture.id).s = clamp(gesture.s0 * f, .05, 8);
+  } else if (gesture.pan) {
+    const rect = photoRectNow(), pw = rect[2] / lastHits.W * r.width, ph = rect[3] / lastHits.H * r.height;
+    state.photo.x = clamp(gesture.x + (e.clientX - gesture.start[0]) / Math.max(1, pw) / state.photo.zoom, -.6, .6);
+    state.photo.y = clamp(gesture.y + (e.clientY - gesture.start[1]) / Math.max(1, ph) / state.photo.zoom, -.6, .6);
+  } else {
+    const o = placement(gesture.id);
+    o.x = gesture.x + (e.clientX - gesture.start[0]) / r.width;
+    o.y = gesture.y + (e.clientY - gesture.start[1]) / r.height;
   }
   scheduleRender();
 });
-const endPointer = e => { pointers.delete(e.pointerId); if (!pointers.size && gesture) { gesture = null; save(); if (activeTab === 'image') renderPanel(); } };
+const photoRectNow = () => { const h = lastHits.hits.find(h => h.id === 'photo'); return h ? [h.cx - h.w / 2, h.cy - h.h / 2, h.w, h.h] : [0, 0, lastHits.W, lastHits.H]; };
+const endPointer = e => { pointers.delete(e.pointerId); if (!pointers.size && gesture) { gesture = null; save(); if (activeTab === 'image' || activeTab === 'arrange') renderPanel(); } };
 cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel', endPointer);
-cv.addEventListener('wheel', e => { e.preventDefault(); state.photo.zoom = clamp(state.photo.zoom * Math.exp(-e.deltaY * .0015), .3, 4); save(); scheduleRender(); }, { passive: false });
+cv.addEventListener('pointerleave', () => { if (hoverId) { hoverId = null; drawOverlay(); } });
+let wheelTimer;
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!wheelTimer) snapshot();
+  clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; save(); if (activeTab === 'arrange') renderPanel(); }, 400);
+  if (mode === 'pan') { state.photo.zoom = clamp(state.photo.zoom * Math.exp(-e.deltaY * .0015), .3, 4); }
+  else {
+    const h = pickAt(toCover(e)) || lastHits.hits.find(h => h.id === selId);
+    if (!h) return;
+    if (h.id !== selId) selectItem(h.id);
+    const o = placement(h.id);
+    if (e.shiftKey || e.altKey) o.r = ((o.r + (e.deltaY || e.deltaX) * .15 + 540) % 360) - 180;
+    else o.s = clamp(o.s * Math.exp(-e.deltaY * .0015), .05, 8);
+  }
+  scheduleRender();
+}, { passive: false });
 
 /* ---------- header and keys ---------- */
 function undo() { const s = undoStack.pop(); if (!s) return toast('Nothing to undo.'); state = JSON.parse(s); save(); renderPanel(); scheduleRender(); }
@@ -1289,6 +1741,18 @@ addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   else if (e.key === 'r' && !e.metaKey && !e.ctrlKey) randomize();
+  else if (e.key === 'v') setMode('move');
+  else if (e.key === 'p') setMode('pan');
+  else if (e.key === 'Escape') selectItem(null);
+  else if (selId && /^(Arrow(Up|Down|Left|Right)|\+|=|-|\[|\])$/.test(e.key)) {
+    e.preventDefault(); snapshot();
+    const o = placement(selId), st = e.shiftKey ? .02 : .0025;
+    if (e.key === 'ArrowLeft') o.x -= st; else if (e.key === 'ArrowRight') o.x += st;
+    else if (e.key === 'ArrowUp') o.y -= st; else if (e.key === 'ArrowDown') o.y += st;
+    else if (e.key === '+' || e.key === '=') o.s *= 1.04; else if (e.key === '-') o.s /= 1.04;
+    else if (e.key === '[') o.r -= e.shiftKey ? 15 : 1; else if (e.key === ']') o.r += e.shiftKey ? 15 : 1;
+    save(); scheduleRender(); if (activeTab === 'arrange') renderPanel();
+  }
 });
 addEventListener('resize', scheduleRender);
 cv.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('The GPU reset; reload the page to keep working.'); });
