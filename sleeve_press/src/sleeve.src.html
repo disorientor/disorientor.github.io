@@ -327,7 +327,7 @@ function generatePalette(r = Math.random) {
 }
 
 const TEMPLATES = {};
-const T = (id, name, fn, opts = {}) => TEMPLATES[id] = { id, name, fn, ...opts };
+const T = (id, name, fn, opts = {}) => TEMPLATES[id] = { id, name, group: opts.group || 'Editorial & Print', fn, ...opts };
 
 /* Type helpers. All sizes are in pixels of the render; u is 1% of the cover's short side. */
 function fitText(ctx, text, family, x, y, w, h, o = {}) {
@@ -398,7 +398,7 @@ function G(c, slot, x, y, w, h, fallback) {
   const g = (state.graphics || {})[slot] || {};
   if (!g.id || g.id === 'none') return;
   const ink = g.ink && g.ink !== 'auto' ? state.colors[g.ink] : fallback;
-  E(GFX, 'g:' + slot, SLOTS[slot] + ' graphic', 'graphics', x, y, w, h, k => drawMicro(k, g.id, x, y, w, h, ink, state.seed + slot.length * 31));
+  E(GFX, 'g:' + slot, (SLOTS[slot] || slot) + ' graphic', 'graphics', x, y, w, h, k => drawMicro(k, g.id, x, y, w, h, ink, state.seed + slot.length * 31));
 }
 function splitTwo(s) {
   const w = s.trim().split(/\s+/);
@@ -580,10 +580,11 @@ T('spine', 'Spine', (W, H, p, t) => {
       TX(c, 'catalogue', 'Catalogue no.', 3 * u, 67 * u, 20 * u, 2.6 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 3 * u, 67 * u, 20 * u, 2.6 * u, { color: p.paper }));
     }
   };
-});
+}, { group: 'Japanese & Obi' });
 /* Vaporwave-era conventions: OS windows, grid horizons, VHS and teletext screens, broadcast graphics, obi strips,
    chrome type. Built from those general forms only. */
 const SHAPE = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'band', x, y, w, h, fn);
+const MATTE = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'matte', x, y, w, h, fn);
 function gridFloor(k, x, y, w, h, line, lw) {
   k.save(); k.beginPath(); k.rect(x, y, w, h); k.clip(); k.strokeStyle = line; k.lineWidth = lw;
   for (let i = -12; i <= 12; i++) { k.beginPath(); k.moveTo(x + w / 2 + i * w * .02, y); k.lineTo(x + w / 2 + i * w * .16, y + h); k.stroke(); }
@@ -625,7 +626,7 @@ T('window', 'OS window', (W, H, p, t) => {
       G(c, 'corner', 2 * u, 2 * u, 8 * u, 8 * u, p.ink1);
     }
   };
-});
+}, { group: 'Vaporwave & Broadcast' });
 T('horizon', 'Grid horizon', (W, H, p, t) => {
   const u = W / 100;
   return {
@@ -642,7 +643,7 @@ T('horizon', 'Grid horizon', (W, H, p, t) => {
       G(c, 'corner', 88 * u, 88 * u, 8 * u, 8 * u, p.accent);
     }
   };
-});
+}, { group: 'Vaporwave & Broadcast' });
 T('vhs', 'VHS sleeve', (W, H, p, t) => {
   const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
   return {
@@ -660,7 +661,7 @@ T('vhs', 'VHS sleeve', (W, H, p, t) => {
       G(c, 'corner', 86 * u, 86 * u, 9 * u, 9 * u, p.accent);
     }
   };
-});
+}, { group: 'Vaporwave & Broadcast' });
 T('teletext', 'Teletext', (W, H, p, t) => {
   const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
   return {
@@ -674,7 +675,7 @@ T('teletext', 'Teletext', (W, H, p, t) => {
       G(c, 'corner', 88 * u, 92 * u - 8 * u, 6 * u, 6 * u, on);
     }
   };
-});
+}, { group: 'Vaporwave & Broadcast' });
 T('magazine', 'Magazine', (W, H, p, t) => {
   const u = W / 100, on = contrastOn(p.ink1, [p.accent, p.text, p.paper]);
   return {
@@ -689,7 +690,7 @@ T('magazine', 'Magazine', (W, H, p, t) => {
       G(c, 'corner', 5 * u, 86 * u, 9 * u, 9 * u, p.accent);
     }
   };
-});
+}, { group: 'Japanese & Obi' });
 T('obi', 'Obi strip', (W, H, p, t) => {
   const u = W / 100, on = contrastOn(p.ink1, [p.paper, p.text, p.accent]);
   return {
@@ -706,7 +707,7 @@ T('obi', 'Obi strip', (W, H, p, t) => {
       G(c, 'corner', 5 * u, 87 * u, 8 * u, 8 * u, on);
     }
   };
-});
+}, { group: 'Japanese & Obi' });
 T('lowerthird', 'Lower third', (W, H, p, t) => {
   const u = W / 100;
   return {
@@ -723,7 +724,7 @@ T('lowerthird', 'Lower third', (W, H, p, t) => {
       G(c, 'corner', 85.5 * u, 7.5 * u, 7 * u, 7 * u, p.text);
     }
   };
-});
+}, { group: 'Japanese & Obi' });
 T('minimal', 'Minimal', (W, H, p, t) => {
   const u = W / 100;
   return {
@@ -736,7 +737,7 @@ T('minimal', 'Minimal', (W, H, p, t) => {
       G(c, 'corner', 47 * u, 76 * u, 6 * u, 6 * u, p.accent);
     }
   };
-});
+}, { group: 'Swiss & Modernist' });
 T('echo', 'Echo', (W, H, p, t) => {
   const u = W / 100;
   return {
@@ -785,7 +786,1630 @@ T('chrome', 'Chrome', (W, H, p, t) => {
       G(c, 'corner', 85 * u, 91 * u, 5 * u, 5 * u, p.accent);
     }
   };
-});
+}, { group: 'Vaporwave & Broadcast' });
+
+
+/* ==================== 52 EXPANDED ALBUM TEMPLATES ==================== */
+
+/* ---------- Editorial & Print (Expanded) ---------- */
+T('corner-bleed', 'Corner bleed', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [24 * u, 24 * u, 76 * u, 76 * u],
+    under(c) { BAND(c, 'bg', 'Paper field', 0, 0, W, H, p.paper); },
+    over(c) {
+      G(c, 'emblem', 4 * u, 4 * u, 16 * u, 16 * u, p.ink1);
+      TX(c, 'artist', 'Artist wordmark', 24 * u, 5 * u, 72 * u, 14 * u, k => wordmark(k, t.artist, 24 * u, 5 * u, 72 * u, 14 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Title (vertical)', 4 * u, 26 * u, 15 * u, 46 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 4 * u, 26 * u, 15 * u, 46 * u, { color: p.ink1 }));
+      TX(c, 'title', 'Title (horizontal)', 4 * u, 76 * u, 16 * u, 4 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 4 * u, 76 * u, 16 * u, 4 * u, { color: p.accent }));
+      TX(c, 'catalogue', 'Catalogue no.', 4 * u, 82 * u, 16 * u, 2.5 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 4 * u, 82 * u, 16 * u, 2.5 * u, { color: p.ink2 }));
+      G(c, 'strip', 4 * u, 88 * u, 16 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('triptych', 'Triptych panes', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 22 * u, 88 * u, 58 * u],
+    under(c) { BAND(c, 'bg', 'Background', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'artist', 'Artist wordmark', 6 * u, 4 * u, 88 * u, 12 * u, k => wordmark(k, t.artist, 6 * u, 4 * u, 88 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 6 * u, 17 * u, 54 * u, 3.6 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 17 * u, 54 * u, 3.6 * u, { color: p.ink2 }));
+      TX(c, 'catalogue', 'Catalogue line', 62 * u, 17 * u, 32 * u, 3.2 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || ''), fam(t.smallFont), 62 * u, 17 * u, 32 * u, 3.2 * u, { color: p.accent, align: 'right' }));
+      MATTE(c, 'dividers', 'Triptych divider bars', 6 * u, 22 * u, 88 * u, 58 * u, k => {
+        k.fillStyle = p.paper;
+        k.fillRect(34.5 * u, 22 * u, 2 * u, 58 * u);
+        k.fillRect(63.5 * u, 22 * u, 2 * u, 58 * u);
+        k.strokeStyle = p.ink1; k.lineWidth = .35 * u;
+        k.strokeRect(6 * u, 22 * u, 88 * u, 58 * u);
+        k.strokeRect(34.5 * u, 22 * u, 2 * u, 58 * u);
+        k.strokeRect(63.5 * u, 22 * u, 2 * u, 58 * u);
+      });
+      G(c, 'emblem', 6 * u, 84 * u, 12 * u, 12 * u, p.ink1);
+      TX(c, 'title', 'Title', 22 * u, 85 * u, 50 * u, 5.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 22 * u, 85 * u, 50 * u, 5.5 * u, { color: p.ink1 }));
+      TX(c, 'tagline', 'Tagline', 22 * u, 91.5 * u, 50 * u, 2.5 * u, k => fitText(k, t.tagline, fam(t.smallFont), 22 * u, 91.5 * u, 50 * u, 2.5 * u, { color: p.ink2 }));
+      G(c, 'strip', 76 * u, 86 * u, 18 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('half-split', 'Half & half', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [22 * u, 22 * u, 56 * u, 56 * u],
+    under(c) {
+      BAND(c, 'leftField', 'Left ink field', 0, 0, 50 * u, H, p.ink1);
+      BAND(c, 'rightField', 'Right paper field', 50 * u, 0, 50 * u, H, p.paper);
+    },
+    over(c) {
+      TX(c, 'artistLeft', 'Artist (left)', 4 * u, 6 * u, 44 * u, 10 * u, k => fitText(k, t.artist, fam(t.wordFont), 4 * u, 6 * u, 44 * u, 10 * u, { color: p.paper, stretch: true }));
+      TX(c, 'titleRight', 'Title (right)', 52 * u, 6 * u, 44 * u, 10 * u, k => fitText(k, (t.kanaTitle || t.title), fam(t.kanaFont), 52 * u, 6 * u, 44 * u, 10 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'frame', 'Photo double frame', 20 * u, 20 * u, 60 * u, 60 * u, k => {
+        k.strokeStyle = p.accent; k.lineWidth = .7 * u; k.strokeRect(20 * u, 20 * u, 60 * u, 60 * u);
+        k.strokeStyle = p.ink2; k.lineWidth = .3 * u; k.strokeRect(21.4 * u, 21.4 * u, 57.2 * u, 57.2 * u);
+      });
+      G(c, 'emblem', 8 * u, 82 * u, 14 * u, 14 * u, p.accent);
+      TX(c, 'kanaLeft', 'Katakana artist (left)', 24 * u, 84 * u, 24 * u, 3.4 * u, k => fitText(k, t.kanaArtist, fam(t.kanaFont), 24 * u, 84 * u, 24 * u, 3.4 * u, { color: p.paper }));
+      TX(c, 'metaRight', 'Catalogue (right)', 52 * u, 84 * u, 42 * u, 3.4 * u, k => fitText(k, t.catalogue + ' / ' + (t.side || ''), fam(t.smallFont), 52 * u, 84 * u, 42 * u, 3.4 * u, { color: p.ink1 }));
+      G(c, 'corner', 84 * u, 84 * u, 10 * u, 10 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('border-stack', 'Concentric frames', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 22 * u, 64 * u, 56 * u],
+    under(c) {
+      BAND(c, 'outer', 'Outer border', 0, 0, W, H, p.ink1);
+      BAND(c, 'b1', 'Band 1', 2.5 * u, 2.5 * u, W - 5 * u, H - 5 * u, p.accent);
+      BAND(c, 'b2', 'Band 2', 5 * u, 5 * u, W - 10 * u, H - 10 * u, p.ink2);
+      BAND(c, 'inner', 'Inner paper field', 7.5 * u, 7.5 * u, W - 15 * u, H - 15 * u, p.paper);
+    },
+    over(c) {
+      TX(c, 'artist', 'Artist wordmark', 10 * u, 9 * u, 80 * u, 10 * u, k => wordmark(k, t.artist, 10 * u, 9 * u, 80 * u, 10 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'frame', 'Photo inner hairline', 17 * u, 21 * u, 66 * u, 58 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(17 * u, 21 * u, 66 * u, 58 * u); });
+      TX(c, 'title', 'Title', 10 * u, 81 * u, 58 * u, 6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 10 * u, 81 * u, 58 * u, 6 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'Title (katakana)', 10 * u, 88.5 * u, 58 * u, 3.5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 10 * u, 88.5 * u, 58 * u, 3.5 * u, { color: p.accent }));
+      G(c, 'corner', 76 * u, 81 * u, 12 * u, 12 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('cantilever', 'Cantilever', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [28 * u, 34 * u, 68 * u, 62 * u],
+    under(c) {
+      BAND(c, 'bg', 'Background paper', 0, 0, W, H, p.paper);
+      BAND(c, 'accentL', 'Accent L-bar', 24 * u, 30 * u, 76 * u, 70 * u, p.accent);
+    },
+    over(c) {
+      TX(c, 'angledType', 'Angled wordmark block', -4 * u, 4 * u, 68 * u, 32 * u, k => {
+        k.save(); k.translate(24 * u, 18 * u); k.rotate(-.18);
+        wordmark(k, t.artist, -24 * u, -10 * u, 62 * u, 14 * u, { color: p.ink1, stretch: true });
+        fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), -24 * u, 5 * u, 54 * u, 5 * u, { color: p.ink2 });
+        k.restore();
+      });
+      G(c, 'emblem', 78 * u, 6 * u, 16 * u, 16 * u, p.accent);
+      TX(c, 'titleFoot', 'Title footer', 4 * u, 88 * u, 22 * u, 3.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 4 * u, 88 * u, 22 * u, 3.5 * u, { color: p.ink1 }));
+      TX(c, 'catalogue', 'Catalogue no.', 4 * u, 93 * u, 22 * u, 2.5 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 4 * u, 93 * u, 22 * u, 2.5 * u, { color: p.ink2 }));
+      G(c, 'strip', 4 * u, 70 * u, 20 * u, 12 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('cascade', 'Stepped cascade', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 42 * u, 58 * u, 52 * u],
+    under(c) {
+      BAND(c, 'bg', 'Background', 0, 0, W, H, p.paper);
+      BAND(c, 'sidePillar', 'Side pillar', 68 * u, 0, 32 * u, H, p.accent);
+    },
+    over(c) {
+      TX(c, 'cascade', 'Cascading wordmark', 4 * u, 4 * u, 62 * u, 36 * u, k => {
+        for (let i = 0; i < 4; i++) wordmark(k, t.artist, (4 + i * 4) * u, (4 + i * 8.5) * u, 54 * u, 8 * u, { color: i === 3 ? p.ink1 : p.ink2, stretch: true, outline: i < 3 });
+      });
+      G(c, 'feature', 72 * u, 6 * u, 24 * u, 24 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'kanaSide', 'Katakana pillar', 74 * u, 34 * u, 20 * u, 50 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 74 * u, 34 * u, 20 * u, 50 * u, { color: p.paper === p.accent ? p.ink1 : p.text }));
+      TX(c, 'catSide', 'Catalogue', 72 * u, 88 * u, 24 * u, 3 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 72 * u, 88 * u, 24 * u, 3 * u, { color: p.paper === p.accent ? p.ink1 : p.text, align: 'center' }));
+      G(c, 'corner', 8 * u, 86 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('sandwich', 'Cinema letterbox', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [0, 22 * u, W, 56 * u],
+    under(c) {
+      BAND(c, 'topBand', 'Top letterbox band', 0, 0, W, 22 * u, p.accent);
+      BAND(c, 'botBand', 'Bottom letterbox band', 0, 78 * u, W, 22 * u, p.ink1);
+    },
+    over(c) {
+      G(c, 'emblem', 5 * u, 4 * u, 14 * u, 14 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'artist', 'Artist wordmark', 22 * u, 4 * u, 73 * u, 14 * u, k => wordmark(k, t.artist, 22 * u, 4 * u, 73 * u, 14 * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true }));
+      TX(c, 'title', 'Title (bottom)', 5 * u, 81 * u, 55 * u, 6.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 5 * u, 81 * u, 55 * u, 6.5 * u, { color: p.paper }));
+      TX(c, 'kanaTitle', 'Katakana (bottom)', 5 * u, 89 * u, 55 * u, 3.8 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 5 * u, 89 * u, 55 * u, 3.8 * u, { color: p.accent }));
+      TX(c, 'catalogue', 'Catalogue no.', 5 * u, 94 * u, 40 * u, 2.4 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || ''), fam(t.smallFont), 5 * u, 94 * u, 40 * u, 2.4 * u, { color: p.paper }));
+      G(c, 'strip', 75 * u, 82 * u, 20 * u, 12 * u, p.accent);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('wraparound', 'Wraparound spine', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [22 * u, 16 * u, 72 * u, 76 * u],
+    under(c) {
+      BAND(c, 'spine', 'Left spine strip', 0, 0, 16 * u, H, p.ink1);
+      BAND(c, 'body', 'Body paper', 16 * u, 0, 84 * u, H, p.paper);
+    },
+    over(c) {
+      TX(c, 'spineText', 'Spine rotated label', 3 * u, 8 * u, 10 * u, 84 * u, k => vertText(k, t.artist + '  /  ' + t.title + '  ·  ' + t.catalogue, fam(t.smallFont), 3 * u, 8 * u, 10 * u, 84 * u, { color: p.paper, rotate: true }));
+      TX(c, 'artist', 'Artist header', 22 * u, 4 * u, 72 * u, 10 * u, k => wordmark(k, t.artist, 22 * u, 4 * u, 72 * u, 10 * u, { color: p.ink1, stretch: true }));
+      G(c, 'emblem', 22 * u, 80 * u, 12 * u, 12 * u, p.accent);
+      TX(c, 'kanaTitle', 'Katakana bottom', 38 * u, 84 * u, 45 * u, 4.5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 38 * u, 84 * u, 45 * u, 4.5 * u, { color: p.ink1 }));
+      G(c, 'corner', 86 * u, 84 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+/* ---------- Swiss & Modernist ---------- */
+T('swiss-grid', 'Swiss modular', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [34 * u, 36 * u, 60 * u, 58 * u],
+    under(c) { BAND(c, 'bg', 'Grid paper', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'gridRules', 'Hairline grid', 4 * u, 4 * u, 92 * u, 92 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .25 * u;
+        k.beginPath();
+        k.moveTo(4 * u, 4 * u); k.lineTo(96 * u, 4 * u);
+        k.moveTo(4 * u, 22 * u); k.lineTo(96 * u, 22 * u);
+        k.moveTo(4 * u, 34 * u); k.lineTo(96 * u, 34 * u);
+        k.moveTo(4 * u, 96 * u); k.lineTo(96 * u, 96 * u);
+        k.moveTo(4 * u, 4 * u); k.lineTo(4 * u, 96 * u);
+        k.moveTo(32 * u, 4 * u); k.lineTo(32 * u, 96 * u);
+        k.moveTo(96 * u, 4 * u); k.lineTo(96 * u, 96 * u);
+        k.stroke();
+      });
+      TX(c, 'artist', 'Artist wordmark', 34 * u, 5 * u, 60 * u, 16 * u, k => wordmark(k, t.artist, 34 * u, 5 * u, 60 * u, 16 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'num01', 'Cell index 01', 6 * u, 5 * u, 24 * u, 4 * u, k => fitText(k, '01 / ' + t.catalogue, fam(t.smallFont), 6 * u, 5 * u, 24 * u, 4 * u, { color: p.accent }));
+      TX(c, 'titleMeta', 'Title block', 6 * u, 23.5 * u, 24 * u, 9 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 6 * u, 23.5 * u, 24 * u, 4.5 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 28.5 * u, 24 * u, 3.5 * u, { color: p.ink2 });
+      });
+      TX(c, 'kanaArtist', 'Artist (katakana)', 34 * u, 24 * u, 60 * u, 8 * u, k => fitText(k, t.kanaArtist, fam(t.kanaFont), 34 * u, 24 * u, 60 * u, 8 * u, { color: p.ink1 }));
+      TX(c, 'colophon', 'Colophon text', 6 * u, 36 * u, 24 * u, 20 * u, k => lines(k, [t.tagline, t.side || 'STEREO 33 RPM', 'DESIGN REPERTOIRE', 'SERIES NO. 042'], fam(t.smallFont), 6 * u, 36 * u, 24 * u, 2.2 * u, p.ink2, { lead: 1.4 }));
+      G(c, 'emblem', 6 * u, 64 * u, 16 * u, 16 * u, p.ink1);
+      G(c, 'strip', 6 * u, 84 * u, 24 * u, 10 * u, p.ink1);
+      TX(c, 'frame', 'Photo border', 34 * u, 36 * u, 60 * u, 58 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(34 * u, 36 * u, 60 * u, 58 * u); });
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('crosshair', 'Crosshair quadrant', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [48 * u, 48 * u, 46 * u, 46 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'axes', 'Crosshair axes', 0, 0, W, H, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .3 * u;
+        k.beginPath(); k.moveTo(6 * u, 48 * u); k.lineTo(94 * u, 48 * u); k.moveTo(48 * u, 6 * u); k.lineTo(48 * u, 94 * u); k.stroke();
+        k.lineWidth = .25 * u; k.beginPath(); k.arc(48 * u, 48 * u, 8 * u, 0, Math.PI * 2); k.stroke();
+        k.beginPath(); k.arc(48 * u, 48 * u, 2 * u, 0, Math.PI * 2); k.fillStyle = p.accent; k.fill();
+      });
+      TX(c, 'artist', 'Artist wordmark', 6 * u, 10 * u, 40 * u, 34 * u, k => wordmark(k, t.artist, 6 * u, 10 * u, 40 * u, 34 * u, { color: p.ink1, stretch: true }));
+      G(c, 'feature', 52 * u, 10 * u, 36 * u, 34 * u, p.accent);
+      TX(c, 'titleVert', 'Vertical title', 8 * u, 52 * u, 12 * u, 38 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 8 * u, 52 * u, 12 * u, 38 * u, { color: p.ink1 }));
+      TX(c, 'meta', 'Quadrant coordinates', 22 * u, 52 * u, 24 * u, 20 * u, k => lines(k, [t.catalogue, t.side || 'SIDE A/B', t.tagline], fam(t.smallFont), 22 * u, 52 * u, 24 * u, 2.4 * u, p.ink2, { lead: 1.4 }));
+      G(c, 'strip', 22 * u, 82 * u, 22 * u, 10 * u, p.ink1);
+      G(c, 'corner', 84 * u, 84 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('tabular', 'Studio log sheet', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [5 * u, 44 * u, 90 * u, 51 * u],
+    under(c) { BAND(c, 'bg', 'Paper ledger', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'table', 'Ledger grid table', 5 * u, 5 * u, 90 * u, 36 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .35 * u;
+        k.strokeRect(5 * u, 5 * u, 90 * u, 36 * u);
+        k.beginPath();
+        k.moveTo(5 * u, 14 * u); k.lineTo(95 * u, 14 * u);
+        k.moveTo(5 * u, 25 * u); k.lineTo(95 * u, 25 * u);
+        k.moveTo(48 * u, 14 * u); k.lineTo(48 * u, 41 * u);
+        k.moveTo(72 * u, 25 * u); k.lineTo(72 * u, 41 * u);
+        k.stroke();
+        fitText(k, 'MASTER LOG: ' + t.artist, fam(t.wordFont), 7 * u, 6.5 * u, 86 * u, 6 * u, { color: p.ink1, stretch: true });
+        fitText(k, 'RECORDING TITLE:', fam(t.smallFont), 7 * u, 15.5 * u, 38 * u, 2.2 * u, { color: p.ink2 });
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 7 * u, 18.5 * u, 38 * u, 5 * u, { color: p.ink1 });
+        fitText(k, 'KATAKANA IDENTIFIER:', fam(t.smallFont), 50 * u, 15.5 * u, 42 * u, 2.2 * u, { color: p.ink2 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 50 * u, 18.5 * u, 42 * u, 5 * u, { color: p.ink1 });
+        fitText(k, 'CATALOGUE NO.', fam(t.smallFont), 7 * u, 26.5 * u, 38 * u, 2.2 * u, { color: p.ink2 });
+        fitText(k, t.catalogue, fam(t.smallFont), 7 * u, 31 * u, 38 * u, 5 * u, { color: p.accent });
+        fitText(k, 'FORMAT', fam(t.smallFont), 50 * u, 26.5 * u, 20 * u, 2.2 * u, { color: p.ink2 });
+        fitText(k, 'LP 33⅓', fam(t.smallFont), 50 * u, 31 * u, 20 * u, 5 * u, { color: p.ink1 });
+        fitText(k, 'DISPOSITION', fam(t.smallFont), 74 * u, 26.5 * u, 18 * u, 2.2 * u, { color: p.ink2 });
+        fitText(k, 'APPROVED', fam(t.smallFont), 74 * u, 31 * u, 18 * u, 5 * u, { color: p.ink1 });
+      });
+      G(c, 'corner', 84 * u, 6 * u, 8 * u, 8 * u, p.accent);
+      TX(c, 'frame', 'Photo outline', 5 * u, 44 * u, 90 * u, 51 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(5 * u, 44 * u, 90 * u, 51 * u); });
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('monolith', 'Central monolith', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [34 * u, 8 * u, 32 * u, 84 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'artistLeft', 'Artist (left pillar)', 6 * u, 8 * u, 24 * u, 84 * u, k => vertText(k, t.artist, fam(t.wordFont), 6 * u, 8 * u, 24 * u, 84 * u, { color: p.ink1, rotate: true, ccw: true }));
+      TX(c, 'kanaRight', 'Katakana (right pillar)', 70 * u, 8 * u, 24 * u, 84 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 70 * u, 8 * u, 24 * u, 84 * u, { color: p.ink1 }));
+      TX(c, 'frame', 'Monolith frame', 33 * u, 7 * u, 34 * u, 86 * u, k => { k.strokeStyle = p.accent; k.lineWidth = .4 * u; k.strokeRect(33 * u, 7 * u, 34 * u, 86 * u); });
+      G(c, 'corner', 78 * u, 82 * u, 10 * u, 10 * u, p.accent);
+      TX(c, 'catalogue', 'Catalogue top', 34 * u, 3 * u, 32 * u, 3.5 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 34 * u, 3 * u, 32 * u, 3.5 * u, { color: p.ink2, align: 'center' }));
+      TX(c, 'tagline', 'Tagline bottom', 34 * u, 94 * u, 32 * u, 3.5 * u, k => fitText(k, t.side || t.tagline, fam(t.smallFont), 34 * u, 94 * u, 32 * u, 3.5 * u, { color: p.ink2, align: 'center' }));
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('construct', 'Constructivist wedge', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [38 * u, 42 * u, 56 * u, 52 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'wedge', 'Accent wedge', 0, 0, W, H, k => {
+        k.fillStyle = p.accent;
+        k.beginPath(); k.moveTo(0, 0); k.lineTo(82 * u, 0); k.lineTo(18 * u, 68 * u); k.lineTo(0, 52 * u); k.closePath(); k.fill();
+        k.fillStyle = p.ink1;
+        k.beginPath(); k.moveTo(0, 56 * u); k.lineTo(24 * u, 74 * u); k.lineTo(0, 92 * u); k.closePath(); k.fill();
+      });
+    },
+    over(c) {
+      TX(c, 'angledArtist', 'Angled artist wordmark', 4 * u, 6 * u, 74 * u, 36 * u, k => {
+        k.save(); k.translate(34 * u, 24 * u); k.rotate(-.46);
+        wordmark(k, t.artist, -30 * u, -6 * u, 62 * u, 13 * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true });
+        k.restore();
+      });
+      G(c, 'emblem', 8 * u, 60 * u, 14 * u, 14 * u, p.paper);
+      TX(c, 'kanaTitle', 'Katakana title', 38 * u, 35 * u, 56 * u, 5.5 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 38 * u, 35 * u, 56 * u, 5.5 * u, { color: p.ink1 }));
+      TX(c, 'frame', 'Photo outline', 37 * u, 41 * u, 58 * u, 54 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(37 * u, 41 * u, 58 * u, 54 * u); });
+      TX(c, 'catalogue', 'Catalogue vertical', 32 * u, 42 * u, 4 * u, 52 * u, k => vertText(k, t.catalogue, fam(t.smallFont), 32 * u, 42 * u, 4 * u, 52 * u, { color: p.ink1, rotate: true }));
+      G(c, 'corner', 84 * u, 84 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('bauhaus', 'Primary blocks', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 32 * u, 60 * u, 54 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      BAND(c, 'blockTop', 'Accent top square', 6 * u, 6 * u, 24 * u, 22 * u, p.accent);
+      BAND(c, 'blockRight', 'Right column', 70 * u, 6 * u, 24 * u, 88 * u, p.ink1);
+    },
+    over(c) {
+      G(c, 'emblem', 8 * u, 8 * u, 20 * u, 18 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'artist', 'Artist header', 34 * u, 6 * u, 32 * u, 12 * u, k => wordmark(k, t.artist, 34 * u, 6 * u, 32 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Katakana subtitle', 34 * u, 20 * u, 32 * u, 5 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 34 * u, 20 * u, 32 * u, 5 * u, { color: p.ink2 }));
+      TX(c, 'rightTitle', 'Right vertical title', 72 * u, 10 * u, 20 * u, 60 * u, k => vertText(k, t.title.toUpperCase(), fam(t.wordFont), 72 * u, 10 * u, 20 * u, 60 * u, { color: p.paper, rotate: true, align: 'center' }));
+      G(c, 'feature', 74 * u, 74 * u, 16 * u, 16 * u, p.accent);
+      TX(c, 'bottomBar', 'Bottom rule', 6 * u, 89 * u, 60 * u, 5 * u, k => {
+        k.fillStyle = p.accent; k.fillRect(6 * u, 89 * u, 60 * u, .6 * u);
+        fitText(k, t.catalogue + ' · ' + (t.side || ''), fam(t.smallFont), 6 * u, 91 * u, 60 * u, 3 * u, { color: p.ink1 });
+      });
+      G(c, 'corner', 56 * u, 34 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('brutalist', 'Brutalist wireframe', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [4 * u, 24 * u, 68 * u, 54 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'cells', 'Brutalist cell frames', 4 * u, 4 * u, 92 * u, 92 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .75 * u;
+        k.strokeRect(4 * u, 4 * u, 92 * u, 17 * u);
+        k.strokeRect(4 * u, 24 * u, 68 * u, 54 * u);
+        k.strokeRect(74 * u, 24 * u, 22 * u, 54 * u);
+        k.strokeRect(4 * u, 81 * u, 92 * u, 15 * u);
+      });
+      TX(c, 'artist', 'Header wordmark', 6 * u, 5.5 * u, 88 * u, 14 * u, k => wordmark(k, t.artist, 6 * u, 5.5 * u, 88 * u, 14 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'rightCol', 'Sidebar text', 76 * u, 26 * u, 18 * u, 48 * u, k => {
+        vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 76 * u, 26 * u, 8 * u, 46 * u, { color: p.ink1 });
+        vertText(k, t.catalogue, fam(t.smallFont), 86 * u, 26 * u, 6 * u, 46 * u, { color: p.accent, rotate: true });
+      });
+      G(c, 'emblem', 8 * u, 26 * u, 12 * u, 12 * u, p.accent);
+      TX(c, 'footText', 'Footer bar text', 6 * u, 83 * u, 66 * u, 11 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 6 * u, 83 * u, 66 * u, 7 * u, { color: p.ink1 });
+        fitText(k, t.tagline, fam(t.smallFont), 6 * u, 91 * u, 66 * u, 3 * u, { color: p.ink2 });
+      });
+      G(c, 'strip', 74 * u, 82.5 * u, 21 * u, 12 * u, p.ink1);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('ratio-spiral', 'Golden section', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [4 * u, 4 * u, 58 * u, 58 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'spiralGuides', 'Golden rectangles', 4 * u, 4 * u, 92 * u, 92 * u, k => {
+        k.strokeStyle = p.accent; k.lineWidth = .35 * u;
+        k.strokeRect(4 * u, 4 * u, 58 * u, 58 * u);
+        k.strokeRect(62 * u, 4 * u, 34 * u, 34 * u);
+        k.strokeRect(75 * u, 38 * u, 21 * u, 24 * u);
+        k.strokeRect(62 * u, 62 * u, 34 * u, 34 * u);
+        k.strokeRect(4 * u, 62 * u, 58 * u, 34 * u);
+      });
+    },
+    over(c) {
+      TX(c, 'artist', 'Artist in upper square', 64 * u, 6 * u, 30 * u, 30 * u, k => wordmark(k, t.artist, 64 * u, 10 * u, 30 * u, 18 * u, { color: p.ink1, stretch: true }));
+      G(c, 'emblem', 77 * u, 40 * u, 17 * u, 20 * u, p.accent);
+      TX(c, 'title', 'Title in lower square', 64 * u, 64 * u, 30 * u, 20 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 64 * u, 66 * u, 30 * u, 8 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 64 * u, 76 * u, 30 * u, 5 * u, { color: p.ink2 });
+      });
+      TX(c, 'kanaArtist', 'Katakana artist bottom', 6 * u, 66 * u, 54 * u, 12 * u, k => fitText(k, t.kanaArtist, fam(t.kanaFont), 6 * u, 66 * u, 54 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'catalogue', 'Catalogue info', 6 * u, 84 * u, 54 * u, 4 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || 'STEREO') + ' · ' + t.tagline, fam(t.smallFont), 6 * u, 84 * u, 54 * u, 3.5 * u, { color: p.ink2 }));
+      G(c, 'corner', 50 * u, 88 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('dot-matrix-grid', 'Punch matrix', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 48 * u, 88 * u, 46 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'dots', 'Matrix grid dots', 6 * u, 6 * u, 88 * u, 16 * u, k => {
+        const cols = 16, rows = 3;
+        for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+          k.beginPath(); k.arc((8 + x * 5.6) * u, (8 + y * 5) * u, 1.2 * u, 0, Math.PI * 2);
+          k.fillStyle = (x + y * 3) % 5 === 0 ? p.accent : p.ink2; k.fill();
+        }
+      });
+    },
+    over(c) {
+      TX(c, 'artist', 'Artist wordmark', 6 * u, 24 * u, 88 * u, 12 * u, k => wordmark(k, t.artist, 6 * u, 24 * u, 88 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Katakana title', 6 * u, 38 * u, 54 * u, 5 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 6 * u, 38 * u, 54 * u, 5 * u, { color: p.accent }));
+      TX(c, 'meta', 'Metadata right', 62 * u, 38 * u, 32 * u, 5 * u, k => fitText(k, t.catalogue + ' / ' + (t.side || ''), fam(t.smallFont), 62 * u, 38 * u, 32 * u, 3.5 * u, { color: p.ink1, align: 'right' }));
+      TX(c, 'frame', 'Photo frame', 5 * u, 47 * u, 90 * u, 48 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(5 * u, 47 * u, 90 * u, 48 * u); });
+      G(c, 'corner', 84 * u, 84 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+/* ---------- Jazz, Classical & Hi-Fi ---------- */
+T('blue-bar', 'Blue Note bar', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [0, 28 * u, W, 72 * u],
+    under(c) {
+      BAND(c, 'topBand', 'Top bar band', 0, 0, W, 28 * u, p.paper);
+      BAND(c, 'accentRule', 'Accent dividing rule', 0, 26.5 * u, W, 1.5 * u, p.accent);
+    },
+    over(c) {
+      G(c, 'emblem', 5 * u, 5 * u, 18 * u, 18 * u, p.ink1);
+      TX(c, 'div', 'Vertical rule', 26 * u, 4 * u, .4 * u, 20 * u, k => { k.fillStyle = p.ink2; k.fillRect(26 * u, 4 * u, .4 * u, 20 * u); });
+      TX(c, 'artist', 'Artist wordmark', 30 * u, 4 * u, 65 * u, 12 * u, k => wordmark(k, t.artist, 30 * u, 4 * u, 65 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'title', 'Title header', 30 * u, 17 * u, 65 * u, 7 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 30 * u, 17 * u, 65 * u, 7 * u, { color: p.accent, align: 'right' }));
+      TX(c, 'kanaTitle', 'Katakana stamp bottom', 6 * u, 90 * u, 42 * u, 5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 90 * u, 42 * u, 5 * u, { color: p.paper }));
+      G(c, 'corner', 86 * u, 86 * u, 9 * u, 9 * u, p.accent);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('bullseye', 'Impulse spine', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [22 * u, 6 * u, 72 * u, 70 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      BAND(c, 'spine1', 'Spine stripe 1', 0, 0, 9 * u, H, p.ink1);
+      BAND(c, 'spine2', 'Spine stripe 2', 9 * u, 0, 9 * u, H, p.accent);
+    },
+    over(c) {
+      TX(c, 'medallion', 'Spine medallion', 2 * u, 42 * u, 14 * u, 14 * u, k => {
+        k.beginPath(); k.arc(9 * u, 49 * u, 7 * u, 0, Math.PI * 2); k.fillStyle = p.paper; k.fill();
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.stroke();
+      });
+      G(c, 'emblem', 4 * u, 44 * u, 10 * u, 10 * u, p.ink1);
+      TX(c, 'spineCat', 'Spine catalogue', 10 * u, 62 * u, 7 * u, 32 * u, k => vertText(k, t.catalogue, fam(t.smallFont), 10 * u, 62 * u, 7 * u, 32 * u, { color: p.paper, rotate: true }));
+      TX(c, 'artist', 'Artist footer', 22 * u, 78 * u, 72 * u, 10 * u, k => wordmark(k, t.artist, 22 * u, 78 * u, 72 * u, 10 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'title', 'Title footer', 22 * u, 89 * u, 52 * u, 6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 22 * u, 89 * u, 52 * u, 6 * u, { color: p.accent }));
+      G(c, 'corner', 84 * u, 86 * u, 10 * u, 10 * u, p.ink1);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('arch', 'Conservatory arch', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 22 * u, 64 * u, 66 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      MATTE(c, 'archMatte', 'Arch cutout matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(14 * u, 18 * u, 72 * u, 72 * u);
+        const x = 18 * u, y = 22 * u, w = 64 * u, h = 66 * u, r = w / 2;
+        k.moveTo(x, y + h);
+        k.lineTo(x, y + r);
+        k.arc(x + r, y + r, r, Math.PI, 0);
+        k.lineTo(x + w, y + h);
+        k.closePath();
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath();
+        k.moveTo(x, y + h); k.lineTo(x, y + r); k.arc(x + r, y + r, r, Math.PI, 0); k.lineTo(x + w, y + h); k.closePath();
+        k.stroke();
+      });
+      TX(c, 'header', 'Pediment title block', 10 * u, 5 * u, 80 * u, 14 * u, k => {
+        fitText(k, t.artist, fam(t.wordFont), 10 * u, 5 * u, 80 * u, 7 * u, { color: p.ink1, align: 'center' });
+        fitText(k, t.title.toUpperCase(), fam('playfair-display'), 10 * u, 13 * u, 80 * u, 5 * u, { color: p.accent, align: 'center' });
+        k.fillStyle = p.ink1;
+        k.fillRect(18 * u, 19.5 * u, 64 * u, .25 * u);
+        k.fillRect(24 * u, 20.5 * u, 52 * u, .15 * u);
+      });
+      G(c, 'emblem', 43 * u, 89 * u, 14 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('stereo-banner', 'Hi-Fi stereo banner', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [8 * u, 16 * u, 84 * u, 62 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      BAND(c, 'banner', 'Top stereo banner', 0, 0, W, 11 * u, p.accent);
+    },
+    over(c) {
+      TX(c, 'stereoHead', 'Stereo fidelity banner', 4 * u, 2 * u, 92 * u, 7 * u, k => {
+        fitText(k, '◄── STEREO · HIGH FIDELITY ──►', fam(t.wordFont), 4 * u, 2.5 * u, 92 * u, 6 * u, { color: p.paper === p.accent ? p.ink1 : p.text, align: 'center' });
+      });
+      TX(c, 'frame', 'Photo double frame', 7 * u, 15 * u, 86 * u, 64 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(7 * u, 15 * u, 86 * u, 64 * u);
+      });
+      TX(c, 'artist', 'Artist footer', 8 * u, 81 * u, 56 * u, 9 * u, k => wordmark(k, t.artist, 8 * u, 81 * u, 56 * u, 9 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'title', 'Title line', 8 * u, 91 * u, 56 * u, 4.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 8 * u, 91 * u, 56 * u, 4.5 * u, { color: p.accent }));
+      G(c, 'emblem', 68 * u, 81 * u, 12 * u, 12 * u, p.ink1);
+      G(c, 'strip', 82 * u, 81 * u, 10 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('color-blocks', 'Jazz mosaic', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [4 * u, 44 * u, 52 * u, 52 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      BAND(c, 'topLeft', 'Accent block top-left', 4 * u, 4 * u, 52 * u, 36 * u, p.accent);
+      BAND(c, 'botRight', 'Ink block bottom-right', 60 * u, 44 * u, 36 * u, 52 * u, p.ink1);
+    },
+    over(c) {
+      G(c, 'feature', 12 * u, 10 * u, 36 * u, 24 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'artist', 'Artist top-right', 60 * u, 6 * u, 36 * u, 16 * u, k => wordmark(k, t.artist, 60 * u, 6 * u, 36 * u, 16 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'title', 'Title top-right', 60 * u, 24 * u, 36 * u, 7 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 60 * u, 24 * u, 36 * u, 7 * u, { color: p.accent }));
+      TX(c, 'kanaTitle', 'Katakana top-right', 60 * u, 32 * u, 36 * u, 4.5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 60 * u, 32 * u, 36 * u, 4.5 * u, { color: p.ink2 }));
+      G(c, 'emblem', 68 * u, 52 * u, 20 * u, 20 * u, p.accent);
+      TX(c, 'credits', 'Credits in dark block', 64 * u, 76 * u, 28 * u, 16 * u, k => lines(k, [t.catalogue, t.side || 'SIDE 1/2', 'STEREO RECORDING'], fam(t.smallFont), 64 * u, 76 * u, 28 * u, 2.6 * u, p.paper, { lead: 1.4 }));
+      TX(c, 'frame', 'Photo outline', 3.5 * u, 43.5 * u, 53 * u, 53 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(3.5 * u, 43.5 * u, 53 * u, 53 * u); });
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('library-lp', 'Library music LP', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [10 * u, 28 * u, 52 * u, 46 * u],
+    under(c) {
+      BAND(c, 'border', 'Outer border', 0, 0, W, H, p.ink1);
+      BAND(c, 'inner', 'Inner card', 4 * u, 4 * u, W - 8 * u, H - 8 * u, p.paper);
+    },
+    over(c) {
+      TX(c, 'header', 'Library series masthead', 10 * u, 8 * u, 80 * u, 16 * u, k => {
+        fitText(k, 'RECORDED SOUND LIBRARY // ' + t.catalogue, fam(t.smallFont), 10 * u, 8 * u, 80 * u, 3 * u, { color: p.accent });
+        wordmark(k, t.artist, 10 * u, 12 * u, 80 * u, 11 * u, { color: p.ink1, stretch: true });
+        k.fillStyle = p.ink1; k.fillRect(10 * u, 24.5 * u, 80 * u, .35 * u);
+      });
+      G(c, 'feature', 66 * u, 32 * u, 24 * u, 38 * u, p.ink2);
+      TX(c, 'foot', 'Description and track footer', 10 * u, 77 * u, 80 * u, 16 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 10 * u, 77 * u, 58 * u, 6 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 10 * u, 84 * u, 58 * u, 4 * u, { color: p.ink2 });
+        fitText(k, t.tagline, fam(t.smallFont), 10 * u, 89 * u, 58 * u, 2.8 * u, { color: p.ink1 });
+      });
+      G(c, 'strip', 72 * u, 78 * u, 18 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('nordic', 'Nordic quiet', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [10 * u, 56 * u, 80 * u, 26 * u],
+    under(c) { BAND(c, 'bg', 'Paper expanse', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'artist', 'Letterspaced artist', 10 * u, 14 * u, 80 * u, 4 * u, k => fitText(k, t.artist, fam(t.wordFont), 10 * u, 14 * u, 80 * u, 4 * u, { color: p.ink1, tracking: 12 }));
+      TX(c, 'title', 'Letterspaced title', 10 * u, 22 * u, 80 * u, 4.5 * u, k => fitText(k, t.title, fam('playfair-display'), 10 * u, 22 * u, 80 * u, 4.5 * u, { color: p.ink1, tracking: 8 }));
+      TX(c, 'kanaTitle', 'Katakana subtitle', 10 * u, 30 * u, 80 * u, 3 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 10 * u, 30 * u, 80 * u, 3 * u, { color: p.ink2 }));
+      TX(c, 'frame', 'Horizon frame', 9.5 * u, 55.5 * u, 81 * u, 27 * u, k => { k.strokeStyle = p.ink2; k.lineWidth = .25 * u; k.strokeRect(9.5 * u, 55.5 * u, 81 * u, 27 * u); });
+      TX(c, 'meta', 'Catalogue footer', 10 * u, 88 * u, 80 * u, 2.5 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || ''), fam(t.smallFont), 10 * u, 88 * u, 80 * u, 2.5 * u, { color: p.ink2, align: 'center', tracking: 4 }));
+      G(c, 'corner', 47 * u, 92 * u, 6 * u, 6 * u, p.accent);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('double-arch', 'Twin arcade', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [8 * u, 24 * u, 84 * u, 58 * u],
+    under(c) { BAND(c, 'bg', 'Paper field', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'masthead', 'Masthead above arcade', 8 * u, 6 * u, 84 * u, 15 * u, k => {
+        wordmark(k, t.artist, 8 * u, 6 * u, 84 * u, 10 * u, { color: p.ink1, stretch: true });
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 8 * u, 17 * u, 84 * u, 4.5 * u, { color: p.accent, align: 'center' });
+      });
+      MATTE(c, 'doubleArchMatte', 'Twin arch matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(6 * u, 22 * u, 88 * u, 62 * u);
+        const drawAperture = ox => {
+          const x = ox, y = 24 * u, w = 38 * u, h = 58 * u, r = w / 2;
+          k.moveTo(x, y + h); k.lineTo(x, y + r); k.arc(x + r, y + r, r, Math.PI, 0); k.lineTo(x + w, y + h); k.closePath();
+        };
+        drawAperture(9 * u);
+        drawAperture(53 * u);
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u;
+        k.beginPath();
+        drawAperture(9 * u);
+        drawAperture(53 * u);
+        k.stroke();
+      });
+      G(c, 'emblem', 43 * u, 85 * u, 14 * u, 10 * u, p.ink1);
+      TX(c, 'kanaFoot', 'Katakana footer', 8 * u, 87 * u, 32 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 8 * u, 87 * u, 32 * u, 4 * u, { color: p.ink1 }));
+      TX(c, 'catFoot', 'Catalogue footer', 60 * u, 87 * u, 32 * u, 4 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 60 * u, 87 * u, 32 * u, 4 * u, { color: p.accent, align: 'right' }));
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+T('gatefold', 'Gatefold spread', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [54 * u, 18 * u, 40 * u, 64 * u],
+    under(c) {
+      BAND(c, 'leftPanel', 'Left panel', 0, 0, 50 * u, H, p.paper);
+      BAND(c, 'rightPanel', 'Right panel', 50 * u, 0, 50 * u, H, p.paper);
+      BAND(c, 'crease', 'Center fold shadow', 49.6 * u, 0, .8 * u, H, p.ink2);
+    },
+    over(c) {
+      G(c, 'emblem', 8 * u, 8 * u, 14 * u, 14 * u, p.accent);
+      TX(c, 'artistLeft', 'Left artist header', 24 * u, 8 * u, 22 * u, 6 * u, k => fitText(k, t.artist, fam(t.wordFont), 24 * u, 8 * u, 22 * u, 6 * u, { color: p.ink1 }));
+      TX(c, 'kanaLeft', 'Left katakana', 24 * u, 15 * u, 22 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 24 * u, 15 * u, 22 * u, 4 * u, { color: p.ink2 }));
+      TX(c, 'tracks', 'Tracklist column', 8 * u, 26 * u, 38 * u, 44 * u, k => {
+        const a = (t.tracksA || '').split('\n').filter(Boolean), b = (t.tracksB || '').split('\n').filter(Boolean);
+        fitText(k, 'SIDE A', fam(t.smallFont), 8 * u, 26 * u, 38 * u, 2.5 * u, { color: p.accent });
+        lines(k, a.map((s, i) => (i + 1) + '. ' + s), fam(t.smallFont), 8 * u, 30 * u, 38 * u, 2.2 * u, p.ink1, { lead: 1.35 });
+        fitText(k, 'SIDE B', fam(t.smallFont), 8 * u, 48 * u, 38 * u, 2.5 * u, { color: p.accent });
+        lines(k, b.map((s, i) => (i + 1) + '. ' + s), fam(t.smallFont), 8 * u, 52 * u, 38 * u, 2.2 * u, p.ink1, { lead: 1.35 });
+      });
+      G(c, 'strip', 8 * u, 82 * u, 22 * u, 10 * u, p.ink1);
+      TX(c, 'artistRight', 'Right wordmark', 54 * u, 6 * u, 40 * u, 10 * u, k => wordmark(k, t.artist, 54 * u, 6 * u, 40 * u, 10 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'titleRight', 'Right title banner', 54 * u, 84 * u, 40 * u, 7 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 54 * u, 84 * u, 40 * u, 7 * u, { color: p.ink1 }));
+      G(c, 'corner', 84 * u, 84 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Jazz, Classical & Hi-Fi' });
+
+/* ---------- Japanese & Obi (Expanded) ---------- */
+T('cap-obi', 'Deluxe cap obi', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [24 * u, 22 * u, 72 * u, 74 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      BAND(c, 'topSash', 'Wraparound top sash', 0, 0, W, 18 * u, p.accent);
+      BAND(c, 'sideObi', 'Vertical side obi', 0, 0, 20 * u, H, p.ink1);
+    },
+    over(c) {
+      TX(c, 'sashTitle', 'Top sash title', 24 * u, 4 * u, 72 * u, 11 * u, k => {
+        wordmark(k, t.artist, 24 * u, 4 * u, 72 * u, 10 * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true });
+      });
+      TX(c, 'obiKatakana', 'Obi vertical katakana', 3 * u, 22 * u, 14 * u, 54 * u, k => {
+        vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 3 * u, 22 * u, 14 * u, 54 * u, { color: p.paper });
+      });
+      G(c, 'emblem', 4 * u, 4 * u, 12 * u, 12 * u, p.paper);
+      TX(c, 'obiPrice', 'Obi price badge', 3 * u, 82 * u, 14 * u, 12 * u, k => {
+        k.fillStyle = p.accent; k.fillRect(3 * u, 82 * u, 14 * u, 12 * u);
+        fitText(k, '¥2,800', fam(t.smallFont), 3 * u, 84 * u, 14 * u, 3.5 * u, { color: p.paper === p.accent ? p.ink1 : p.text, align: 'center' });
+        fitText(k, t.catalogue, fam(t.smallFont), 3 * u, 89 * u, 14 * u, 2.5 * u, { color: p.paper === p.accent ? p.ink1 : p.text, align: 'center' });
+      });
+      G(c, 'corner', 86 * u, 86 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('tategaki', 'Tategaki columns', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 6 * u, 54 * u, 78 * u],
+    under(c) { BAND(c, 'bg', 'Washi paper', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'columns', 'Ruled tategaki columns', 64 * u, 6 * u, 30 * u, 78 * u, k => {
+        k.strokeStyle = p.ink2; k.lineWidth = .25 * u;
+        for (let i = 0; i < 3; i++) k.strokeRect((64 + i * 10) * u, 6 * u, 8 * u, 78 * u);
+        vertText(k, t.kanaTitle, fam(t.kanaFont), 84 * u, 8 * u, 8 * u, 74 * u, { color: p.ink1 });
+        vertText(k, t.kanaArtist, fam(t.kanaFont), 74 * u, 8 * u, 8 * u, 74 * u, { color: p.ink2 });
+        vertText(k, t.title.toUpperCase(), fam(t.wordFont), 64 * u, 8 * u, 8 * u, 74 * u, { color: p.accent, rotate: true });
+      });
+      TX(c, 'artistFoot', 'Latin wordmark foot', 6 * u, 87 * u, 54 * u, 7 * u, k => wordmark(k, t.artist, 6 * u, 87 * u, 54 * u, 7 * u, { color: p.ink1, stretch: true }));
+      G(c, 'corner', 74 * u, 86 * u, 10 * u, 10 * u, p.ink1);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('city-pop', 'Resort frame', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [16 * u, 24 * u, 68 * u, 54 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'stripes', 'Sunset resort ribbons', 10 * u, 20 * u, 80 * u, 62 * u, k => {
+        [p.accent, p.ink2, p.paper].forEach((col, i) => {
+          k.fillStyle = col; k.fillRect((12 + i * 3) * u, 18 * u, 2 * u, 66 * u);
+        });
+      });
+    },
+    over(c) {
+      TX(c, 'frame', 'Double rounded frame', 14 * u, 22 * u, 72 * u, 58 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(14 * u, 22 * u, 72 * u, 58 * u);
+        k.strokeStyle = p.accent; k.lineWidth = .2 * u; k.strokeRect(15.5 * u, 23.5 * u, 69 * u, 55 * u);
+      });
+      TX(c, 'artist', 'City pop header', 14 * u, 6 * u, 72 * u, 12 * u, k => wordmark(k, t.artist, 14 * u, 6 * u, 72 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'kanaTitle', 'Katakana summer subtitle', 14 * u, 82 * u, 48 * u, 6 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 14 * u, 82 * u, 48 * u, 6 * u, { color: p.accent }));
+      TX(c, 'meta', 'Resort catalogue', 14 * u, 89 * u, 48 * u, 3 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || 'STEREO'), fam(t.smallFont), 14 * u, 89 * u, 48 * u, 3 * u, { color: p.ink2 }));
+      G(c, 'emblem', 72 * u, 82 * u, 14 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('mecha-hud', 'Mecha HUD', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 16 * u, 72 * u, 56 * u],
+    under(c) { BAND(c, 'bg', 'Chassis background', 0, 0, W, H, p.paper); },
+    over(c) {
+      MATTE(c, 'hudMatte', 'Chamfered viewport matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(10 * u, 12 * u, 80 * u, 64 * u);
+        const x = 14 * u, y = 16 * u, w = 72 * u, h = 56 * u, c0 = 6 * u;
+        k.moveTo(x + c0, y);
+        k.lineTo(x + w - c0, y); k.lineTo(x + w, y + c0);
+        k.lineTo(x + w, y + h - c0); k.lineTo(x + w - c0, y + h);
+        k.lineTo(x + c0, y + h); k.lineTo(x, y + h - c0);
+        k.lineTo(x, y + c0); k.closePath();
+        k.fill('evenodd');
+        k.strokeStyle = p.accent; k.lineWidth = .45 * u;
+        k.beginPath();
+        k.moveTo(x + c0, y); k.lineTo(x + w - c0, y); k.lineTo(x + w, y + c0);
+        k.lineTo(x + w, y + h - c0); k.lineTo(x + w - c0, y + h);
+        k.lineTo(x + c0, y + h); k.lineTo(x, y + h - c0);
+        k.lineTo(x, y + c0); k.closePath();
+        k.stroke();
+      });
+      TX(c, 'hudHeader', 'Telemetry header', 14 * u, 6 * u, 72 * u, 7 * u, k => {
+        fitText(k, 'SYS-VER 4.2 // ' + t.catalogue + ' [TACTICAL AUDIO]', fam(t.smallFont), 14 * u, 6 * u, 72 * u, 3 * u, { color: p.accent });
+        wordmark(k, t.artist, 14 * u, 9 * u, 72 * u, 6 * u, { color: p.ink1, stretch: true });
+      });
+      TX(c, 'telemetryL', 'Left gauge telemetry', 4 * u, 16 * u, 8 * u, 56 * u, k => vertText(k, 'STATUS: NORMAL', fam(t.smallFont), 4 * u, 16 * u, 8 * u, 56 * u, { color: p.ink2, rotate: true }));
+      TX(c, 'telemetryR', 'Right gauge telemetry', 88 * u, 16 * u, 8 * u, 56 * u, k => vertText(k, t.kanaArtist, fam(t.kanaFont), 88 * u, 16 * u, 8 * u, 56 * u, { color: p.ink2 }));
+      G(c, 'emblem', 14 * u, 78 * u, 14 * u, 14 * u, p.accent);
+      TX(c, 'titleBlock', 'Mecha title block', 32 * u, 78 * u, 42 * u, 14 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 32 * u, 78 * u, 42 * u, 8 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 32 * u, 87 * u, 42 * u, 5 * u, { color: p.accent });
+      });
+      G(c, 'strip', 78 * u, 78 * u, 16 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('manga-panel', 'Manga panels', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 6 * u, 54 * u, 60 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'gutters', 'Panel gutters', 4 * u, 4 * u, 92 * u, 92 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .7 * u;
+        k.strokeRect(5 * u, 5 * u, 56 * u, 62 * u);
+        k.strokeRect(65 * u, 5 * u, 30 * u, 62 * u);
+        k.strokeRect(5 * u, 71 * u, 90 * u, 24 * u);
+      });
+      G(c, 'feature', 68 * u, 8 * u, 24 * u, 26 * u, p.accent);
+      TX(c, 'soundFX', 'SFX katakana column', 68 * u, 36 * u, 24 * u, 28 * u, k => vertText(k, t.kanaTitle || t.title, fam('dela-gothic-one'), 68 * u, 36 * u, 24 * u, 28 * u, { color: p.ink1 }));
+      TX(c, 'bottomTitle', 'Bottom dialogue panel', 8 * u, 73 * u, 72 * u, 20 * u, k => {
+        wordmark(k, t.artist, 8 * u, 73 * u, 72 * u, 10 * u, { color: p.ink1, stretch: true });
+        fitText(k, t.title.toUpperCase() + ' · ' + t.catalogue, fam(t.smallFont), 8 * u, 86 * u, 72 * u, 3.5 * u, { color: p.accent });
+      });
+      G(c, 'corner', 84 * u, 74 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('pc98', 'PC-98 adventure', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 8 * u, 66 * u, 58 * u],
+    under(c) { BAND(c, 'bg', 'Terminal background', 0, 0, W, H, p.ink1); },
+    over(c) {
+      TX(c, 'screenBorders', 'Pixelated screen border', 4 * u, 6 * u, 92 * u, 88 * u, k => {
+        k.strokeStyle = p.paper; k.lineWidth = .4 * u;
+        k.strokeRect(5 * u, 7 * u, 68 * u, 60 * u);
+        k.strokeRect(75 * u, 7 * u, 20 * u, 60 * u);
+        k.strokeRect(5 * u, 69 * u, 90 * u, 25 * u);
+      });
+      TX(c, 'menu', 'Command menu', 77 * u, 10 * u, 16 * u, 40 * u, k => {
+        const items = ['▶ PLAY', '▶ SIDE A', '▶ SIDE B', '▶ DATA', '▶ QUIT'];
+        lines(k, items, fam('vt323'), 77 * u, 10 * u, 16 * u, 4.5 * u, p.accent, { lead: 1.4 });
+      });
+      G(c, 'emblem', 77 * u, 50 * u, 16 * u, 14 * u, p.paper);
+      TX(c, 'dialogue', 'Text dialogue window', 8 * u, 71 * u, 84 * u, 21 * u, k => {
+        fitText(k, '[ ' + t.artist + ' ]', fam('dotgothic16'), 8 * u, 72 * u, 40 * u, 4 * u, { color: p.accent });
+        fitText(k, t.kanaTitle || t.title, fam('dotgothic16'), 8 * u, 77.5 * u, 84 * u, 6 * u, { color: p.paper });
+        fitText(k, t.catalogue + ' · ' + t.tagline, fam('vt323'), 8 * u, 85 * u, 84 * u, 4 * u, { color: p.ink2 });
+      });
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+T('kissaten', 'Kissaten matchbox', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [20 * u, 24 * u, 60 * u, 52 * u],
+    under(c) {
+      BAND(c, 'bg', 'Matchbox paper', 0, 0, W, H, p.paper);
+      BAND(c, 'topBand', 'Top matchbox header', 8 * u, 8 * u, 84 * u, 12 * u, p.ink1);
+    },
+    over(c) {
+      TX(c, 'header', 'Matchbox masthead', 10 * u, 9.5 * u, 80 * u, 9 * u, k => fitText(k, t.artist, fam(t.wordFont), 10 * u, 9.5 * u, 80 * u, 9 * u, { color: p.paper, stretch: true }));
+      TX(c, 'frame', 'Double ornate frame', 18 * u, 22 * u, 64 * u, 56 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u; k.strokeRect(18 * u, 22 * u, 64 * u, 56 * u);
+        k.strokeStyle = p.accent; k.lineWidth = .2 * u; k.strokeRect(19.2 * u, 23.2 * u, 61.6 * u, 53.6 * u);
+      });
+      TX(c, 'kanaLeft', 'Left vertical kana', 8 * u, 24 * u, 8 * u, 52 * u, k => vertText(k, t.kanaTitle, fam(t.kanaFont), 8 * u, 24 * u, 8 * u, 52 * u, { color: p.ink1 }));
+      TX(c, 'kanaRight', 'Right vertical kana', 84 * u, 24 * u, 8 * u, 52 * u, k => vertText(k, t.kanaArtist, fam(t.kanaFont), 84 * u, 24 * u, 8 * u, 52 * u, { color: p.ink1 }));
+      TX(c, 'footer', 'Matchbox footer', 10 * u, 82 * u, 62 * u, 10 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 10 * u, 82 * u, 62 * u, 6 * u, { color: p.ink1 });
+        fitText(k, t.catalogue + ' · ' + t.tagline, fam(t.smallFont), 10 * u, 89 * u, 62 * u, 2.8 * u, { color: p.accent });
+      });
+      G(c, 'emblem', 76 * u, 80 * u, 14 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Japanese & Obi' });
+
+/* ---------- Vaporwave & Broadcast (Expanded) ---------- */
+T('crt-tv', 'CRT television', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [12 * u, 14 * u, 76 * u, 58 * u],
+    under(c) { BAND(c, 'bezel', 'Bezel body', 0, 0, W, H, p.ink1); },
+    over(c) {
+      MATTE(c, 'crtBezel', 'CRT tube bezel matte', 0, 0, W, H, k => {
+        k.fillStyle = p.ink1;
+        k.beginPath();
+        k.rect(8 * u, 10 * u, 84 * u, 66 * u);
+        const x = 12 * u, y = 14 * u, w = 76 * u, h = 58 * u, r = 8 * u;
+        k.moveTo(x + r, y);
+        k.lineTo(x + w - r, y); k.arcTo(x + w, y, x + w, y + r, r);
+        k.lineTo(x + w, y + h - r); k.arcTo(x + w, y + h, x + w - r, y + h, r);
+        k.lineTo(x + r, y + h); k.arcTo(x, y + h, x, y + h - r, r);
+        k.lineTo(x, y + r); k.arcTo(x, y, x + r, y, r);
+        k.closePath();
+        k.fill('evenodd');
+        k.strokeStyle = p.paper; k.lineWidth = .4 * u;
+        k.beginPath();
+        k.moveTo(x + r, y); k.lineTo(x + w - r, y); k.arcTo(x + w, y, x + w, y + r, r);
+        k.lineTo(x + w, y + h - r); k.arcTo(x + w, y + h, x + w - r, y + h, r);
+        k.lineTo(x + r, y + h); k.arcTo(x, y + h, x, y + h - r, r);
+        k.lineTo(x, y + r); k.arcTo(x, y, x + r, y, r);
+        k.closePath();
+        k.stroke();
+      });
+      TX(c, 'chBadge', 'Channel readout', 14 * u, 6 * u, 24 * u, 5 * u, k => {
+        k.fillStyle = p.accent; k.fillRect(14 * u, 6 * u, 10 * u, 5 * u);
+        fitText(k, 'CH 03', fam('vt323'), 14 * u, 6.5 * u, 10 * u, 4 * u, { color: p.ink1, align: 'center' });
+      });
+      G(c, 'corner', 78 * u, 6 * u, 8 * u, 8 * u, p.accent);
+      TX(c, 'speaker', 'Speaker grille slots', 68 * u, 78 * u, 20 * u, 14 * u, k => {
+        k.fillStyle = p.paper;
+        for (let i = 0; i < 5; i++) k.fillRect(68 * u, (78 + i * 3) * u, 20 * u, 1.2 * u);
+      });
+      TX(c, 'artist', 'TV chin brand', 12 * u, 78 * u, 52 * u, 9 * u, k => wordmark(k, t.artist, 12 * u, 78 * u, 52 * u, 9 * u, { color: p.paper, stretch: true }));
+      TX(c, 'title', 'TV chin subtitle', 12 * u, 88 * u, 52 * u, 4 * u, k => fitText(k, t.title.toUpperCase() + ' · ' + t.catalogue, fam(t.smallFont), 12 * u, 88 * u, 52 * u, 4 * u, { color: p.accent }));
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+T('camcorder', 'Viewfinder HUD', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [0, 0, W, H],
+    under() {},
+    over(c) {
+      TX(c, 'hudOverlay', 'Viewfinder HUD lines', 0, 0, W, H, k => {
+        const on = contrastOn(p.ink1, [p.paper, p.accent, '#ffffff']);
+        k.strokeStyle = on; k.lineWidth = .35 * u;
+        const b = 6 * u, len = 6 * u;
+        // 4 corner brackets
+        k.beginPath();
+        k.moveTo(b, b + len); k.lineTo(b, b); k.lineTo(b + len, b);
+        k.moveTo(W - b - len, b); k.lineTo(W - b, b); k.lineTo(W - b, b + len);
+        k.moveTo(b, H - b - len); k.lineTo(b, H - b); k.lineTo(b + len, H - b);
+        k.moveTo(W - b - len, H - b); k.lineTo(W - b, H - b); k.lineTo(W - b, H - b - len);
+        // center crosshair
+        k.moveTo(50 * u - 3 * u, 50 * u); k.lineTo(50 * u + 3 * u, 50 * u);
+        k.moveTo(50 * u, 50 * u - 3 * u); k.lineTo(50 * u, 50 * u + 3 * u);
+        k.stroke();
+        // REC indicator
+        k.fillStyle = '#e42618'; k.beginPath(); k.arc(12 * u, 9 * u, 2 * u, 0, Math.PI * 2); k.fill();
+        fitText(k, '● REC', fam('vt323'), 16 * u, 6.8 * u, 16 * u, 4.5 * u, { color: '#e42618' });
+        fitText(k, 'SP  0:00:42', fam('vt323'), 64 * u, 6.8 * u, 24 * u, 4.5 * u, { color: on, align: 'right' });
+        fitText(k, 'OCT 29 1994', fam('vt323'), 12 * u, 90 * u, 28 * u, 4.5 * u, { color: on });
+      });
+      TX(c, 'artist', 'Camcorder lower wordmark', 12 * u, 76 * u, 76 * u, 11 * u, k => {
+        const on = contrastOn(p.ink1, [p.paper, p.accent, '#ffffff']);
+        wordmark(k, t.artist, 12 * u, 76 * u, 76 * u, 11 * u, { color: on, stretch: true });
+      });
+      G(c, 'corner', 82 * u, 82 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+T('weather-ch', 'Weatherstar 4000', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [8 * u, 20 * u, 84 * u, 50 * u],
+    under(c) {
+      BAND(c, 'field', 'Navy broadcast field', 0, 0, W, H, p.ink1);
+      BAND(c, 'topBanner', 'Header banner', 0, 0, W, 14 * u, p.ink2);
+    },
+    over(c) {
+      TX(c, 'header', 'Weatherstar header', 6 * u, 2 * u, 88 * u, 10 * u, k => {
+        fitText(k, 'LOCAL FORECAST // ' + t.artist.toUpperCase(), fam('dotgothic16'), 6 * u, 2.5 * u, 60 * u, 5 * u, { color: p.paper });
+        fitText(k, '9:42 PM', fam('vt323'), 70 * u, 2.5 * u, 24 * u, 5.5 * u, { color: p.accent, align: 'right' });
+        fitText(k, t.tagline, fam(t.smallFont), 6 * u, 8.5 * u, 88 * u, 3 * u, { color: p.accent });
+      });
+      TX(c, 'frame', 'Radar photo frame', 7.5 * u, 19.5 * u, 85 * u, 51 * u, k => {
+        k.strokeStyle = p.accent; k.lineWidth = .4 * u; k.strokeRect(7.5 * u, 19.5 * u, 85 * u, 51 * u);
+      });
+      TX(c, 'ticker', 'Lower forecast cards', 8 * u, 74 * u, 84 * u, 18 * u, k => {
+        const cw = 26 * u;
+        for (let i = 0; i < 3; i++) {
+          k.fillStyle = i === 1 ? p.accent : p.ink2;
+          k.fillRect((8 + i * 29) * u, 74 * u, cw, 18 * u);
+          const col = i === 1 ? contrastOn(p.accent, [p.ink1, p.paper]) : p.paper;
+          fitText(k, ['TONIGHT', 'SIDE A', 'SIDE B'][i], fam(t.smallFont), (10 + i * 29) * u, 76 * u, cw - 4 * u, 3 * u, { color: col });
+          fitText(k, ['72°', t.catalogue, 'STEREO'][i], fam('vt323'), (10 + i * 29) * u, 81 * u, cw - 4 * u, 6 * u, { color: col });
+        }
+      });
+      G(c, 'corner', 88 * u, 8 * u, 6 * u, 6 * u, p.paper);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+T('porthole', 'Sonar porthole', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 14 * u, 72 * u, 72 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      MATTE(c, 'circleMatte', 'Circular aperture matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(10 * u, 10 * u, 80 * u, 80 * u);
+        k.arc(50 * u, 50 * u, 34 * u, 0, Math.PI * 2, true);
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 34 * u, 0, Math.PI * 2); k.stroke();
+        k.strokeStyle = p.accent; k.lineWidth = .25 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 36 * u, 0, Math.PI * 2); k.stroke();
+        // sonar degree ticks
+        for (let i = 0; i < 36; i++) {
+          const a = i * Math.PI / 18, len = i % 9 === 0 ? 2 * u : 1 * u;
+          k.beginPath();
+          k.moveTo(50 * u + Math.cos(a) * 36.5 * u, 50 * u + Math.sin(a) * 36.5 * u);
+          k.lineTo(50 * u + Math.cos(a) * (36.5 * u + len), 50 * u + Math.sin(a) * (36.5 * u + len));
+          k.stroke();
+        }
+      });
+      TX(c, 'artist', 'Top artist wordmark', 6 * u, 4 * u, 88 * u, 8 * u, k => wordmark(k, t.artist, 6 * u, 4 * u, 88 * u, 8 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'title', 'Bottom title banner', 6 * u, 90 * u, 60 * u, 5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 6 * u, 90 * u, 60 * u, 5 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'Katakana corner', 6 * u, 85 * u, 30 * u, 3.5 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 6 * u, 85 * u, 30 * u, 3.5 * u, { color: p.accent }));
+      G(c, 'corner', 84 * u, 86 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+T('eclipse', 'Solar eclipse', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 14 * u, 72 * u, 72 * u],
+    under(c) {
+      BAND(c, 'bg', 'Void background', 0, 0, W, H, p.ink1);
+      SHAPE(c, 'corona', 'Solar corona ring', 14 * u, 14 * u, 72 * u, 72 * u, k => {
+        k.beginPath(); k.arc(50 * u, 50 * u, 38 * u, 0, Math.PI * 2);
+        k.fillStyle = p.accent; k.fill();
+      });
+    },
+    over(c) {
+      MATTE(c, 'eclipseMatte', 'Eclipse disc cutout', 0, 0, W, H, k => {
+        k.fillStyle = p.ink1;
+        k.beginPath();
+        k.rect(10 * u, 10 * u, 80 * u, 80 * u);
+        k.arc(50 * u, 50 * u, 33 * u, 0, Math.PI * 2, true);
+        k.fill('evenodd');
+        k.strokeStyle = p.accent; k.lineWidth = .4 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 33 * u, 0, Math.PI * 2); k.stroke();
+      });
+      TX(c, 'artist', 'Tracked header', 6 * u, 5 * u, 88 * u, 4.5 * u, k => fitText(k, t.artist, fam(t.wordFont), 6 * u, 5 * u, 88 * u, 4.5 * u, { color: p.paper, tracking: 10 }));
+      TX(c, 'title', 'Tracked title footer', 6 * u, 91 * u, 88 * u, 4.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 6 * u, 91 * u, 88 * u, 4.5 * u, { color: p.paper, tracking: 8 }));
+      G(c, 'corner', 6 * u, 86 * u, 6 * u, 6 * u, p.accent);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+T('diamond', 'Diamond lozenge', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 14 * u, 72 * u, 72 * u],
+    under(c) { BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper); },
+    over(c) {
+      MATTE(c, 'diamondMatte', 'Diamond aperture matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(10 * u, 10 * u, 80 * u, 80 * u);
+        k.moveTo(50 * u, 14 * u);
+        k.lineTo(86 * u, 50 * u);
+        k.lineTo(50 * u, 86 * u);
+        k.lineTo(14 * u, 50 * u);
+        k.closePath();
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath();
+        k.moveTo(50 * u, 14 * u); k.lineTo(86 * u, 50 * u); k.lineTo(50 * u, 86 * u); k.lineTo(14 * u, 50 * u); k.closePath();
+        k.stroke();
+        k.strokeStyle = p.accent; k.lineWidth = .2 * u;
+        k.beginPath();
+        k.moveTo(50 * u, 12 * u); k.lineTo(88 * u, 50 * u); k.lineTo(50 * u, 88 * u); k.lineTo(12 * u, 50 * u); k.closePath();
+        k.stroke();
+      });
+      TX(c, 'artist', 'Top corner wordmark', 20 * u, 4 * u, 60 * u, 7 * u, k => wordmark(k, t.artist, 20 * u, 4 * u, 60 * u, 7 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'title', 'Bottom corner title', 20 * u, 90 * u, 60 * u, 5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 20 * u, 90 * u, 60 * u, 5 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'kanaLeft', 'Left corner kana', 4 * u, 48 * u, 8 * u, 24 * u, k => vertText(k, t.kanaTitle, fam(t.kanaFont), 4 * u, 48 * u, 8 * u, 24 * u, { color: p.accent }));
+      G(c, 'corner', 88 * u, 46 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
+
+/* ---------- Club, Zine & Underground ---------- */
+T('club-12', '12" club promo', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [54 * u, 8 * u, 40 * u, 72 * u],
+    under(c) {
+      BAND(c, 'bg', 'Paper background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'slash', '12-inch corner slash', 0, 0, W, H, k => {
+        k.fillStyle = p.accent;
+        k.beginPath(); k.moveTo(70 * u, 0); k.lineTo(W, 0); k.lineTo(W, 30 * u); k.closePath(); k.fill();
+      });
+    },
+    over(c) {
+      TX(c, 'rpm', '45 RPM badge', 78 * u, 4 * u, 18 * u, 12 * u, k => {
+        fitText(k, '12" / 45', fam(t.wordFont), 78 * u, 5 * u, 18 * u, 6 * u, { color: p.paper === p.accent ? p.ink1 : p.text, align: 'center' });
+      });
+      TX(c, 'artist', 'Giant left wordmark', 6 * u, 8 * u, 44 * u, 72 * u, k => {
+        const two = splitTwo(t.artist);
+        two.forEach((s, i) => wordmark(k, s, 6 * u, (8 + i * 36) * u, 44 * u, 32 * u, { color: p.ink1, stretch: true }));
+      });
+      TX(c, 'cueBar', 'DJ cue info bar', 6 * u, 84 * u, 88 * u, 10 * u, k => {
+        k.fillStyle = p.ink1; k.fillRect(6 * u, 84 * u, 88 * u, 10 * u);
+        fitText(k, t.title.toUpperCase() + ' // ' + t.catalogue + ' [CLUB PROMO]', fam(t.smallFont), 8 * u, 86 * u, 56 * u, 3.5 * u, { color: p.paper });
+        fitText(k, t.side || 'A-SIDE 130 BPM', fam(t.smallFont), 8 * u, 90.5 * u, 56 * u, 2.5 * u, { color: p.accent });
+      });
+      G(c, 'strip', 66 * u, 85 * u, 26 * u, 8 * u, p.paper);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('xerox-zine', 'Xerox cut-up', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 22 * u, 72 * u, 54 * u],
+    under(c) { BAND(c, 'bg', 'Newsprint zine paper', 0, 0, W, H, p.paper); },
+    over(c) {
+      // Tape tabs holding photo
+      TX(c, 'tapeTabs', 'Masking tape tabs', 10 * u, 18 * u, 80 * u, 62 * u, k => {
+        k.fillStyle = p.accent;
+        const tape = (tx, ty, rot) => {
+          k.save(); k.translate(tx, ty); k.rotate(rot);
+          k.fillRect(-4 * u, -1.5 * u, 8 * u, 3 * u);
+          k.restore();
+        };
+        tape(14 * u, 22 * u, -.4); tape(86 * u, 22 * u, .35);
+        tape(14 * u, 76 * u, .3); tape(86 * u, 76 * u, -.25);
+      });
+      TX(c, 'artist', 'Ransom cut wordmark', 6 * u, 6 * u, 88 * u, 13 * u, k => {
+        k.fillStyle = p.ink1; k.fillRect(6 * u, 6 * u, 88 * u, 13 * u);
+        wordmark(k, t.artist, 8 * u, 7 * u, 84 * u, 11 * u, { color: p.paper, stretch: true });
+      });
+      TX(c, 'title', 'Tilted title strip', 10 * u, 80 * u, 54 * u, 12 * u, k => {
+        k.save(); k.translate(37 * u, 86 * u); k.rotate(-.05);
+        k.fillStyle = p.accent; k.fillRect(-27 * u, -5 * u, 54 * u, 10 * u);
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), -25 * u, -4 * u, 50 * u, 8 * u, { color: p.paper === p.accent ? p.ink1 : p.text });
+        k.restore();
+      });
+      G(c, 'feature', 68 * u, 79 * u, 14 * u, 14 * u, p.ink1);
+      G(c, 'corner', 84 * u, 84 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('hazard-spec', 'Hazard spec', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [6 * u, 26 * u, 54 * u, 54 * u],
+    under(c) {
+      BAND(c, 'bg', 'Industrial background', 0, 0, W, H, p.paper);
+      SHAPE(c, 'stripesTop', 'Top hazard stripes', 0, 0, W, 7 * u, k => {
+        for (let x = -7 * u; x < W + 7 * u; x += 6 * u) {
+          k.fillStyle = p.accent;
+          k.beginPath(); k.moveTo(x, 0); k.lineTo(x + 3 * u, 0); k.lineTo(x + 7 * u, 7 * u); k.lineTo(x + 4 * u, 7 * u); k.closePath(); k.fill();
+        }
+      });
+      SHAPE(c, 'stripesBot', 'Bottom hazard stripes', 0, 93 * u, W, 7 * u, k => {
+        for (let x = -7 * u; x < W + 7 * u; x += 6 * u) {
+          k.fillStyle = p.accent;
+          k.beginPath(); k.moveTo(x, 93 * u); k.lineTo(x + 3 * u, 93 * u); k.lineTo(x + 7 * u, H); k.lineTo(x + 4 * u, H); k.closePath(); k.fill();
+        }
+      });
+    },
+    over(c) {
+      TX(c, 'artist', 'Heavy stencil header', 6 * u, 9 * u, 88 * u, 14 * u, k => wordmark(k, t.artist, 6 * u, 9 * u, 88 * u, 14 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'frame', 'Spec photo frame', 5 * u, 25 * u, 56 * u, 56 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(5 * u, 25 * u, 56 * u, 56 * u); });
+      TX(c, 'specRight', 'Technical readout right', 64 * u, 26 * u, 30 * u, 52 * u, k => {
+        k.strokeStyle = p.ink2; k.lineWidth = .25 * u; k.strokeRect(64 * u, 26 * u, 30 * u, 54 * u);
+        fitText(k, 'SPECIFICATION', fam(t.smallFont), 66 * u, 28 * u, 26 * u, 2.5 * u, { color: p.accent });
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 66 * u, 32 * u, 26 * u, 5.5 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 66 * u, 40 * u, 26 * u, 4 * u, { color: p.ink2 });
+        fitText(k, 'REF: ' + t.catalogue, fam(t.smallFont), 66 * u, 48 * u, 26 * u, 2.8 * u, { color: p.ink1 });
+        fitText(k, 'SYSTEM: MASTER', fam(t.smallFont), 66 * u, 53 * u, 26 * u, 2.8 * u, { color: p.ink2 });
+        fitText(k, t.side || 'SIDE A/B', fam(t.smallFont), 66 * u, 58 * u, 26 * u, 2.8 * u, { color: p.ink2 });
+      });
+      G(c, 'emblem', 71 * u, 64 * u, 16 * u, 14 * u, p.ink1);
+      TX(c, 'footText', 'Warning footer line', 6 * u, 84 * u, 60 * u, 6 * u, k => fitText(k, 'CAUTION: HIGH FREQUENCY MATERIAL // ' + t.tagline, fam(t.smallFont), 6 * u, 85 * u, 60 * u, 3 * u, { color: p.ink1 }));
+      G(c, 'strip', 70 * u, 84 * u, 24 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('rave-flyer', '90s rave flyer', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 24 * u, 64 * u, 48 * u],
+    under(c) {
+      BAND(c, 'bg', 'Flyer background', 0, 0, W, H, p.ink1);
+      SHAPE(c, 'steppedSun', 'Stepped rave rays', 0, 0, W, H, k => {
+        k.fillStyle = p.accent;
+        for (let i = 0; i < 8; i++) {
+          const a = i * Math.PI / 4;
+          k.beginPath(); k.moveTo(50 * u, 48 * u);
+          k.lineTo(50 * u + Math.cos(a - .1) * 60 * u, 48 * u + Math.sin(a - .1) * 60 * u);
+          k.lineTo(50 * u + Math.cos(a + .1) * 60 * u, 48 * u + Math.sin(a + .1) * 60 * u);
+          k.closePath(); k.fill();
+        }
+      });
+    },
+    over(c) {
+      TX(c, 'artist', 'Arched rave wordmark', 6 * u, 5 * u, 88 * u, 16 * u, k => wordmark(k, t.artist, 6 * u, 5 * u, 88 * u, 16 * u, { color: p.paper, stretch: true }));
+      TX(c, 'frame', 'Flyer photo border', 16 * u, 22 * u, 68 * u, 52 * u, k => {
+        k.strokeStyle = p.paper; k.lineWidth = .7 * u; k.strokeRect(16 * u, 22 * u, 68 * u, 52 * u);
+        k.strokeStyle = p.accent; k.lineWidth = .3 * u; k.strokeRect(17.2 * u, 23.2 * u, 65.6 * u, 49.6 * u);
+      });
+      G(c, 'feature', 4 * u, 40 * u, 11 * u, 14 * u, p.paper);
+      G(c, 'emblem', 85 * u, 40 * u, 11 * u, 14 * u, p.paper);
+      TX(c, 'flyerInfo', 'Flyer bottom billboard', 6 * u, 76 * u, 88 * u, 18 * u, k => {
+        k.fillStyle = p.paper; k.fillRect(6 * u, 76 * u, 88 * u, 18 * u);
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 8 * u, 77.5 * u, 84 * u, 8 * u, { color: p.ink1, align: 'center' });
+        fitText(k, t.kanaTitle + '  ·  ' + t.catalogue + '  ·  ' + t.tagline, fam(t.smallFont), 8 * u, 87 * u, 84 * u, 3.5 * u, { color: p.accent, align: 'center' });
+      });
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('hype-sticker', 'Hype sticker', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [0, 0, W, H],
+    under() {},
+    over(c) {
+      TX(c, 'sticker', 'Die-cut hype sticker badge', 52 * u, 52 * u, 44 * u, 44 * u, k => {
+        k.save(); k.translate(74 * u, 74 * u); k.rotate(-.08);
+        // shadow
+        k.fillStyle = 'rgba(0,0,0,.45)'; k.fillRect(-21 * u, -21 * u, 44 * u, 44 * u);
+        // sticker body
+        k.fillStyle = p.accent; k.fillRect(-22 * u, -22 * u, 44 * u, 44 * u);
+        k.strokeStyle = p.paper === p.accent ? p.ink1 : p.paper; k.lineWidth = .35 * u;
+        k.strokeRect(-21 * u, -21 * u, 42 * u, 42 * u);
+        const col = p.paper === p.accent ? p.ink1 : p.text;
+        fitText(k, '★ SPECIAL EDITION ★', fam(t.smallFont), -20 * u, -19 * u, 40 * u, 2.8 * u, { color: col, align: 'center' });
+        wordmark(k, t.artist, -20 * u, -14 * u, 40 * u, 10 * u, { color: col, stretch: true });
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), -20 * u, -2 * u, 40 * u, 6 * u, { color: col, align: 'center' });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), -20 * u, 5 * u, 40 * u, 4.5 * u, { color: col, align: 'center' });
+        fitText(k, t.catalogue, fam(t.smallFont), -20 * u, 12 * u, 40 * u, 3 * u, { color: col, align: 'center' });
+        k.restore();
+      });
+      TX(c, 'spineLabel', 'Top edge label', 4 * u, 4 * u, 40 * u, 3 * u, k => {
+        const on = contrastOn(p.ink1, [p.paper, p.accent, '#ffffff']);
+        fitText(k, t.artist + ' // ' + t.title, fam(t.smallFont), 4 * u, 4 * u, 40 * u, 3 * u, { color: on });
+      });
+      G(c, 'corner', 4 * u, 88 * u, 8 * u, 8 * u, contrastOn(p.ink1, [p.paper, p.accent]));
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('dubplate', 'Stamped dubplate', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [24 * u, 24 * u, 52 * u, 52 * u],
+    under(c) {
+      BAND(c, 'bg', 'Kraft test sleeve', 0, 0, W, H, p.paper);
+      SHAPE(c, 'holeRing', 'Hole outline ring', 20 * u, 20 * u, 60 * u, 60 * u, k => {
+        k.strokeStyle = p.ink2; k.lineWidth = .35 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 28 * u, 0, Math.PI * 2); k.stroke();
+      });
+    },
+    over(c) {
+      MATTE(c, 'centerMatte', 'Circular die-cut center hole', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(20 * u, 20 * u, 60 * u, 60 * u);
+        k.arc(50 * u, 50 * u, 25 * u, 0, Math.PI * 2, true);
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 25 * u, 0, Math.PI * 2); k.stroke();
+      });
+      TX(c, 'stamp', 'Rubber stamp title box', 4 * u, 6 * u, 48 * u, 22 * u, k => {
+        k.save(); k.translate(26 * u, 16 * u); k.rotate(-.08);
+        k.strokeStyle = p.accent; k.lineWidth = .5 * u;
+        k.strokeRect(-22 * u, -10 * u, 44 * u, 20 * u);
+        fitText(k, 'TEST PRESSING', fam(t.smallFont), -20 * u, -8 * u, 40 * u, 2.5 * u, { color: p.accent });
+        wordmark(k, t.artist, -20 * u, -4 * u, 40 * u, 8 * u, { color: p.ink1 });
+        fitText(k, t.title.toUpperCase(), fam(t.smallFont), -20 * u, 5 * u, 40 * u, 3 * u, { color: p.accent });
+        k.restore();
+      });
+      G(c, 'emblem', 74 * u, 72 * u, 16 * u, 16 * u, p.accent);
+      TX(c, 'catStamp', 'Cat stamp', 6 * u, 86 * u, 40 * u, 4 * u, k => fitText(k, 'CAT. NO. ' + t.catalogue, fam('space-mono'), 6 * u, 86 * u, 40 * u, 3.5 * u, { color: p.ink1 }));
+      G(c, 'strip', 6 * u, 91 * u, 24 * u, 6 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('sound-system', 'Sound system stack', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [16 * u, 26 * u, 68 * u, 46 * u],
+    under(c) {
+      BAND(c, 'bg', 'Sound poster background', 0, 0, W, H, p.paper);
+      BAND(c, 'topBand', 'Top lion band', 0, 0, W, 22 * u, p.accent);
+      BAND(c, 'botBand', 'Bottom bass band', 0, 76 * u, W, 24 * u, p.ink1);
+    },
+    over(c) {
+      G(c, 'emblem', 6 * u, 4 * u, 14 * u, 14 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'artist', 'Soundsystem headline', 22 * u, 4 * u, 72 * u, 14 * u, k => wordmark(k, t.artist, 22 * u, 4 * u, 72 * u, 14 * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true }));
+      TX(c, 'frame', 'Speaker stack frame', 14 * u, 24 * u, 72 * u, 50 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .5 * u; k.strokeRect(14 * u, 24 * u, 72 * u, 50 * u);
+      });
+      TX(c, 'bottomTitle', 'Heavy bottom title', 6 * u, 78 * u, 68 * u, 14 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 6 * u, 78 * u, 68 * u, 9 * u, { color: p.paper });
+        fitText(k, t.tagline + ' // ' + t.catalogue, fam(t.smallFont), 6 * u, 89 * u, 68 * u, 3.5 * u, { color: p.accent });
+      });
+      G(c, 'corner', 80 * u, 80 * u, 14 * u, 14 * u, p.accent);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('stencil-crate', 'Shipping crate', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 28 * u, 72 * u, 48 * u],
+    under(c) { BAND(c, 'bg', 'Plywood crate paper', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'brackets', 'Crate corner brackets', 4 * u, 4 * u, 92 * u, 92 * u, k => {
+        k.fillStyle = p.ink1;
+        const b = 4 * u, len = 10 * u, th = 1.5 * u;
+        k.fillRect(b, b, len, th); k.fillRect(b, b, th, len);
+        k.fillRect(W - b - len, b, len, th); k.fillRect(W - b - th, b, th, len);
+        k.fillRect(b, H - b - th, len, th); k.fillRect(b, H - b - len, th, len);
+        k.fillRect(W - b - len, H - b - th, len, th); k.fillRect(W - b - th, H - b - len, th, len);
+      });
+      TX(c, 'artist', 'Stenciled artist', 14 * u, 8 * u, 72 * u, 12 * u, k => wordmark(k, t.artist, 14 * u, 8 * u, 72 * u, 12 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'fragile', 'Fragile markings', 14 * u, 21 * u, 72 * u, 5 * u, k => {
+        fitText(k, '▲▲ FRAGILE AUDIO // GROSS WT 250G // ' + t.catalogue, fam('space-mono'), 14 * u, 21 * u, 72 * u, 3 * u, { color: p.accent });
+      });
+      TX(c, 'frame', 'Crate photo frame', 13 * u, 27 * u, 74 * u, 50 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(13 * u, 27 * u, 74 * u, 50 * u);
+      });
+      TX(c, 'title', 'Crate title', 14 * u, 79 * u, 50 * u, 8 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 14 * u, 79 * u, 50 * u, 8 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'Katakana crate stamp', 14 * u, 88 * u, 50 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 14 * u, 88 * u, 50 * u, 4 * u, { color: p.accent }));
+      G(c, 'strip', 68 * u, 80 * u, 18 * u, 12 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+/* ---------- Physical Media & Objects (Expanded) ---------- */
+T('diecut-45', 'Die-cut 45 sleeve', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [22 * u, 24 * u, 56 * u, 56 * u],
+    under(c) {
+      BAND(c, 'bg', 'Company sleeve paper', 0, 0, W, H, p.paper);
+      BAND(c, 'topArch', 'Company top arch', 0, 0, W, 18 * u, p.accent);
+    },
+    over(c) {
+      MATTE(c, 'centerMatte', 'Center 45rpm hole cutout', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(18 * u, 20 * u, 64 * u, 64 * u);
+        k.arc(50 * u, 52 * u, 26 * u, 0, Math.PI * 2, true);
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath(); k.arc(50 * u, 52 * u, 26 * u, 0, Math.PI * 2); k.stroke();
+        // concentric company ring lines
+        k.strokeStyle = p.accent; k.lineWidth = .25 * u;
+        k.beginPath(); k.arc(50 * u, 52 * u, 28 * u, 0, Math.PI * 2); k.stroke();
+        k.beginPath(); k.arc(50 * u, 52 * u, 30 * u, 0, Math.PI * 2); k.stroke();
+      });
+      G(c, 'emblem', 6 * u, 4 * u, 12 * u, 10 * u, p.paper === p.accent ? p.ink1 : p.text);
+      TX(c, 'artist', 'Company sleeve banner', 20 * u, 4 * u, 74 * u, 10 * u, k => wordmark(k, t.artist, 20 * u, 4 * u, 74 * u, 10 * u, { color: p.paper === p.accent ? p.ink1 : p.text, stretch: true }));
+      TX(c, 'title', 'Bottom title credits', 8 * u, 86 * u, 60 * u, 5.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 8 * u, 86 * u, 60 * u, 5.5 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'Katakana bottom', 8 * u, 92 * u, 60 * u, 3 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 8 * u, 92 * u, 60 * u, 3 * u, { color: p.accent }));
+      G(c, 'strip', 74 * u, 86 * u, 18 * u, 9 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('vinyl-label', 'Center label', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [20 * u, 20 * u, 60 * u, 30 * u],
+    under(c) {
+      BAND(c, 'vinyl', 'Vinyl disc grooves', 0, 0, W, H, p.ink1);
+      SHAPE(c, 'grooves', 'Groove highlights', 0, 0, W, H, k => {
+        k.strokeStyle = '#ffffff'; k.globalAlpha = .08;
+        for (let r = 36 * u; r < 60 * u; r += 2.5 * u) {
+          k.beginPath(); k.arc(50 * u, 50 * u, r, 0, Math.PI * 2); k.stroke();
+        }
+        k.globalAlpha = 1;
+      });
+      BAND(c, 'label', 'Circular label disc', 14 * u, 14 * u, 72 * u, 72 * u, p.paper);
+    },
+    over(c) {
+      MATTE(c, 'labelMatte', 'Label circle and spindle matte', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        // cover lower half of photo
+        k.fillRect(14 * u, 50 * u, 72 * u, 36 * u);
+        // mask outside the label circle
+        k.beginPath();
+        k.rect(0, 0, W, H);
+        k.arc(50 * u, 50 * u, 36 * u, 0, Math.PI * 2, true);
+        k.fill();
+        // border
+        k.strokeStyle = p.accent; k.lineWidth = .5 * u;
+        k.beginPath(); k.arc(50 * u, 50 * u, 36 * u, 0, Math.PI * 2); k.stroke();
+        // center spindle hole
+        k.beginPath(); k.arc(50 * u, 50 * u, 4.5 * u, 0, Math.PI * 2); k.fillStyle = p.ink1; k.fill();
+      });
+      TX(c, 'speed', '33 RPM speed', 20 * u, 52 * u, 24 * u, 3 * u, k => fitText(k, '33⅓ RPM · STEREO', fam(t.smallFont), 20 * u, 52 * u, 24 * u, 2.5 * u, { color: p.accent }));
+      TX(c, 'cat', 'Cat no.', 56 * u, 52 * u, 24 * u, 3 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 56 * u, 52 * u, 24 * u, 2.5 * u, { color: p.accent, align: 'right' }));
+      TX(c, 'artist', 'Label artist', 18 * u, 59 * u, 64 * u, 8 * u, k => wordmark(k, t.artist, 18 * u, 59 * u, 64 * u, 8 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'title', 'Label title', 18 * u, 69 * u, 64 * u, 6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 18 * u, 69 * u, 64 * u, 6 * u, { color: p.ink1, align: 'center' }));
+      TX(c, 'kanaTitle', 'Label kana', 18 * u, 76 * u, 64 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 18 * u, 76 * u, 64 * u, 4 * u, { color: p.ink2, align: 'center' }));
+      G(c, 'corner', 46 * u, 81 * u, 8 * u, 4 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('jewel-case', 'CD jewel case', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 16 * u, 76 * u, 60 * u],
+    under(c) {
+      BAND(c, 'tray', 'Ribbed tray spine', 0, 0, 13 * u, H, p.ink1);
+      BAND(c, 'booklet', 'Booklet paper', 13 * u, 0, 87 * u, H, p.paper);
+      SHAPE(c, 'ribs', 'Plastic spine ridges', 0, 0, 13 * u, H, k => {
+        k.strokeStyle = p.paper; k.globalAlpha = .2; k.lineWidth = .35 * u;
+        for (let y = 2 * u; y < H - 2 * u; y += 2.2 * u) {
+          k.beginPath(); k.moveTo(2 * u, y); k.lineTo(11 * u, y); k.stroke();
+        }
+        k.globalAlpha = 1;
+      });
+    },
+    over(c) {
+      TX(c, 'spineText', 'Spine rotated CD text', 2 * u, 8 * u, 9 * u, 84 * u, k => vertText(k, t.artist + ' // ' + t.title + ' [' + t.catalogue + ']', fam(t.smallFont), 2 * u, 8 * u, 9 * u, 84 * u, { color: p.paper, rotate: true }));
+      TX(c, 'artist', 'Booklet artist wordmark', 18 * u, 5 * u, 76 * u, 9 * u, k => wordmark(k, t.artist, 18 * u, 5 * u, 76 * u, 9 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'frame', 'Booklet photo frame', 17.5 * u, 15.5 * u, 77 * u, 61 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(17.5 * u, 15.5 * u, 77 * u, 61 * u); });
+      G(c, 'emblem', 18 * u, 80 * u, 12 * u, 12 * u, p.accent);
+      TX(c, 'title', 'CD booklet title', 33 * u, 80 * u, 46 * u, 6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 33 * u, 80 * u, 46 * u, 6 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'CD booklet kana', 33 * u, 87 * u, 46 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 33 * u, 87 * u, 46 * u, 4 * u, { color: p.ink2 }));
+      G(c, 'strip', 82 * u, 81 * u, 12 * u, 11 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('minidisc', 'MiniDisc shell', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [12 * u, 18 * u, 56 * u, 62 * u],
+    under(c) {
+      BAND(c, 'shell', 'MiniDisc cartridge shell', 4 * u, 4 * u, 92 * u, 92 * u, p.ink1);
+      BAND(c, 'label', 'Adhesive label card', 10 * u, 16 * u, 60 * u, 66 * u, p.paper);
+      BAND(c, 'shutter', 'Sliding shutter plate', 72 * u, 16 * u, 22 * u, 66 * u, p.accent);
+    },
+    over(c) {
+      TX(c, 'arrow', 'Insert arrow', 6 * u, 6 * u, 12 * u, 7 * u, k => {
+        k.fillStyle = p.paper;
+        k.beginPath(); k.moveTo(6 * u, 9.5 * u); k.lineTo(12 * u, 6 * u); k.lineTo(12 * u, 13 * u); k.closePath(); k.fill();
+        fitText(k, 'INSERT', fam(t.smallFont), 15 * u, 7 * u, 20 * u, 2.5 * u, { color: p.paper });
+      });
+      TX(c, 'artist', 'Label artist header', 12 * u, 18 * u, 56 * u, 8 * u, k => wordmark(k, t.artist, 12 * u, 18 * u, 56 * u, 8 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'shutterText', 'Shutter vertical label', 74 * u, 20 * u, 18 * u, 58 * u, k => {
+        vertText(k, 'MINIDISC 74 // ' + t.catalogue, fam(t.smallFont), 74 * u, 20 * u, 18 * u, 58 * u, { color: p.paper === p.accent ? p.ink1 : p.paper, rotate: true });
+      });
+      G(c, 'emblem', 75 * u, 66 * u, 16 * u, 14 * u, p.paper === p.accent ? p.ink1 : p.paper);
+      TX(c, 'title', 'Bottom title on label', 12 * u, 70 * u, 56 * u, 6 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 12 * u, 70 * u, 56 * u, 6 * u, { color: p.ink1 }));
+      TX(c, 'kanaTitle', 'Katakana on label', 12 * u, 76.5 * u, 56 * u, 4 * u, k => fitText(k, t.kanaTitle, fam(t.kanaFont), 12 * u, 76.5 * u, 56 * u, 4 * u, { color: p.accent }));
+      G(c, 'corner', 82 * u, 84 * u, 8 * u, 8 * u, p.paper);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('floppy-disk', '3.5" diskette', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 46 * u, 64 * u, 38 * u],
+    under(c) {
+      BAND(c, 'diskBody', 'Diskette plastic body', 6 * u, 4 * u, 88 * u, 92 * u, p.ink1);
+      BAND(c, 'shutter', 'Metal slider shutter', 26 * u, 4 * u, 48 * u, 24 * u, p.accent);
+      BAND(c, 'label', 'Label sticker', 14 * u, 32 * u, 72 * u, 60 * u, p.paper);
+    },
+    over(c) {
+      TX(c, 'shutterHole', 'Shutter drive window', 30 * u, 8 * u, 14 * u, 16 * u, k => {
+        k.fillStyle = p.ink1; k.fillRect(30 * u, 8 * u, 14 * u, 16 * u);
+      });
+      TX(c, 'labelStripes', 'Color label header bands', 14 * u, 32 * u, 72 * u, 12 * u, k => {
+        k.fillStyle = p.accent; k.fillRect(14 * u, 32 * u, 72 * u, 3 * u);
+        fitText(k, '2HD · 1.44MB // ' + t.catalogue, fam(t.smallFont), 16 * u, 36 * u, 68 * u, 2.8 * u, { color: p.ink2 });
+        wordmark(k, t.artist, 16 * u, 39.5 * u, 68 * u, 5.5 * u, { color: p.ink1, stretch: true });
+      });
+      TX(c, 'frame', 'Photo frame', 17.5 * u, 45.5 * u, 65 * u, 39 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(17.5 * u, 45.5 * u, 65 * u, 39 * u); });
+      TX(c, 'title', 'Floppy title footer', 16 * u, 85 * u, 48 * u, 5.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 16 * u, 85 * u, 48 * u, 5.5 * u, { color: p.ink1 }));
+      G(c, 'strip', 66 * u, 85 * u, 18 * u, 6 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('reel-box', 'Master tape box', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [24 * u, 18 * u, 52 * u, 52 * u],
+    under(c) {
+      BAND(c, 'box', 'Tape box paper', 0, 0, W, H, p.paper);
+      BAND(c, 'leftSpine', 'Hinged spine band', 0, 0, 10 * u, H, p.ink1);
+    },
+    over(c) {
+      MATTE(c, 'reelHole', 'Reel circular aperture', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        k.beginPath();
+        k.rect(20 * u, 14 * u, 60 * u, 60 * u);
+        k.arc(50 * u, 44 * u, 26 * u, 0, Math.PI * 2, true);
+        k.fill('evenodd');
+        k.strokeStyle = p.ink1; k.lineWidth = .45 * u;
+        k.beginPath(); k.arc(50 * u, 44 * u, 26 * u, 0, Math.PI * 2); k.stroke();
+      });
+      TX(c, 'header', 'Box top label', 14 * u, 5 * u, 80 * u, 10 * u, k => {
+        wordmark(k, t.artist, 14 * u, 5 * u, 80 * u, 8 * u, { color: p.ink1, stretch: true });
+        fitText(k, '¼" MASTER AUDIO TAPE // 15 IPS NAB', fam(t.smallFont), 14 * u, 14 * u, 80 * u, 2.5 * u, { color: p.accent });
+      });
+      TX(c, 'boxForm', 'Tape box calibration form', 14 * u, 74 * u, 80 * u, 20 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .35 * u;
+        k.strokeRect(14 * u, 74 * u, 80 * u, 20 * u);
+        k.beginPath();
+        k.moveTo(14 * u, 84 * u); k.lineTo(94 * u, 84 * u);
+        k.moveTo(54 * u, 74 * u); k.lineTo(54 * u, 94 * u);
+        k.stroke();
+        fitText(k, 'TITLE: ' + t.title.toUpperCase(), fam(t.wordFont), 16 * u, 76 * u, 36 * u, 4.5 * u, { color: p.ink1 });
+        fitText(k, 'KATAKANA: ' + t.kanaTitle, fam(t.kanaFont), 16 * u, 86 * u, 36 * u, 4 * u, { color: p.ink2 });
+        fitText(k, 'REEL NO: ' + t.catalogue, fam(t.smallFont), 56 * u, 76 * u, 36 * u, 3 * u, { color: p.accent });
+        fitText(k, 'TAKE: 01 (' + (t.side || 'STEREO') + ')', fam(t.smallFont), 56 * u, 86 * u, 36 * u, 3 * u, { color: p.ink1 });
+      });
+      G(c, 'corner', 84 * u, 7 * u, 8 * u, 8 * u, p.accent);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('contact-sheet', '35mm contact sheet', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [16 * u, 12 * u, 68 * u, 60 * u],
+    under(c) {
+      BAND(c, 'filmBase', 'Black film leader', 0, 0, W, H, p.ink1);
+      SHAPE(c, 'sprockets', 'Film sprocket holes', 0, 0, W, H, k => {
+        k.fillStyle = p.paper;
+        for (let y = 4 * u; y < H - 4 * u; y += 7 * u) {
+          k.fillRect(3 * u, y, 6 * u, 4 * u);
+          k.fillRect(91 * u, y, 6 * u, 4 * u);
+        }
+      });
+    },
+    over(c) {
+      TX(c, 'edgeCodes', 'Film edge codes and numbers', 0, 0, W, H, k => {
+        fitText(k, 'KODAK SAFETY FILM 5063', fam(t.smallFont), 16 * u, 4 * u, 40 * u, 3 * u, { color: p.accent });
+        fitText(k, '24A', fam('space-mono'), 80 * u, 4 * u, 10 * u, 4 * u, { color: p.accent });
+        fitText(k, '25', fam('space-mono'), 80 * u, 74 * u, 10 * u, 4 * u, { color: p.accent });
+      });
+      TX(c, 'cropMarks', 'Grease pencil crop mark', 14 * u, 10 * u, 72 * u, 64 * u, k => {
+        k.strokeStyle = p.accent; k.lineWidth = .7 * u;
+        k.strokeRect(14 * u, 10 * u, 72 * u, 64 * u);
+      });
+      TX(c, 'artist', 'Contact sheet artist', 16 * u, 78 * u, 68 * u, 11 * u, k => wordmark(k, t.artist, 16 * u, 78 * u, 68 * u, 11 * u, { color: p.paper, stretch: true }));
+      TX(c, 'title', 'Contact sheet title', 16 * u, 90 * u, 68 * u, 4.5 * u, k => fitText(k, t.title.toUpperCase() + ' · ' + t.catalogue, fam(t.smallFont), 16 * u, 90 * u, 68 * u, 4.5 * u, { color: p.accent }));
+      G(c, 'corner', 74 * u, 88 * u, 8 * u, 8 * u, p.paper);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('polaroid', 'Instant film', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [16 * u, 12 * u, 68 * u, 62 * u],
+    under(c) {
+      BAND(c, 'bg', 'Surface shadow background', 0, 0, W, H, p.ink2);
+      BAND(c, 'card', 'Polaroid paper frame', 10 * u, 6 * u, 80 * u, 88 * u, p.paper);
+    },
+    over(c) {
+      TX(c, 'photoBorder', 'Inner photo edge line', 15.5 * u, 11.5 * u, 69 * u, 63 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(15.5 * u, 11.5 * u, 69 * u, 63 * u);
+      });
+      TX(c, 'chinArtist', 'Chin handwritten artist', 16 * u, 76 * u, 68 * u, 8 * u, k => wordmark(k, t.artist, 16 * u, 76 * u, 68 * u, 8 * u, { color: p.ink1, stretch: true }));
+      TX(c, 'chinTitle', 'Chin title line', 16 * u, 85 * u, 50 * u, 5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.wordFont), 16 * u, 85 * u, 50 * u, 5 * u, { color: p.accent }));
+      TX(c, 'chinCat', 'Chin cat line', 16 * u, 90.5 * u, 50 * u, 2.5 * u, k => fitText(k, t.catalogue + ' · ' + (t.side || ''), fam(t.smallFont), 16 * u, 90.5 * u, 50 * u, 2.5 * u, { color: p.ink2 }));
+      G(c, 'corner', 74 * u, 84 * u, 10 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('dossier', 'Manila dossier', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [12 * u, 22 * u, 48 * u, 54 * u],
+    under(c) {
+      BAND(c, 'folder', 'Manila folder body', 4 * u, 10 * u, 92 * u, 86 * u, p.paper);
+      BAND(c, 'tab', 'Folder index tab', 4 * u, 4 * u, 36 * u, 10 * u, p.paper);
+    },
+    over(c) {
+      TX(c, 'tabText', 'Tab index text', 6 * u, 5.5 * u, 32 * u, 4 * u, k => fitText(k, 'FILE // ' + t.catalogue, fam('space-mono'), 6 * u, 5.5 * u, 32 * u, 3.5 * u, { color: p.ink1 }));
+      TX(c, 'confidential', 'Confidential stamp', 50 * u, 5 * u, 42 * u, 8 * u, k => {
+        k.strokeStyle = p.accent; k.lineWidth = .4 * u; k.strokeRect(50 * u, 5 * u, 42 * u, 8 * u);
+        fitText(k, 'TOP SECRET // DECLASSIFIED', fam('space-mono'), 52 * u, 6.5 * u, 38 * u, 5 * u, { color: p.accent, align: 'center' });
+      });
+      TX(c, 'paperclip', 'Paperclip holding photo', 14 * u, 18 * u, 8 * u, 12 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u;
+        k.beginPath();
+        k.moveTo(16 * u, 28 * u); k.lineTo(16 * u, 19 * u);
+        k.arc(18 * u, 19 * u, 2 * u, Math.PI, 0);
+        k.lineTo(20 * u, 29 * u);
+        k.arc(18 * u, 29 * u, 2 * u, 0, Math.PI);
+        k.lineTo(16 * u, 22 * u);
+        k.stroke();
+      });
+      TX(c, 'frame', 'Photo border', 11.5 * u, 21.5 * u, 49 * u, 55 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(11.5 * u, 21.5 * u, 49 * u, 55 * u); });
+      TX(c, 'dossierRight', 'Dossier dossier list', 64 * u, 22 * u, 28 * u, 54 * u, k => {
+        fitText(k, 'SUBJECT:', fam(t.smallFont), 64 * u, 22 * u, 28 * u, 2.5 * u, { color: p.accent });
+        fitText(k, t.artist, fam(t.wordFont), 64 * u, 25.5 * u, 28 * u, 6 * u, { color: p.ink1 });
+        fitText(k, 'OPERATION:', fam(t.smallFont), 64 * u, 34 * u, 28 * u, 2.5 * u, { color: p.accent });
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 64 * u, 37.5 * u, 28 * u, 5.5 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle, fam(t.kanaFont), 64 * u, 44 * u, 28 * u, 4 * u, { color: p.ink2 });
+        // redacted bars
+        for (let i = 0; i < 4; i++) {
+          k.fillStyle = p.ink1; k.fillRect(64 * u, (52 + i * 5) * u, 26 * u, 3 * u);
+        }
+      });
+      G(c, 'emblem', 12 * u, 80 * u, 14 * u, 12 * u, p.accent);
+      G(c, 'strip', 62 * u, 82 * u, 28 * u, 10 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('transit-ticket', 'Transit ticket', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [12 * u, 24 * u, 76 * u, 46 * u],
+    under(c) {
+      BAND(c, 'ticket', 'Cardstock ticket', 6 * u, 6 * u, 88 * u, 88 * u, p.paper);
+      SHAPE(c, 'notches', 'Perforation punch notches', 0, 0, W, H, k => {
+        k.fillStyle = p.ink1;
+        k.beginPath(); k.arc(6 * u, 72 * u, 3.5 * u, -Math.PI / 2, Math.PI / 2); k.fill();
+        k.beginPath(); k.arc(94 * u, 72 * u, 3.5 * u, Math.PI / 2, -Math.PI / 2); k.fill();
+      });
+    },
+    over(c) {
+      TX(c, 'header', 'Transit ticket header', 12 * u, 8 * u, 76 * u, 14 * u, k => {
+        fitText(k, 'INTER-ZONE TRANSIT PASS // ' + t.catalogue, fam('space-mono'), 12 * u, 8 * u, 76 * u, 3 * u, { color: p.accent });
+        wordmark(k, t.artist, 12 * u, 12 * u, 76 * u, 9 * u, { color: p.ink1, stretch: true });
+      });
+      TX(c, 'perfLine', 'Dashed perforation line', 10 * u, 72 * u, 80 * u, 1 * u, k => {
+        k.strokeStyle = p.ink2; k.lineWidth = .3 * u; k.setLineDash([1.5 * u, 1.5 * u]);
+        k.beginPath(); k.moveTo(10 * u, 72 * u); k.lineTo(90 * u, 72 * u); k.stroke();
+        k.setLineDash([]);
+      });
+      TX(c, 'frame', 'Ticket photo frame', 11.5 * u, 23.5 * u, 77 * u, 47 * u, k => { k.strokeStyle = p.ink1; k.lineWidth = .35 * u; k.strokeRect(11.5 * u, 23.5 * u, 77 * u, 47 * u); });
+      TX(c, 'stubText', 'Stub bottom info', 12 * u, 76 * u, 52 * u, 14 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam(t.wordFont), 12 * u, 76 * u, 52 * u, 6 * u, { color: p.ink1 });
+        fitText(k, t.kanaTitle + ' · ' + (t.side || 'PASSENGER FARE'), fam(t.smallFont), 12 * u, 83.5 * u, 52 * u, 3.5 * u, { color: p.ink2 });
+      });
+      G(c, 'strip', 68 * u, 76 * u, 20 * u, 14 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
+T('tarot-card', 'Arcana card', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 16 * u, 64 * u, 62 * u],
+    under(c) { BAND(c, 'bg', 'Arcana parchment', 0, 0, W, H, p.paper); },
+    over(c) {
+      TX(c, 'borders', 'Tarot ornate borders', 6 * u, 6 * u, 88 * u, 88 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .6 * u; k.strokeRect(6 * u, 6 * u, 88 * u, 88 * u);
+        k.lineWidth = .25 * u; k.strokeRect(7.5 * u, 7.5 * u, 85 * u, 85 * u);
+        // corner rosettes
+        for (const [cx, cy] of [[9 * u, 9 * u], [91 * u, 9 * u], [9 * u, 91 * u], [91 * u, 91 * u]]) {
+          k.beginPath(); k.arc(cx, cy, 1.2 * u, 0, Math.PI * 2); k.fillStyle = p.accent; k.fill();
+        }
+      });
+      TX(c, 'numeral', 'Roman numeral cartouche', 30 * u, 8.5 * u, 40 * u, 5 * u, k => {
+        fitText(k, 'XIX · ' + t.catalogue, fam('unifraktur-maguntia'), 30 * u, 8.5 * u, 40 * u, 5.5 * u, { color: p.accent, align: 'center' });
+      });
+      TX(c, 'frame', 'Inner illustration frame', 17.5 * u, 15.5 * u, 65 * u, 63 * u, k => {
+        k.strokeStyle = p.ink1; k.lineWidth = .4 * u; k.strokeRect(17.5 * u, 15.5 * u, 65 * u, 63 * u);
+      });
+      TX(c, 'banner', 'Placard banner footer', 14 * u, 80 * u, 72 * u, 12 * u, k => {
+        fitText(k, t.title.toUpperCase(), fam('unifraktur-maguntia'), 14 * u, 80 * u, 72 * u, 7 * u, { color: p.ink1, align: 'center' });
+        fitText(k, t.artist, fam(t.smallFont), 14 * u, 88 * u, 72 * u, 3 * u, { color: p.accent, align: 'center', tracking: 4 });
+      });
+      G(c, 'corner', 47 * u, 91 * u, 6 * u, 4 * u, p.ink1);
+    }
+  };
+}, { group: 'Physical Media & Objects' });
+
 
 /* The tape template is a cassette J-card laid flat: back flap | spine | front, 101.6 mm tall. */
 const JCARD = { flap: 15, spine: 12.7, front: 65, height: 101.6, bleed: 3 };
@@ -823,10 +2447,18 @@ T('tape', 'Tape (J-card)', (W, H, p, t) => {
       }
     }
   };
-}, { aspect: (JCARD.width + 2 * JCARD.bleed) / (JCARD.height + 2 * JCARD.bleed) });
+}, { aspect: (JCARD.width + 2 * JCARD.bleed) / (JCARD.height + 2 * JCARD.bleed), group: 'Physical Media' });
 
 /* ---------- state ---------- */
-const PRINT_MODES = [['duotone','Duotone'],['tritone','Tritone posterize'],['halftone','Halftone dots'],['lines','Halftone lines'],['overprint','Two-ink overprint'],['threshold','Threshold'],['dither','Ordered dither'],['colour','Original colour']];
+const PRINT_MODES = [
+  ['duotone','Duotone'],['tritone','Tritone posterize'],['halftone','Halftone dots'],['lines','Halftone lines'],
+  ['overprint','Two-ink overprint'],['threshold','Threshold'],['dither','Ordered dither'],['colour','Original colour'],
+  ['cmyk','CMYK rosette'],['risograph','Risograph 2-drum'],['quadtone','Quadtone 4-plate'],['split-tone','Three-ink split tone'],
+  ['crosshatch','Engraved crosshatch'],['mezzotint','Mezzotint stochastic'],['woodcut','Linocut relief'],['concentric','Concentric rings'],
+  ['wavy','Guilloché wave lines'],['diamond-ht','Diamond halftone'],['cross-ht','Swiss cross screen'],['stipple','Stochastic stipple'],
+  ['xerox','Xerox electrostatic'],['cyanotype','Cyanotype blueprint'],['solarize','Sabattier solarize'],['dot-matrix','9-pin impact ribbon'],
+  ['thermal','Thermal fax'],['lenticular','Lenticular lens ribs']
+];
 const SHADER_BY = Object.fromEntries(SHADERS.map(s => [s.id, s]));
 const FEEDBACK = s => Object.values(s.samplers).includes('prev');
 const GENERATOR_GROUPS = new Set(['backgrounds', 'mesh_surfaces']);
@@ -854,7 +2486,7 @@ const DEFAULT = () => ({
   v: 3, seed: 1234, template: 'headline', palette: 'rose',
   colors: { ...PALETTES[0] },
   photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, src: 'shader' },
-  print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2 },
+  print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 },
   type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
     tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b',
     wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
@@ -886,6 +2518,12 @@ function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press'
 function normalize(s) {
   s.extras = s.extras || [];
   s.layout = s.layout || {};
+  s.print = s.print || {};
+  if (s.print.ringwear === undefined) s.print.ringwear = 0;
+  if (s.print.wear === undefined) s.print.wear = 0;
+  if (s.print.stock === undefined) s.print.stock = 'smooth';
+  if (s.print.coverScreen === undefined) s.print.coverScreen = 0;
+  if (s.print.stamp === undefined) s.print.stamp = 0;
   if (!s.layers.some(l => l.id === 'GRAPHICS')) s.layers.splice(s.layers.findIndex(l => l.id === 'TYPE') + 1, 0, { id: 'GRAPHICS', fixed: true });
   if (!s.layers.some(l => l.id === 'BACKGROUND')) s.layers.unshift({ id: 'BACKGROUND', fixed: true });
   return s;
@@ -909,9 +2547,11 @@ function loadPhotoURL(url, keep) {
 const own = (id, body, samplers = {}) => ({ id, kind: 'canvas_item', blend: 'none', vertex: false, varyings: [], uniforms: [], samplers, body });
 const PHOTO_SH = own('sp_photo', `
 uniform sampler2D photo; uniform vec4 rect; uniform vec2 img; uniform vec4 xf; uniform float mode;
-uniform vec3 ink1; uniform vec3 ink2; uniform vec3 paper; uniform vec4 tone; uniform vec4 ht; uniform float invert; uniform vec2 lv;
+uniform vec3 ink1; uniform vec3 ink2; uniform vec3 paper; uniform vec3 accent; uniform vec4 tone; uniform vec4 ht; uniform float invert; uniform vec2 lv;
 float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
 vec3 raw(vec2 px) {
   vec2 l = (px - rect.xy) / rect.zw - .5;
   float ra = rect.z / rect.w, ia = img.x / img.y;
@@ -921,7 +2561,6 @@ vec3 raw(vec2 px) {
   vec2 uv = l * s / xf.x + .5 - xf.yz;
   return texture(photo, clamp(uv, 0.0, 1.0)).rgb;
 }
-// Levels, gamma, contrast, brightness and invert, on one channel or on luminance.
 vec3 toned(vec3 v) {
   v = clamp((v - lv.x) / max(lv.y - lv.x, .02), 0.0, 1.0);
   v = pow(v, vec3(tone.z));
@@ -943,22 +2582,27 @@ float cellLum(vec2 px, float ang, float size) {
   vec2 q = R * px / size; vec2 centre = (floor(q) + .5) * size;
   return plum(transpose(R) * centre);
 }
+float lineScreen(vec2 px, float ang, float size, float v) {
+  float c = cos(ang), s = sin(ang); float coord = (c * px.x + s * px.y) / size;
+  float f = fract(coord) - .5; float w = clamp(v, 0.0, 1.0);
+  float aa = fwidth(f) * 1.2 + 1e-4;
+  return smoothstep(w * .5 + aa, w * .5 - aa, abs(f));
+}
 void godot_fragment() {
   vec2 px = UV * sp_res;
   if (px.x < rect.x || px.y < rect.y || px.x > rect.x + rect.z || px.y > rect.y + rect.w) { COLOR = vec4(0.0); return; }
   vec3 col = pix(px); float L = plum(px);
   float ang = radians(ht.y), size = max(1.5, ht.x), th = ht.z, soft = max(ht.w, 1e-3);
-  vec3 o;
+  vec3 o = col;
   int m = int(mode + .5);
   if (m == 0) o = mix(ink1, paper, smoothstep(0.0, 1.0, L));
   else if (m == 1) { float q = L < th * .62 ? 0.0 : (L < th * 1.3 ? .5 : 1.0); o = q < .25 ? ink1 : (q < .75 ? ink2 : paper); }
   else if (m == 2) { float d = cellDot(px, ang, size, 1.0 - cellLum(px, ang, size)); o = mix(paper, ink1, d); }
-  else if (m == 3) { float c = cos(ang), s = sin(ang); float v = fract((c * px.x + s * px.y) / size); float w = 1.0 - L; float aa = fwidth(v) + 1e-4;
-    o = mix(paper, ink1, smoothstep(w * .5 + aa, w * .5 - aa, abs(v - .5))); }
+  else if (m == 3) { float d = lineScreen(px, ang, size, 1.0 - L); o = mix(paper, ink1, d); }
   else if (m == 4) {
-    float a = cellDot(px, ang, size, 1.0 - cellLum(px, ang, size)) ;
+    float a = cellDot(px, ang, size, 1.0 - cellLum(px, ang, size));
     float b2 = cellDot(px, ang + .52, size, clamp((col.r - lum(col)) * 2.0 + (1.0 - L) * .6, 0.0, 1.0));
-    o = paper * mix(vec3(1.0), ink2, b2) ; o = o * mix(vec3(1.0), ink1, a * .92);
+    o = paper * mix(vec3(1.0), ink2, b2); o = o * mix(vec3(1.0), ink1, a * .92);
   }
   else if (m == 5) { float n = (hash(floor(px)) - .5) * soft; o = mix(ink1, paper, smoothstep(th - soft * .2, th + soft * .2, L + n)); }
   else if (m == 6) {
@@ -966,7 +2610,150 @@ void godot_fragment() {
     int idx = b.x + b.y * 4; float bayer[16] = float[](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
     o = L > (bayer[idx] + .5) / 16.0 * (th * 2.0) ? paper : ink1;
   }
-  else o = col;
+  else if (m == 7) o = col;
+  else if (m == 8) { // CMYK 4-plate rosette
+    vec3 cmy = 1.0 - col; float kPlate = min(cmy.r, min(cmy.g, cmy.b)) * (0.8 + th * 0.4);
+    float dC = cellDot(px, radians(15.0), size, clamp(cmy.r - kPlate * 0.5, 0.0, 1.0));
+    float dM = cellDot(px, radians(75.0), size, clamp(cmy.g - kPlate * 0.5, 0.0, 1.0));
+    float dY = cellDot(px, radians(0.0), size, clamp(cmy.b - kPlate * 0.5, 0.0, 1.0));
+    float dK = cellDot(px, radians(45.0), size, clamp(kPlate, 0.0, 1.0));
+    vec3 cyan = vec3(0.0, 0.65, 0.92), magenta = vec3(0.92, 0.05, 0.55), yellow = vec3(0.98, 0.88, 0.05);
+    o = paper * mix(vec3(1.0), cyan, dC * 0.95) * mix(vec3(1.0), magenta, dM * 0.95) * mix(vec3(1.0), yellow, dY * 0.95) * mix(vec3(1.0), ink1, dK * 0.98);
+  }
+  else if (m == 9) { // Risograph 2-drum stencil
+    vec2 shift = vec2(cos(ang), sin(ang)) * size * 0.15;
+    float d1 = cellDot(px, ang, size * 0.9, clamp((1.0 - L) * 1.25, 0.0, 1.0));
+    float d2 = cellDot(px + shift, ang + 0.5236, size * 0.9, clamp(pow(1.0 - L, 1.4) * 1.1, 0.0, 1.0));
+    float stoch = (hash(floor(px * 1.5)) - 0.5) * soft * 0.4;
+    o = paper * mix(vec3(1.0), ink2, clamp(d2 + stoch, 0.0, 1.0) * 0.88) * mix(vec3(1.0), ink1, clamp(d1 + stoch, 0.0, 1.0) * 0.92);
+  }
+  else if (m == 10) { // Quadtone 4-plate screenprint
+    float n = (hash(floor(px)) - 0.5) * soft * 0.2; float v = clamp(L + n, 0.0, 1.0);
+    o = v < th * 0.45 ? ink1 : (v < th * 0.9 ? ink2 : (v < th * 1.4 ? accent : paper));
+  }
+  else if (m == 11) { // 3-ink split tone gradient
+    float t1 = smoothstep(0.0, th, L); float t2 = smoothstep(th, 1.0, L);
+    o = L < th ? mix(ink1, ink2, t1) : mix(ink2, paper, t2);
+  }
+  else if (m == 12) { // Engraved crosshatch (4 progressive screens)
+    float dark = 1.0 - L;
+    float l1 = lineScreen(px, ang, size, clamp(dark * 2.2, 0.0, 1.0));
+    float l2 = dark > 0.35 ? lineScreen(px, ang + 1.5708, size, clamp((dark - 0.35) * 2.2, 0.0, 1.0)) : 0.0;
+    float l3 = dark > 0.65 ? lineScreen(px, ang + 0.7854, size * 1.2, clamp((dark - 0.65) * 2.5, 0.0, 1.0)) : 0.0;
+    float hatch = clamp(l1 + l2 + l3, 0.0, 1.0);
+    o = mix(paper, mix(ink2, ink1, clamp(dark * 1.3, 0.0, 1.0)), hatch);
+  }
+  else if (m == 13) { // Mezzotint stochastic grain
+    float n1 = noise(px / (size * 0.35) + vec2(12.3, 45.6));
+    float n2 = noise(px / (size * 0.18) + vec2(78.9, 32.1));
+    float gr = n1 * 0.65 + n2 * 0.35;
+    float dark = 1.0 - L;
+    float cut = smoothstep(gr - soft * 0.3, gr + soft * 0.3, dark * (0.8 + th * 0.5));
+    o = mix(paper, dark > 0.5 ? ink1 : ink2, cut);
+  }
+  else if (m == 14) { // Linocut relief carving
+    vec2 wp = px + vec2(noise(px * 0.03) * size * 1.2, noise(px * 0.03 + 5.0) * size * 0.8);
+    float dark = 1.0 - L;
+    float cut = lineScreen(wp, ang, size * 1.4, clamp(pow(dark, 0.85) * 1.3, 0.0, 1.0));
+    float chatter = (hash(floor(px / 2.0)) - 0.5) * soft * 0.35;
+    cut = clamp(cut + chatter, 0.0, 1.0);
+    o = mix(paper, ink1, cut);
+  }
+  else if (m == 15) { // Concentric rings
+    vec2 ctr = rect.xy + rect.zw * 0.5;
+    float r = length(px - ctr);
+    float f = fract(r / size) - 0.5;
+    float aa = fwidth(f) * 1.2 + 1e-4;
+    float w = clamp(1.0 - L, 0.0, 1.0);
+    float d = smoothstep(w * 0.5 + aa, w * 0.5 - aa, abs(f));
+    o = mix(paper, ink1, d);
+  }
+  else if (m == 16) { // Guilloché wave lines
+    float c = cos(ang), s = sin(ang);
+    float uVal = (c * px.x + s * px.y);
+    float vVal = (-s * px.x + c * px.y);
+    float wave = sin(vVal / (size * 1.8)) * size * 0.45 * (0.4 + (1.0 - L) * 0.6);
+    float f = fract((uVal + wave) / size) - 0.5;
+    float aa = fwidth(f) * 1.2 + 1e-4;
+    float w = clamp(1.0 - L, 0.0, 1.0);
+    float d = smoothstep(w * 0.5 + aa, w * 0.5 - aa, abs(f));
+    o = mix(paper, ink1, d);
+  }
+  else if (m == 17) { // Diamond halftone
+    float c = cos(ang), s = sin(ang); mat2 R = mat2(c, -s, s, c);
+    vec2 q = R * px / size; vec2 f = abs(fract(q) - 0.5);
+    float manhattan = f.x + f.y;
+    float dark = 1.0 - cellLum(px, ang, size);
+    float r = dark * 0.85;
+    float aa = fwidth(manhattan) * 1.2 + 1e-4;
+    float d = 1.0 - smoothstep(r - aa, r + aa, manhattan);
+    o = mix(paper, ink1, d);
+  }
+  else if (m == 18) { // Swiss cross screen
+    float c = cos(ang), s = sin(ang); mat2 R = mat2(c, -s, s, c);
+    vec2 q = R * px / size; vec2 f = abs(fract(q) - 0.5);
+    float dark = 1.0 - cellLum(px, ang, size);
+    float armW = dark * 0.35, armL = dark * 0.48;
+    float cr = float((f.x < armW && f.y < armL) || (f.y < armW && f.x < armL));
+    o = mix(paper, ink1, cr);
+  }
+  else if (m == 19) { // Stochastic stipple
+    vec2 cell = floor(px / size); vec2 f = fract(px / size) - 0.5;
+    vec2 jitt = (vec2(hash(cell), hash(cell + 99.0)) - 0.5) * 0.5;
+    float dist = length(f - jitt);
+    float dark = 1.0 - L;
+    float r = sqrt(dark) * 0.52;
+    float d = smoothstep(r + 0.05, r - 0.05, dist);
+    o = mix(paper, ink1, d);
+  }
+  else if (m == 20) { // Xerox electrostatic toner
+    float l0 = plum(px);
+    float lX = plum(px + vec2(1.5, 0.0)), lY = plum(px + vec2(0.0, 1.5));
+    float edge = length(vec2(lX - l0, lY - l0)) * 5.0;
+    float dark = (1.0 - l0) + edge * 0.65;
+    float n = (hash(floor(px / 1.5)) - 0.5) * (0.3 + soft);
+    float cut = smoothstep(th - 0.15, th + 0.15, dark + n);
+    o = mix(paper, ink1, cut);
+  }
+  else if (m == 21) { // Cyanotype blueprint
+    vec2 norm = (px - rect.xy) / rect.zw;
+    float vig = smoothstep(0.0, 0.15, min(min(norm.x, 1.0-norm.x), min(norm.y, 1.0-norm.y)));
+    float cyL = pow(L, 1.3) * (0.8 + 0.2 * vig);
+    vec3 deepCyan = ink1; vec3 midCyan = ink2;
+    o = mix(deepCyan, mix(midCyan, paper, smoothstep(0.4, 0.95, cyL)), smoothstep(0.05, 0.65, cyL));
+  }
+  else if (m == 22) { // Darkroom Sabattier solarize
+    float sol = 1.0 - abs(L - th) * 2.0;
+    float mLine = 1.0 - smoothstep(0.0, 0.12, abs(L - th));
+    o = mix(mix(ink1, paper, clamp(sol, 0.0, 1.0)), ink2, mLine * 0.85);
+  }
+  else if (m == 23) { // 9-pin impact dot-matrix ribbon
+    float rowH = max(2.0, size * 0.8);
+    float row = floor(px.y / rowH);
+    vec2 f = vec2(fract(px.x / (rowH * 0.9)) - 0.5, fract(px.y / rowH) - 0.5);
+    float dist = length(f);
+    float dark = 1.0 - plum(vec2(floor(px.x / (rowH * 0.9)) * (rowH * 0.9), row * rowH));
+    float r = sqrt(dark) * 0.44;
+    float rib = (hash(vec2(row, 0.0)) - 0.5) * 0.15;
+    float dotD = 1.0 - smoothstep(r - 0.05, r + 0.05, dist);
+    o = mix(paper, ink1, clamp(dotD + rib, 0.0, 1.0));
+  }
+  else if (m == 24) { // Thermal fax dither
+    ivec2 b = ivec2(mod(floor(px / max(1.0, size * 0.2)), 4.0));
+    int idx = b.x + b.y * 4; float bayer[16] = float[](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
+    float streak = (hash(vec2(floor(px.x / 1.5), 0.0)) - 0.5) * 0.18;
+    float dit = (L + streak) > (bayer[idx] + 0.5) / 16.0 * (th * 2.0) ? 1.0 : 0.0;
+    o = mix(ink1, paper, dit);
+  }
+  else if (m == 25) { // Lenticular lens ribs
+    float pitch = max(3.0, size * 1.5);
+    float f = fract(px.x / pitch);
+    float ribShade = 0.85 + 0.15 * sin(f * 3.14159);
+    float side = step(0.5, f);
+    vec3 cA = mix(ink1, paper, smoothstep(0.0, 1.0, L));
+    vec3 cB = mix(ink2, paper, smoothstep(0.1, 0.9, 1.0 - L));
+    o = mix(cA, cB, side) * ribShade;
+  }
   COLOR = vec4(o, 1.0);
 }`, { photo: 'photo' });
 const COMP_SH = own('sp_comp', `
@@ -1035,6 +2822,7 @@ void godot_fragment() {
 }`, { base: 'base', fx: 'fx', fxa: 'fxa' });
 const PRESS_SH = own('sp_press', `
 uniform sampler2D stack; uniform vec3 paper; uniform float misreg; uniform float grain; uniform float spread; uniform float seed;
+uniform float ringwear; uniform float wear; uniform float stock; uniform float coverScreen; uniform float stamp; uniform vec2 scr;
 float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
@@ -1046,10 +2834,74 @@ void godot_fragment() {
   vec2 t = 1.0 / sp_res * spread * 2.0 * (sp_res.x / 1024.0);
   vec3 d = min(min(texture(stack, UV + vec2(t.x, 0)).rgb, texture(stack, UV - vec2(t.x, 0)).rgb), min(texture(stack, UV + vec2(0, t.y)).rgb, texture(stack, UV - vec2(0, t.y)).rgb));
   c = mix(c, min(c, d), spread * (.4 + .6 * noise(px * .7 + seed)));
+
+  // Paper stocks
+  int st = int(stock + 0.5);
+  float paperTex = 0.0;
+  if (st == 1) { // Laid paper (horizontal laid ribs + vertical chain lines)
+    paperTex = sin(px.y * 1.5) * 0.04 + cos(px.x * 0.15) * 0.05;
+  } else if (st == 2) { // Linen / woven canvas
+    paperTex = (cos(px.x * 0.9) + cos(px.y * 0.9)) * 0.045 + (sin(px.x * 0.45) * sin(px.y * 0.45)) * 0.035;
+  } else if (st == 3) { // Coarse newsprint pulp flecks
+    float fleck = step(0.985, hash(px * 1.2 + seed)) * -0.15 + (hash(px * 0.6) - 0.5) * 0.08;
+    paperTex = fleck;
+  } else if (st == 4) { // Raw kraft board
+    float fiber = noise(vec2(px.x * 0.04, px.y * 0.8) + seed) * 0.12 - 0.04;
+    paperTex = fiber;
+  } else if (st == 5) { // Tip-on gloss lamination sheen
+    float sheen = smoothstep(0.2, 0.0, abs(UV.x * 0.9 + UV.y * 0.7 - 0.85)) * 0.12;
+    c += vec3(sheen);
+  }
+
+  // Paper grain
   float fib = noise(px * vec2(.08, .9) + seed) * .5 + noise(px * 1.3) * .5;
-  float g = (hash(px + seed) - .5) * .22 + (fib - .5) * .12;
+  float g = (hash(px + seed) - .5) * .22 + (fib - .5) * .12 + paperTex;
   c *= 1.0 + g * grain;
   c = mix(c, c * (0.94 + 0.06 * noise(px * .02 + seed)), grain);
+
+  // Whole-cover halftone screen (fine screen across entire cover)
+  if (coverScreen > 0.001) {
+    float sAng = radians(scr.y); float sSize = max(2.0, scr.x * 0.6);
+    float cAng = cos(sAng), sSin = sin(sAng); mat2 R = mat2(cAng, -sSin, sSin, cAng);
+    vec2 q = R * (UV * sp_res) / sSize; vec2 f = fract(q) - 0.5;
+    float lumC = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    float r = sqrt(clamp(1.0 - lumC, 0.0, 1.0)) * 0.65;
+    float dotD = 1.0 - smoothstep(r - 0.08, r + 0.08, length(f));
+    c = mix(c, mix(c, paper * 0.95, 1.0 - dotD), coverScreen * 0.75);
+  }
+
+  // Stamp ink starvation (dry ink voids in heavy solids)
+  if (stamp > 0.001) {
+    float lumC = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    if (lumC < 0.6) {
+      float voidN = hash(floor(px * 1.2) + seed * 5.0);
+      float starv = step(0.97 - stamp * 0.12, voidN) * (1.0 - lumC);
+      c = mix(c, paper, starv * stamp * 0.8);
+    }
+  }
+
+  // Vinyl ring wear (circular 12" LP pressure rub)
+  if (ringwear > 0.001) {
+    vec2 cUV = UV - 0.5; float dist = length(cUV);
+    float ringR = 0.465;
+    float ringN = noise(px * 0.08 + seed * 3.0) * 0.4 + noise(px * 0.2) * 0.3 + 0.3;
+    float ring = smoothstep(0.045, 0.0, abs(dist - ringR)) * ringN;
+    float seamTop = smoothstep(0.035, 0.0, UV.y) * (noise(px * 0.15) * 0.5 + 0.5);
+    float seamBot = smoothstep(0.035, 0.0, 1.0 - UV.y) * (noise(px * 0.15 + 4.0) * 0.5 + 0.5);
+    float totalWear = clamp(ring * 1.2 + (seamTop + seamBot) * 0.7, 0.0, 1.0) * ringwear;
+    c = mix(c, paper * 1.05, totalWear * 0.72);
+  }
+
+  // Corner and crease wear
+  if (wear > 0.001) {
+    float edgeDist = min(min(UV.x, 1.0 - UV.x), min(UV.y, 1.0 - UV.y));
+    float edgeScuff = smoothstep(0.08, 0.0, edgeDist) * (noise(px * 0.12 + seed * 2.0) * 0.6 + 0.4);
+    // Subtle diagonal corner dog-ear crease
+    float crease = smoothstep(0.003, 0.0, abs((UV.x + UV.y) - 0.22)) * smoothstep(0.25, 0.1, UV.x + UV.y);
+    float wTotal = clamp(edgeScuff * 0.8 + crease * 0.9, 0.0, 1.0) * wear;
+    c = mix(c, paper, wTotal * 0.65);
+  }
+
   COLOR = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`, { stack: 'stack' });
 
@@ -1069,7 +2921,7 @@ function tgt(name, w, h, float) {
 const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'difference', 'add', 'darken', 'lighten'];
 // Where a shader layer runs: the whole cover (the stack so far), or one isolated layer or element.
 const TARGET_GROUPS = [['cover', 'Whole cover'], ['background', 'Background (paper & bands)'], ['photo', 'Photo'], ['type', 'All type'], ['graphics', 'All graphics']];
-const KIND_LAYER = { band: 'background', type: 'type', graphics: 'graphics' };
+const KIND_LAYER = { band: 'background', matte: 'type', type: 'type', graphics: 'graphics' };
 const targetOf = l => l.target || 'cover';
 function targetLabel(t) {
   const g = TARGET_GROUPS.find(x => x[0] === t);
@@ -1254,7 +3106,7 @@ function renderTo(W, H) {
   const photoT = tgt('photo', W, H, false);
   eng.run(PHOTO_SH, photoT, { bind: { photo: pt }, res: [W, H], clear: true, values: {
     rect, img: pw, xf: [ph.zoom, ph.x, ph.y, ph.rot * Math.PI / 180], mode: [mode],
-    ink1: hex2rgb(col.ink1), ink2: hex2rgb(col.ink2), paper: hex2rgb(pr.mode === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
+    ink1: hex2rgb(col.ink1), ink2: hex2rgb(col.ink2), accent: hex2rgb(col.accent), paper: hex2rgb(pr.mode === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
     lv: ph.autoLevels === false ? [0, 1] : levelsFor(pt), tone: [ph.bright, ph.contrast, ph.gamma, 0], ht: [pr.dot * W / 100, pr.angle, pr.threshold, pr.softness], invert: [ph.invert ? 1 : 0] } });
   const errs = [];
   // Layers by target. Isolated ones are processed on their own before anything is composited.
@@ -1284,7 +3136,12 @@ function renderTo(W, H) {
     }
   }
   const out = tgt('out', W, H, false);
-  eng.run(PRESS_SH, out, { bind: { stack: stack.tex }, res: [W, H], values: { paper: hex2rgb(col.paper), misreg: [pr.misreg], grain: [pr.grain], spread: [pr.spread], seed: [state.seed % 97] } });
+  const stMap = { smooth: 0, laid: 1, linen: 2, newsprint: 3, kraft: 4, gloss: 5 };
+  eng.run(PRESS_SH, out, { bind: { stack: stack.tex }, res: [W, H], values: {
+    paper: hex2rgb(col.paper), misreg: [pr.misreg], grain: [pr.grain], spread: [pr.spread], seed: [state.seed % 97],
+    ringwear: [pr.ringwear || 0], wear: [pr.wear || 0], stock: [stMap[pr.stock] || 0], coverScreen: [pr.coverScreen || 0], stamp: [pr.stamp || 0],
+    scr: [pr.dot * W / 100, pr.angle]
+  } });
   lastError = errs.length ? `Couldn't compile: ${errs.join(', ')}` : '';
   return out;
 }
@@ -1431,9 +3288,13 @@ function randomize() {
     const tids = Object.keys(TEMPLATES).filter(t => t !== 'tape' || state.template === 'tape');
     state.template = state.template === 'tape' ? 'tape' : pick(r, tids);
     const pal = pick(r, PALETTES); state.palette = pal.id; state.colors = { ...pal };
-    state.print.mode = pick(r, ['duotone', 'halftone', 'halftone', 'tritone', 'overprint', 'threshold', 'lines', 'dither']);
+    state.print.mode = pick(r, PRINT_MODES.map(m => m[0]));
     state.print.dot = +(0.6 + r() * 1.4).toFixed(2); state.print.angle = pick(r, [15, 45, 75, 22.5]);
     state.print.misreg = +(r() * .6).toFixed(2); state.print.grain = +(.15 + r() * .5).toFixed(2);
+    state.print.stock = r() < .3 ? pick(r, ['laid', 'linen', 'newsprint', 'kraft', 'gloss']) : 'smooth';
+    state.print.ringwear = r() < .2 ? +(r() * .8).toFixed(2) : 0;
+    state.print.wear = r() < .2 ? +(r() * .5).toFixed(2) : 0;
+    state.print.stamp = r() < .15 ? +(r() * .4).toFixed(2) : 0;
     const display = FONTS.filter(f => f.group === 'display' || f.group === 'serif'), jp = FONTS.filter(f => f.group === 'japanese');
     state.type.wordFont = pick(r, display).id; state.type.kanaFont = pick(r, jp).id; state.type.smallFont = pick(r, FONTS.filter(f => f.group === 'mono')).id;
     shuffleGraphics(r);
@@ -1523,8 +3384,17 @@ function renderPanel() {
   const S = state;
   const kids = [];
   if (activeTab === 'template') {
-    kids.push(el('h3', {}, 'Layout'),
-      el('div', { className: 'grid' }, ...Object.values(TEMPLATES).map(tp => el('button', { className: 'tpl' + (S.template === tp.id ? ' on' : ''), onclick: () => { commit(() => S.template = tp.id); renderPanel(); } }, templateThumb(tp.id), el('span', {}, tp.name)))),
+    const allTemplates = Object.values(TEMPLATES);
+    const PREF_GROUPS = ['Editorial & Print', 'Swiss & Modernist', 'Jazz, Classical & Hi-Fi', 'Japanese & Obi', 'Vaporwave & Broadcast', 'Club, Zine & Underground', 'Physical Media'];
+    const groups = [...new Set(allTemplates.map(tp => tp.group || 'Editorial & Print'))].sort((a, b) => (PREF_GROUPS.indexOf(a) + 1 || 99) - (PREF_GROUPS.indexOf(b) + 1 || 99));
+    kids.push(el('h3', {}, `Layouts (${allTemplates.length})`),
+      el('div', { className: 'row' },
+        el('button', { onclick: () => { commit(() => { const tids = Object.keys(TEMPLATES).filter(t => t !== 'tape' || S.template === 'tape'); S.template = pick(Math.random, tids); }); renderPanel(); } }, 'Random layout'),
+        el('span', { className: 'note' }, `${allTemplates.length} layouts across ${groups.length} traditions`)),
+      ...groups.flatMap(g => [
+        el('h3', {}, g),
+        el('div', { className: 'grid' }, ...allTemplates.filter(tp => (tp.group || 'Editorial & Print') === g).map(tp => el('button', { className: 'tpl' + (S.template === tp.id ? ' on' : ''), onclick: () => { commit(() => S.template = tp.id); renderPanel(); } }, templateThumb(tp.id), el('span', {}, tp.name))))
+      ]),
       el('h3', {}, 'Palette'),
       el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => { const g = generatePalette(); S.palette = g.id; S.colors = g; }); renderPanel(); } }, 'Generate palette'),
         el('button', { onclick: () => { commit(() => { const g = pick(Math.random, PALETTES); S.palette = g.id; S.colors = { ...g }; }); renderPanel(); } }, 'Random from library'), el('span', { className: 'note' }, `${PALETTES.length} palettes`)),
@@ -1554,16 +3424,47 @@ function renderPanel() {
       check('Auto levels', () => S.photo.autoLevels !== false, v => S.photo.autoLevels = v),
       check('Invert', () => S.photo.invert, v => S.photo.invert = v));
   } else if (activeTab === 'print') {
-    kids.push(select('Treatment', PRINT_MODES, () => S.print.mode, v => { S.print.mode = v; setTimeout(renderPanel); }),
+    const STOCKS = [['smooth','Smooth card'],['laid','Laid cotton paper'],['linen','Woven linen / cloth'],['newsprint','Fibrous newsprint'],['kraft','Unbleached kraft board'],['gloss','Tip-on gloss lamination']];
+    const applyPreset = p => {
+      commit(() => {
+        if (p === 'halftone') Object.assign(S.print, { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .2, grain: .3, spread: .2, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 });
+        else if (p === 'riso') Object.assign(S.print, { mode: 'risograph', dot: 1.4, angle: 22.5, threshold: .5, softness: .15, misreg: .45, grain: .4, spread: .3, ringwear: 0, wear: 0, stock: 'newsprint', coverScreen: .15, stamp: 0 });
+        else if (p === 'xerox') Object.assign(S.print, { mode: 'xerox', dot: 1.8, angle: 45, threshold: .52, softness: .25, misreg: .35, grain: .55, spread: .4, ringwear: 0, wear: .25, stock: 'newsprint', coverScreen: 0, stamp: .2 });
+        else if (p === 'vintage') Object.assign(S.print, { mode: 'halftone', dot: 1.2, angle: 45, threshold: .5, softness: .1, misreg: .3, grain: .5, spread: .25, ringwear: .75, wear: .5, stock: 'laid', coverScreen: 0, stamp: .15 });
+        else if (p === 'engraved') Object.assign(S.print, { mode: 'crosshatch', dot: 1.0, angle: 45, threshold: .5, softness: .05, misreg: .15, grain: .3, spread: .15, ringwear: 0, wear: 0, stock: 'laid', coverScreen: 0, stamp: 0 });
+        else if (p === 'letterpress') Object.assign(S.print, { mode: 'woodcut', dot: 1.5, angle: 45, threshold: .5, softness: .08, misreg: .35, grain: .45, spread: .45, ringwear: 0, wear: .1, stock: 'kraft', coverScreen: 0, stamp: .5 });
+        else if (p === 'cmyk') Object.assign(S.print, { mode: 'cmyk', dot: 0.9, angle: 45, threshold: .5, softness: .05, misreg: .25, grain: .25, spread: .15, ringwear: 0, wear: 0, stock: 'gloss', coverScreen: 0, stamp: 0 });
+        else if (p === 'clean') Object.assign(S.print, { mode: 'colour', dot: 1.0, angle: 45, threshold: .5, softness: 0, misreg: 0, grain: 0, spread: 0, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 });
+      });
+      renderPanel();
+    };
+    kids.push(
+      el('h3', {}, 'Print Presets'),
+      el('div', { className: 'row' },
+        el('button', { className: 'mini', onclick: () => applyPreset('halftone') }, 'Offset Halftone'),
+        el('button', { className: 'mini', onclick: () => applyPreset('riso') }, 'Riso 2-Drum'),
+        el('button', { className: 'mini', onclick: () => applyPreset('xerox') }, 'Xerox Zine'),
+        el('button', { className: 'mini', onclick: () => applyPreset('vintage') }, 'Vintage LP Wear'),
+        el('button', { className: 'mini', onclick: () => applyPreset('cmyk') }, 'CMYK Rosette'),
+        el('button', { className: 'mini', onclick: () => applyPreset('engraved') }, 'Engraved'),
+        el('button', { className: 'mini', onclick: () => applyPreset('letterpress') }, 'Letterpress'),
+        el('button', { className: 'mini', onclick: () => applyPreset('clean') }, 'Clean Digital')),
+      el('h3', {}, `Photo Treatment (${PRINT_MODES.length})`),
+      select('Treatment', PRINT_MODES, () => S.print.mode, v => { S.print.mode = v; setTimeout(renderPanel); }),
       slider('Dot / line size', () => S.print.dot, v => S.print.dot = v, .2, 4, .01, '% of the cover width'),
       slider('Screen angle', () => S.print.angle, v => S.print.angle = v, 0, 90, .5),
       slider('Threshold', () => S.print.threshold, v => S.print.threshold = v, .05, .95),
       slider('Noise', () => S.print.softness, v => S.print.softness = v, 0, .6),
-      el('h3', {}, 'Press'),
+      el('h3', {}, 'Press & Physical Wear'),
+      select('Paper stock', STOCKS, () => S.print.stock || 'smooth', v => S.print.stock = v),
+      slider('Paper grain', () => S.print.grain, v => S.print.grain = v, 0, 1.5),
       slider('Misregistration', () => S.print.misreg, v => S.print.misreg = v, 0, 2),
       slider('Ink spread', () => S.print.spread, v => S.print.spread = v, 0, 1),
-      slider('Paper grain', () => S.print.grain, v => S.print.grain = v, 0, 1.5),
-      el('div', { className: 'note' }, 'Inks come from the palette: Ink 1 prints the shadows, Ink 2 the second plate, Paper the highlights.'));
+      slider('Vinyl ring wear', () => S.print.ringwear || 0, v => S.print.ringwear = v, 0, 1.5, .01, '12-inch vinyl disc jacket impression'),
+      slider('Corner & fold wear', () => S.print.wear || 0, v => S.print.wear = v, 0, 1.5, .01, 'Edge scuffing and paper crease lines'),
+      slider('Screen whole sleeve', () => S.print.coverScreen || 0, v => S.print.coverScreen = v, 0, 1, .01, 'Halftone / riso screen across type & bands'),
+      slider('Ink starvation', () => S.print.stamp || 0, v => S.print.stamp = v, 0, 1, .01, 'Dry-ink letterpress / stamp voids'),
+      el('div', { className: 'note' }, 'Inks come from the palette: Ink 1 prints the shadows, Ink 2 the second plate, Accent for third-plate treatments, and Paper the highlight stock.'));
   } else if (activeTab === 'type') {
     const T2 = S.type;
     const auto = (key, src) => { if (T2['autoKana' + key]) T2['kana' + key] = toKatakana(T2[src]); };
@@ -1828,7 +3729,7 @@ function inHit(h, [x, y]) {
   const pad = lastHits.W * .006;
   return Math.abs(lx) <= Math.abs(h.w) / 2 + pad && Math.abs(ly) <= Math.abs(h.h) / 2 + pad;
 }
-const RANK = { graphics: 3, type: 3, photo: 2, band: 1 };
+const RANK = { graphics: 3, type: 3, photo: 2, matte: 1, band: 1 };
 function pickAt(pt) {
   let best = null;
   lastHits.hits.forEach((h, i) => { if (h.hide || !inHit(h, pt)) return; const score = RANK[h.kind] * 1e4 + i - (h.w * h.h) / (lastHits.W * lastHits.H); if (!best || score > best.score) best = { h, score }; });
