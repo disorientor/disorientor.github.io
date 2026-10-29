@@ -32,7 +32,7 @@ header{display:flex;align-items:center;gap:8px;padding-block:10px;flex-wrap:wrap
 main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding-bottom:16px}
 #stage{min-height:0;min-width:0;display:grid;grid-template-rows:1fr auto;place-items:center;position:relative;overflow:hidden}
 #frame{position:relative;line-height:0}
-#ov{position:absolute;inset:0;pointer-events:none}
+#ov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
 #tool{justify-self:start;padding-top:8px}
 #tool .mini{padding:5px 10px}
 #selName{margin-left:6px}
@@ -1662,7 +1662,9 @@ function placement(id) {
 function selectItem(id) { selId = id; const h = lastHits.hits.find(h => h.id === id); $('selName').textContent = h ? h.name : ''; drawOverlay(); if (activeTab === 'arrange') renderPanel(); }
 function drawOverlay() {
   const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+  // The overlay holds d device pixels per CSS pixel but is shown at exactly the cover's CSS size.
   ov.width = Math.round(r.width * d); ov.height = Math.round(r.height * d);
+  ov.style.width = r.width + 'px'; ov.style.height = r.height + 'px';
   const k = ov.getContext('2d'); k.clearRect(0, 0, ov.width, ov.height);
   if (mode !== 'move') return;
   const sx = ov.width / lastHits.W, sy = ov.height / lastHits.H;

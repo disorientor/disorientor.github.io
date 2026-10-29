@@ -31,6 +31,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
     const shot = async name => { const r = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(outDir, name + '.png'), Buffer.from(r.result.data, 'base64')); };
     await send('Runtime.enable'); await send('Page.enable');
     if (phone) await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    else await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
     // The tools sit behind tools-access/; mark this tab unlocked the way a correct password does.
     await send('Page.navigate', { url: 'http://127.0.0.1:8132/tools-access/' }); await sleep(1200);
     await evaluate(`sessionStorage.setItem('disorientor-tools:' + TOOLS_ACCESS_CONFIG.verifier, 'unlocked')`);
@@ -81,6 +82,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       const moved = JSON.parse(await evaluate(`JSON.stringify(state.layout.headline.artist)`));
       console.log('drag', JSON.stringify(moved));
       assert(moved.x > .05 && moved.y > .02 && moved.s > 1.1, 'drag/scale did not move the wordmark');
+      // The outline overlay must sit exactly over the cover at any pixel density.
+      const ovr = JSON.parse(await evaluate(`JSON.stringify([cv.getBoundingClientRect(), ov.getBoundingClientRect(), devicePixelRatio].map(r => r.toJSON ? r.toJSON() : r))`));
+      console.log('overlay', JSON.stringify({ dpr: ovr[2], cover: [ovr[0].width, ovr[0].height], overlay: [ovr[1].width, ovr[1].height] }));
+      assert(Math.abs(ovr[0].left - ovr[1].left) < 1 && Math.abs(ovr[0].top - ovr[1].top) < 1 && Math.abs(ovr[0].width - ovr[1].width) < 1 && Math.abs(ovr[0].height - ovr[1].height) < 1, 'overlay does not match the cover');
       await shot('arrange-tab');
       const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
       console.log('slots', slots);
