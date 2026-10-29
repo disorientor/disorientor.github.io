@@ -50,9 +50,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       console.log(JSON.parse(r).join('\n')); return;
     }
     // Katakana from Latin text.
-    const kana = await evaluate('JSON.stringify(["Macroblank","Proxima Centauri","The Era of Information","Despair","Stories"].map(toKatakana))');
+    const kana = await evaluate('JSON.stringify(["Disorientor","Ex Cathedra","The Glass Room","Fluorescent","Stories"].map(toKatakana))');
     console.log('katakana', kana);
-    assert.equal(JSON.parse(kana)[0], 'マクロブランク');
+    assert.equal(JSON.parse(kana)[0], 'ディスオリエンター');
     if (!phone) {
       for (const tpl of Object.keys(await evaluate('Object.fromEntries(Object.keys(TEMPLATES).map(k=>[k,1]))'))) {
         await evaluate(`state.template = ${JSON.stringify(tpl)}; renderPanel(); scheduleRender(); new Promise(r => setTimeout(r, 900))`);

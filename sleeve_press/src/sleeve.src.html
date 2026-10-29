@@ -144,7 +144,7 @@ const KANA = {
   kwa:'クァ',kwi:'クィ',kwe:'クェ',kwo:'クォ',dyu:'デュ',tyu:'テュ'
 };
 const LONE = { k:'ク',g:'グ',s:'ス',z:'ズ',t:'ト',d:'ド',n:'ン',h:'',b:'ブ',p:'プ',m:'ム',r:'ル',f:'フ',v:'ヴ',j:'ジ',w:'ウ',y:'イ',l:'ル',ch:'ッチ',sh:'シュ',ts:'ツ' };
-const WORDS = { the:'ザ',of:'オブ',and:'アンド',a:'ア',in:'イン',to:'トゥ',we:'ウィー',all:'オール',end:'エンド',love:'ラブ',you:'ユー',my:'マイ',i:'アイ',
+const WORDS = { disorientor:'ディスオリエンター',haecceity:'ヘクシーイティ',cathedra:'カテドラ',ex:'エクス',the:'ザ',of:'オブ',and:'アンド',a:'ア',in:'イン',to:'トゥ',we:'ウィー',all:'オール',end:'エンド',love:'ラブ',you:'ユー',my:'マイ',i:'アイ',
   night:'ナイト',new:'ニュー',world:'ワールド',city:'シティ',dream:'ドリーム',blue:'ブルー',ghost:'ゴースト',town:'タウン',party:'パーティー',down:'ダウン',
   story:'ストーリー',stories:'ストーリーズ',become:'ビカム',will:'ウィル',be:'ビー',no:'ノー',one:'ワン',time:'タイム',heart:'ハート',girl:'ガール',boy:'ボーイ',
   information:'インフォメーション',era:'エラ',hero:'ヒーロー',sky:'スカイ',light:'ライト',dark:'ダーク',space:'スペース',signal:'シグナル',music:'ミュージック' };
@@ -164,7 +164,8 @@ function wordKana(w) {
   while (i < w.length) {
     const c = w[i];
     if (c === '-') { out += 'ー'; i++; continue; }
-    if (i + 1 < w.length && c === w[i + 1] && !'aeioun-'.includes(c)) { out += 'ッ'; i++; continue; }
+    // A doubled consonant is a glottal stop (ッ) only before k, t and p sounds; otherwise it reads once.
+    if (i + 1 < w.length && c === w[i + 1] && !'aeioun-'.includes(c)) { if ('ktpc'.includes(c)) out += 'ッ'; i++; continue; }
     if ('aeiou'.includes(c) && w[i - 1] === c) { out += 'ー'; i++; continue; }
     let hit = false;
     for (const L of [3, 2, 1]) {
@@ -211,14 +212,14 @@ const fontsReady = () => Promise.all(Object.values(fontLoads));
 const PALETTES = [
   ['kiln','#2a6fa8','#0d1424','#5fb4e0','#ec5b1b','#f3efe6'],
   ['shock','#c8c6cc','#1b1a1f','#ff2a86','#ff2a86','#1b1a1f'],
-  ['despair','#f2c3c0','#191315','#e2232a','#e2232a','#f6efe9'],
+  ['rose','#f2c3c0','#191315','#e2232a','#e2232a','#f6efe9'],
   ['ultraviolet','#f3f1ea','#13105a','#3d6bff','#ff3fbf','#13105a'],
-  ['centauri','#e11d16','#0a0a0a','#5c0906','#0a0a0a','#f2eee5'],
-  ['stories','#a5e46c','#e3201b','#2f62ff','#e3201b','#ffffff'],
-  ['griffin','#14a6cb','#e2261c','#0a1a2a','#ffffff','#f5f2ea'],
+  ['signal','#e11d16','#0a0a0a','#5c0906','#0a0a0a','#f2eee5'],
+  ['lime','#a5e46c','#e3201b','#2f62ff','#e3201b','#ffffff'],
+  ['cyan','#14a6cb','#e2261c','#0a1a2a','#ffffff','#f5f2ea'],
   ['flesh','#cbb48e','#141210','#4a3a2a','#141210','#e8dcc0'],
   ['xerox','#f1efe9','#121212','#e43a2f','#e43a2f','#121212'],
-  ['missing','#0b0b0b','#d8241c','#f2f2f2','#f2f2f2','#d8241c'],
+  ['void','#0b0b0b','#d8241c','#f2f2f2','#f2f2f2','#d8241c'],
   ['riso','#f4f1e4','#ff48b0','#0078bf','#ffe800','#0078bf'],
   ['acid','#efff3a','#141414','#ff3d00','#141414','#ff3d00'],
   ['sakura','#ffd9e4','#2b1a33','#ff4f79','#2b1a33','#ffffff'],
@@ -546,14 +547,14 @@ function layerInfo(id) {
 }
 
 const DEFAULT = () => ({
-  v: 1, seed: 1234, template: 'headline', palette: 'despair',
+  v: 2, seed: 1234, template: 'headline', palette: 'rose',
   colors: { ...PALETTES[2] },
   photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, src: 'shader' },
   print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2 },
-  type: { artist: 'MACROBLANK', title: 'Despair', kanaArtist: 'マクロブランク', kanaTitle: '絶望に負けた', autoKanaArtist: true, autoKanaTitle: false,
-    tagline: 'COMPACT DISC DIGITAL AUDIO', catalogue: 'SP-0042', side: 'side a / side b', mark: 'hazard',
+  type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
+    tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b', mark: 'hazard',
     wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
-    tracksA: 'Despair\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Seagull\nGlass Room\nEnd Credits' },
+    tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
   layers: [ { id: 'PHOTO', fixed: true }, { id: 'TYPE', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }) ],
   export: { size: 3000, guides: false, dpi: 300 }
 });
@@ -574,7 +575,7 @@ const undoStack = [];
 function snapshot() { undoStack.push(JSON.stringify(state)); if (undoStack.length > 64) undoStack.shift(); }
 function commit(fn, noHistory) { if (!noHistory) snapshot(); fn && fn(); save(); scheduleRender(); }
 function save() { try { localStorage.setItem('sleeve-press', JSON.stringify(state)); } catch {} }
-function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); return s && s.v === 1 ? s : null; } catch { return null; } }
+function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); return s && s.v === 2 ? s : null; } catch { return null; } }
 function savePhoto() {
   if (!photoImg) return;
   try {
@@ -949,9 +950,9 @@ function saveProject() {
 function openProject(file) {
   file.text().then(t => {
     const d = JSON.parse(t);
-    if (!d || d.v !== 1 || !Array.isArray(d.layers)) throw new Error('not a sleeve+press project');
+    if (!d || !(d.v >= 1) || !Array.isArray(d.layers)) throw new Error('not a sleeve+press project');
     const photo = d.photoData; delete d.photoData;
-    commit(() => { state = { ...DEFAULT(), ...d }; });
+    commit(() => { state = { ...DEFAULT(), ...d, v: 2 }; });
     if (photo) loadPhotoURL(photo, true), localStorage.setItem('sleeve-press-photo', photo);
     renderPanel(); toast('Project opened.');
   }).catch(e => toast("Couldn't open that project: " + e.message));
@@ -1102,7 +1103,7 @@ function renderPanel() {
       check('Auto from artist', () => T2.autoKanaArtist, v => { T2.autoKanaArtist = v; auto('Artist', 'artist'); setTimeout(renderPanel); }),
       text('Title ア', () => T2.kanaTitle, v => { T2.kanaTitle = v; T2.autoKanaTitle = false; }),
       check('Auto from title', () => T2.autoKanaTitle, v => { T2.autoKanaTitle = v; auto('Title', 'title'); setTimeout(renderPanel); }),
-      el('div', { className: 'note' }, 'Katakana is sounded out from the Latin text (MACROBLANK → マクロブランク). Type over it for real Japanese.'),
+      el('div', { className: 'note' }, 'Katakana is sounded out from the Latin text (DISORIENTOR → ディスオリエンター). Type over it for real Japanese.'),
       el('h3', {}, 'Small print'),
       text('Tagline', () => T2.tagline, v => T2.tagline = v),
       text('Catalogue no.', () => T2.catalogue, v => T2.catalogue = v),
