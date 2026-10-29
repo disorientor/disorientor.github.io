@@ -426,7 +426,8 @@ function wordmark(ctx, text, x, y, w, h, o) {
    the cover), scale, rotation and hide for that id are applied around the element's box, and the box is
    recorded so the element can be picked and dragged on the cover. */
 let LAY = { W: 1, H: 1, hits: [] };
-const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...((state.layout || {})[state.template] || {})[id] });
+const extraOf = id => id && id.startsWith('x:') ? (state.extras || []).find(e => 'x:' + e.uid === id) : null;
+const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...(extraOf(id) || ((state.layout || {})[state.template] || {})[id]) });
 function E(c, id, name, kind, x, y, w, h, fn) {
   const o = place(id);
   const cx = x + w / 2 + o.x * LAY.W, cy = y + h / 2 + o.y * LAY.H;
@@ -854,7 +855,7 @@ const DEFAULT = () => ({
     tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b',
     wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
     tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
-  graphics: DEFAULT_GRAPHICS(),
+  graphics: DEFAULT_GRAPHICS(), extras: [],
   layout: {},
   layers: [ { id: 'PHOTO', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }), { id: 'TYPE', fixed: true }, { id: 'GRAPHICS', fixed: true } ],
   export: { size: 3000, guides: false, dpi: 300 }
@@ -879,6 +880,7 @@ function save() { try { localStorage.setItem('sleeve-press', JSON.stringify(stat
 function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); if (s && s.v === 2) { s.v = 3; s.graphics = DEFAULT_GRAPHICS(); delete s.type.mark; } return s && s.v === 3 ? normalize(s) : null; } catch { return null; } }
 // Older saves have no graphics layer or layout map; graphics then go straight above the type.
 function normalize(s) {
+  s.extras = s.extras || [];
   s.layout = s.layout || {};
   if (!s.layers.some(l => l.id === 'GRAPHICS')) s.layers.splice(s.layers.findIndex(l => l.id === 'TYPE') + 1, 0, { id: 'GRAPHICS', fixed: true });
   return s;
@@ -1026,6 +1028,31 @@ function dims(maxSide) {
 }
 // Lays out the template at W x H: the paper/bands, type and graphics canvases, the placed photo frame and
 // every element's box (LAY.hits) for picking on the cover.
+/* Free graphics: any number, added from the Graphics tab. Each starts centred and stores its own move, scale,
+   rotation and ink, so it stays put when the template changes. */
+function extraBox(id, W, H) {
+  const g = MICRO_BY[id], m = Math.min(W, H), sz = g && g.shape === 'wide' ? [.34, .1] : g && g.shape === 'tall' ? [.1, .34] : [.2, .2];
+  return [W / 2 - sz[0] * m / 2, H / 2 - sz[1] * m / 2, sz[0] * m, sz[1] * m];
+}
+function drawExtras(W, H) {
+  (state.extras || []).forEach((ex, i) => {
+    const g = MICRO_BY[ex.id];
+    if (!g) return;
+    const [x, y, w, h] = extraBox(ex.id, W, H), ink = ex.ink && ex.ink !== 'auto' ? state.colors[ex.ink] : state.colors.ink1;
+    E(GFX, 'x:' + ex.uid, `${g.name} #${i + 1}`, 'graphics', x, y, w, h, k => drawMicro(k, ex.id, x, y, w, h, ink, state.seed + i * 17));
+  });
+}
+function addExtra(id, from) {
+  const ex = { uid: Math.random().toString(36).slice(2, 8), id, ink: from ? from.ink : 'auto', x: from ? from.x + .04 : (Math.random() - .5) * .6, y: from ? from.y + .04 : (Math.random() - .5) * .6, s: from ? from.s : 1, r: from ? from.r : 0, hide: false };
+  commit(() => (state.extras = state.extras || []).push(ex));
+  activeSlot = 'x:' + ex.uid; selectItem(activeSlot);
+  return ex;
+}
+function removeExtra(id) {
+  commit(() => state.extras = (state.extras || []).filter(e => 'x:' + e.uid !== id));
+  if (selId === id) selectItem(null);
+  if (activeSlot === id) activeSlot = 'add';
+}
 function buildCover(W, H) {
   LAY = { W, H, hits: [] };
   const L = TEMPLATES[state.template].fn(W, H, state.colors, state.type);
@@ -1033,7 +1060,7 @@ function buildCover(W, H) {
   const under = canvasLayer(W, H, k => L.under(k), state.colors.paper);
   const gfx = document.createElement('canvas'); gfx.width = W; gfx.height = H; GFX = gfx.getContext('2d');
   let type;
-  try { type = canvasLayer(W, H, k => L.over(k)); } finally { GFX = null; }
+  try { type = canvasLayer(W, H, k => L.over(k)); drawExtras(W, H); } finally { GFX = null; }
   return { rect, under, type, gfx, hits: LAY.hits };
 }
 function canvasLayer(W, H, draw, bg) {
@@ -1333,7 +1360,7 @@ function randomize() {
 
 /* ---------- controls ---------- */
 const TABS = [['template', 'Template'], ['arrange', 'Arrange'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
-let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'emblem';
+let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'add';
 function renderTabs() {
   $('tabs').replaceChildren(...TABS.map(([id, label]) => el('button', { className: activeTab === id ? 'on' : '', role: 'tab', 'aria-selected': activeTab === id, onclick: () => { activeTab = id; renderTabs(); renderPanel(); } }, label)));
 }
@@ -1503,7 +1530,8 @@ function arrangePanel() {
     list.append(el('div', { className: 'layer' + (selId === h.id ? ' sel' : '') },
       el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selectItem(selId === h.id ? null : h.id); renderPanel(); } },
         el('b', {}, h.name + (o.hide ? ' (hidden)' : '')), el('span', { className: 'note' }, h.kind),
-        el('button', { className: 'mini' + (o.hide ? ' on' : ''), title: o.hide ? 'Show' : 'Hide', onclick: () => { commit(() => placement(h.id).hide = !o.hide); renderPanel(); } }, o.hide ? 'Show' : 'Hide'))));
+        el('button', { className: 'mini' + (o.hide ? ' on' : ''), title: o.hide ? 'Show' : 'Hide', onclick: () => { commit(() => placement(h.id).hide = !o.hide); renderPanel(); } }, o.hide ? 'Show' : 'Hide'),
+        extraOf(h.id) ? el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { removeExtra(h.id); renderPanel(); } }, '×') : null)));
     if (selId === h.id) {
       const pl = placement(h.id);
       list.lastChild.append(el('div', { className: 'lb' },
@@ -1517,28 +1545,60 @@ function arrangePanel() {
 }
 function graphicsPanel() {
   const S = state, slots = slotsFor(S.template), out = [];
-  S.graphics = S.graphics || DEFAULT_GRAPHICS();
-  if (!slots.includes(activeSlot)) activeSlot = slots[0];
-  out.push(el('h3', {}, 'Slots in this layout'),
-    el('div', { className: 'row' }, ...slots.map(sl => el('button', { className: activeSlot === sl ? 'on' : '', onclick: () => { activeSlot = sl; renderPanel(); } }, SLOTS[sl]))),
-    el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => shuffleGraphics(Math.random)); renderPanel(); } }, 'Shuffle all'), el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed')));
-  if (!activeSlot) return [...out, el('div', { className: 'note' }, 'This layout has no graphic slots.')];
-  const cur = S.graphics[activeSlot] || (S.graphics[activeSlot] = { id: 'none', ink: 'auto' });
-  out.push(select('Ink', INKS, () => cur.ink || 'auto', v => cur.ink = v));
-  const ink = cur.ink && cur.ink !== 'auto' ? S.colors[cur.ink] : S.colors.ink1;
-  const thumb = id => {
-    const c = el('canvas', { width: 96, height: 96 });
-    const k = c.getContext('2d'); k.fillStyle = S.colors.paper; k.fillRect(0, 0, 96, 96);
-    const g = MICRO_BY[id];
-    if (g) g.shape === 'sq' ? drawMicro(k, id, 12, 12, 72, 72, ink, S.seed) : g.shape === 'wide' ? drawMicro(k, id, 8, 32, 80, 32, ink, S.seed) : drawMicro(k, id, 32, 8, 32, 80, ink, S.seed);
+  S.graphics = S.graphics || DEFAULT_GRAPHICS(); S.extras = S.extras || [];
+  const valid = ['add', ...slots, ...S.extras.map(e => 'x:' + e.uid)];
+  if (!valid.includes(activeSlot)) activeSlot = 'add';
+  const ex = extraOf(activeSlot), slot = !ex && activeSlot !== 'add' ? activeSlot : null;
+  const cur = ex || (slot ? (S.graphics[slot] || (S.graphics[slot] = { id: 'none', ink: 'auto' })) : null);
+  const inkOf = o => o && o.ink && o.ink !== 'auto' ? S.colors[o.ink] : S.colors.ink1;
+  const thumb = (id, ink, size = 96) => {
+    const c = el('canvas', { width: size, height: size });
+    const k = c.getContext('2d'); k.fillStyle = S.colors.paper; k.fillRect(0, 0, size, size);
+    const g = MICRO_BY[id], f = size / 96;
+    if (g) g.shape === 'sq' ? drawMicro(k, id, 12 * f, 12 * f, 72 * f, 72 * f, ink, S.seed) : g.shape === 'wide' ? drawMicro(k, id, 8 * f, 32 * f, 80 * f, 32 * f, ink, S.seed) : drawMicro(k, id, 32 * f, 8 * f, 32 * f, 80 * f, ink, S.seed);
     return c;
   };
-  const tile = (id, name) => el('button', { className: 'tpl' + (cur.id === id ? ' on' : ''), title: name, onclick: () => { commit(() => cur.id = id); renderPanel(); } }, id === 'none' ? el('canvas', { width: 96, height: 96 }) : thumb(id), el('span', {}, name));
-  out.push(el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(84px,1fr))' }, tile('none', 'None')));
+  // Free graphics.
+  out.push(el('h3', {}, `Your graphics (${S.extras.length})`),
+    el('div', { className: 'row' },
+      el('button', { className: activeSlot === 'add' ? 'on' : '', onclick: () => { activeSlot = 'add'; renderPanel(); } }, '+ Add graphics'),
+      S.extras.length ? el('button', { onclick: () => { if (confirm(`Remove all ${S.extras.length} added graphics?`)) { commit(() => S.extras = []); activeSlot = 'add'; selectItem(null); renderPanel(); } } }, 'Remove all') : null));
+  if (S.extras.length) {
+    const list = el('div', { style: 'display:flex;flex-direction:column;gap:4px' });
+    S.extras.forEach((e, i) => {
+      const id = 'x:' + e.uid, g = MICRO_BY[e.id], tn = thumb(e.id, inkOf(e), 40);
+      tn.style.cssText = 'width:28px;height:28px;border-radius:4px;flex:none';
+      const move = d => { const j = i + d; if (j < 0 || j >= S.extras.length) return; commit(() => [S.extras[i], S.extras[j]] = [S.extras[j], S.extras[i]]); renderPanel(); };
+      list.append(el('div', { className: 'layer' + (activeSlot === id ? ' sel' : '') },
+        el('div', { className: 'lh', onclick: ev => { if (ev.target.closest('button')) return; activeSlot = id; selectItem(id); renderPanel(); } },
+          tn, el('b', {}, `${g ? g.name : e.id} #${i + 1}`),
+          el('button', { className: 'mini', title: 'Draw earlier (behind)', 'aria-label': 'Move back', onclick: () => move(-1) }, '↑'),
+          el('button', { className: 'mini', title: 'Draw later (in front)', 'aria-label': 'Move forward', onclick: () => move(1) }, '↓'),
+          el('button', { className: 'mini' + (e.hide ? ' on' : ''), title: e.hide ? 'Show' : 'Hide', onclick: () => { commit(() => e.hide = !e.hide); renderPanel(); } }, e.hide ? 'Show' : 'Hide'),
+          el('button', { className: 'mini', title: 'Duplicate', 'aria-label': 'Duplicate', onclick: () => { addExtra(e.id, e); renderPanel(); } }, '⧉'),
+          el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { removeExtra(id); renderPanel(); } }, '×'))));
+    });
+    out.push(list);
+  }
+  // Template slots.
+  if (slots.length) out.push(el('h3', {}, 'This layout\'s slots'), el('div', { className: 'row' }, ...slots.map(sl => el('button', { className: activeSlot === sl ? 'on' : '', onclick: () => { activeSlot = sl; renderPanel(); } }, SLOTS[sl]))));
+  out.push(el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => shuffleGraphics(Math.random)); renderPanel(); } }, 'Shuffle slots'), el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed')));
+  // What a tile click does.
+  out.push(el('h3', {}, activeSlot === 'add' ? 'Click to add — as many as you like' : ex ? `Swap ${MICRO_BY[ex.id] ? MICRO_BY[ex.id].name : ''} #${S.extras.indexOf(ex) + 1}` : `Fill the ${SLOTS[slot]} slot`));
+  if (cur) out.push(select('Ink', INKS, () => cur.ink || 'auto', v => cur.ink = v));
+  const ink = activeSlot === 'add' ? S.colors.ink1 : inkOf(cur);
+  const pickTile = id => {
+    if (activeSlot === 'add') { if (id !== 'none') addExtra(id); }
+    else if (ex) { if (id === 'none') removeExtra(activeSlot); else commit(() => ex.id = id); }
+    else commit(() => cur.id = id);
+    renderPanel();
+  };
+  const tile = (id, name) => el('button', { className: 'tpl' + (cur && cur.id === id ? ' on' : ''), title: name, onclick: () => pickTile(id) }, id === 'none' ? el('canvas', { width: 96, height: 96 }) : thumb(id, ink), el('span', {}, name));
+  if (activeSlot !== 'add') out.push(el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(84px,1fr))' }, tile('none', ex ? 'Delete' : 'None')));
   for (const era of MICRO_ERAS) {
     out.push(el('h3', {}, era), el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(84px,1fr))' }, ...MICRO.filter(m => m[2] === era).map(m => tile(m[0], m[1]))));
   }
-  out.push(el('div', { className: 'note' }, 'All of these are drawn from plain geometry for this tool: no logos, trademarks or marks from real releases, apart from your own disorientor logo.'));
+  out.push(el('div', { className: 'note' }, 'Added graphics land somewhere on the cover: drag them in Move mode, wheel to scale, Shift+wheel to rotate, Delete to remove. They keep their place when you switch templates. All are drawn from plain geometry for this tool: no logos, trademarks or marks from real releases, apart from your own disorientor logo.'));
   return out;
 }
 function shaderPanel() {
@@ -1655,6 +1715,8 @@ function pickAt(pt) {
   return best && best.h;
 }
 function placement(id) {
+  const ex = extraOf(id);
+  if (ex) return ex;
   state.layout = state.layout || {};
   const T3 = state.layout[state.template] || (state.layout[state.template] = {});
   return T3[id] || (T3[id] = { x: 0, y: 0, s: 1, r: 0, hide: false });
@@ -1746,6 +1808,8 @@ addEventListener('keydown', e => {
   else if (e.key === 'v') setMode('move');
   else if (e.key === 'p') setMode('pan');
   else if (e.key === 'Escape') selectItem(null);
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && extraOf(selId)) { e.preventDefault(); removeExtra(selId); renderPanel(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && extraOf(selId)) { e.preventDefault(); addExtra(extraOf(selId).id, extraOf(selId)); renderPanel(); }
   else if (selId && /^(Arrow(Up|Down|Left|Right)|\+|=|-|\[|\])$/.test(e.key)) {
     e.preventDefault(); snapshot();
     const o = placement(selId), st = e.shiftKey ? .02 : .0025;

@@ -87,6 +87,21 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       console.log('overlay', JSON.stringify({ dpr: ovr[2], cover: [ovr[0].width, ovr[0].height], overlay: [ovr[1].width, ovr[1].height] }));
       assert(Math.abs(ovr[0].left - ovr[1].left) < 1 && Math.abs(ovr[0].top - ovr[1].top) < 1 && Math.abs(ovr[0].width - ovr[1].width) < 1 && Math.abs(ovr[0].height - ovr[1].height) < 1, 'overlay does not match the cover');
       await shot('arrange-tab');
+      // Add 12 free graphics, move one, duplicate it, delete another, then switch template: they must persist.
+      const extras = JSON.parse(await evaluate(`(async () => {
+        activeTab = 'graphics'; activeSlot = 'add'; renderTabs(); renderPanel();
+        const ids = ['target', 'burst16', 'barcode', 'sparkles', 'wire-sphere', 'disorientor', 'chevrons', 'moon-phases', 'registration', 'halftone-disc', 'pixel-arrow', 'sunrise'];
+        for (const id of ids) { activeSlot = 'add'; addExtra(id); }
+        const first = state.extras[0]; first.x = -.3; first.y = -.3; first.s = 1.5; first.r = 20;
+        addExtra(first.id, first); removeExtra('x:' + state.extras[3].uid);
+        state.template = 'vhs'; scheduleRender(); await new Promise(r => setTimeout(r, 900));
+        const hits = lastHits.hits.filter(h => h.id.startsWith('x:')).length;
+        renderPanel();
+        return JSON.stringify({ count: state.extras.length, hits, dup: [state.extras.at(-1).x.toFixed(2), state.extras.at(-1).s] });
+      })()`));
+      console.log('extras', JSON.stringify(extras));
+      assert(extras.count === 12 && extras.hits === 12, 'free graphics were not added, kept or drawn');
+      await shot('extras');
       const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
       console.log('slots', slots);
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-1');
