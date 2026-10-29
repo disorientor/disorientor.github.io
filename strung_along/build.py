@@ -14,7 +14,7 @@ if out.exists() and '--force' not in sys.argv:
 
 font = base64.b64encode((root/'fonts/DepartureMono-Regular.otf').read_bytes()).decode()
 src = (root/'src/chordgrid.src.html').read_text().replace('__FONT__', font)
-head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
+head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style id="tools-access-lock">html{visibility:hidden!important}</style><script src="../tools-access/config.js"></script><script src="../tools-access/access.js"></script></head><body>'
 html = head + src + '</body></html>'
 stamp = STAMP.pattern.replace(r'([0-9a-f]{64})', sha(html)).replace('\\', '')
 out.write_text(html.replace('<!doctype html>', '<!doctype html>' + stamp, 1))

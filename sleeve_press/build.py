@@ -28,7 +28,7 @@ engine = (root/'src/engine.js').read_text()
 logo = re.search(r' d="([^"]+)"', (root/'assets/disorientor-logo.svg').read_text()).group(1)
 micro = (root/'src/micro.js').read_text().replace('__LOGO__', logo)
 src = (root/'src/sleeve.src.html').read_text().replace('__ENGINE__', engine).replace('__MICRO__', micro).replace('__SHADERS__', data).replace('__FONT__', font)
-head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
+head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style id="tools-access-lock">html{visibility:hidden!important}</style><script src="../tools-access/config.js"></script><script src="../tools-access/access.js"></script></head><body>'
 html = head + src + '</body></html>'
 site.mkdir(exist_ok=True)
 (site/'fonts').mkdir(exist_ok=True)

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tools access · disorientor</title>
+  <link rel="stylesheet" href="../departure-mono.css">
+  <style>
+    :root { color-scheme: dark; font-family: 'Departure Mono', monospace; background: #080a0a; color: #ddd; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: 24px; }
+    main { width: 100%; max-width: 420px; border: 1px solid #303737; padding: clamp(24px, 6vw, 40px); background: #101414; }
+    h1 { font-size: 22px; font-weight: normal; letter-spacing: .12em; color: #4df2ff; }
+    p, label, a, button, input { font-size: 12px; line-height: 1.7; }
+    p { color: #a4aeae; }
+    label { display: block; margin: 28px 0 8px; }
+    input { width: 100%; padding: 12px; border: 1px solid #536060; background: #080a0a; color: white; font-family: inherit; }
+    button { width: 100%; margin-top: 16px; padding: 12px; border: 1px solid #4df2ff; background: #142c2e; color: #4df2ff; font-family: inherit; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    :focus-visible { outline: 2px solid #4df2ff; outline-offset: 4px; }
+    a { color: #a4aeae; text-underline-offset: 4px; }
+    a:hover { color: #4df2ff; }
+    #status { min-height: 3.4em; margin: 16px 0; }
+    #tools a { display: block; padding: 12px 0; color: #4df2ff; }
+    [hidden] { display: none !important; }
+  </style>
+  <script src="config.js"></script>
+  <script src="access.js" data-login></script>
+</head>
+<body>
+  <main>
+    <h1>TOOLS / ACCESS</h1>
+    <p>Enter the password to open the tools.</p>
+    <form>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required autofocus aria-describedby="status">
+      <button type="submit">UNLOCK TOOLS</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div id="tools" hidden>
+      <a href="../strung_along/chord-grid.html">strung_along ↗</a>
+      <a href="../reelcut/">reel/cut ↗</a>
+      <a href="../sleeve-press/">sleeve+press ↗</a>
+      <button id="lock" type="button">LOCK TOOLS</button>
+    </div>
+    <noscript><p>Enable JavaScript to enter the password and open the tools.</p></noscript>
+    <a href="../">← Back to disorientor</a>
+  </main>
+</body>
+</html>
