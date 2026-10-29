@@ -102,6 +102,24 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       console.log('extras', JSON.stringify(extras));
       assert(extras.count === 12 && extras.hits === 12, 'free graphics were not added, kept or drawn');
       await shot('extras');
+      // Hot swap: select a loaded shader, click another in the browser; place and settings stay, shader changes.
+      const swap = JSON.parse(await evaluate(`(async () => {
+        state.template = 'headline'; activeTab = 'shaders'; selected = null; renderTabs(); renderPanel();
+        addLayer('13_pixel_sort');
+        const l = state.layers.find(x => x.uid === selected); l.opacity = .55; l.blend = 'screen'; l.target = 'type'; l.time = 7;
+        const at = state.layers.indexOf(l), n = state.layers.length;
+        renderPanel();
+        const btn = [...document.querySelectorAll('.glist button')].find(b => b.textContent.startsWith('04 MACROBLOCK'));
+        btn.click(); await new Promise(r => setTimeout(r, 300));
+        const after = state.layers[at];
+        selected = null; renderPanel();
+        [...document.querySelectorAll('.glist button')].find(b => b.textContent.startsWith('01 CHROMATIC')).click();
+        return JSON.stringify({ id: after.id, same: after === l, at: state.layers.indexOf(after) === at, opacity: after.opacity, blend: after.blend, target: after.target, time: after.time,
+          dials: Object.keys(after.values).join(','), added: state.layers.length - n });
+      })()`));
+      console.log('swap', JSON.stringify(swap));
+      assert(swap.id === '04_macroblock_scramble' && swap.same && swap.at && swap.opacity === .55 && swap.blend === 'screen' && swap.target === 'type' && swap.time === 7 && swap.dials.includes('u_block_dimension') && swap.added === 1, 'hot swap failed');
+      await shot('swap');
       const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
       console.log('slots', slots);
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-1');

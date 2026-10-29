@@ -1718,7 +1718,11 @@ function shaderPanel() {
     list.append(box);
   });
   out.push(list);
-  out.push(el('h3', {}, `Add a shader — all ${SHADERS.length} from Haecceity`));
+  const sw = swapTarget(), swInfo = sw && layerInfo(sw.id);
+  out.push(el('h3', {}, sw ? 'Swap the selected shader' : `Add a shader — all ${SHADERS.length} from Haecceity`),
+    sw ? el('div', { className: 'row' }, el('span', { className: 'note', style: 'flex:1' }, `Clicking a shader below replaces ${swInfo ? swInfo.name : sw.id}, keeping its place and settings.`),
+      el('button', { onclick: () => { selected = null; renderPanel(); } }, '+ Add new instead'))
+      : el('div', { className: 'note' }, 'Select a loaded shader above to swap it for another.'));
   const groups = [['glitch', 'Glitch'], ['backgrounds', 'Backgrounds (realms)'], ['mesh_surfaces', 'Mesh surfaces'], ['composition', 'Composition fields'], ['stage', 'Stage']];
   const q = browserQuery.toLowerCase();
   const items = [...SHADERS, ...Object.entries(FIELDS).map(([id, f]) => ({ id, name: f.name, group: 'composition', field: true }))];
@@ -1727,15 +1731,24 @@ function shaderPanel() {
     if (!rows.length) return null;
     rows.sort((a, b) => (b.field ? 1 : 0) - (a.field ? 1 : 0));
     return el('details', { open: !!q || g === 'glitch' }, el('summary', {}, `${label} (${rows.length})`),
-      ...rows.map(s => el('button', { onclick: () => addLayer(s.id) }, s.name)));
+      ...rows.map(s => el('button', { onclick: () => pickShader(s.id), style: sw && sw.id === s.id ? 'color:var(--accent)' : '' }, (sw && sw.id === s.id ? '● ' : '') + s.name)));
   }));
   const search = el('input', { type: 'text', placeholder: 'Search shaders…', value: browserQuery, 'aria-label': 'Search shaders' });
   search.addEventListener('input', () => { browserQuery = search.value; const pos = search.selectionStart; renderPanel(); const s2 = $('panel').querySelector('#browser input'); s2.focus(); s2.setSelectionRange(pos, pos); });
   out.push(el('div', { id: 'browser' }, search, glist,
-    el('div', { className: 'row' }, el('button', { onclick: () => addLayer(pick(Math.random, SHADERS.filter(s => s.group === 'glitch')).id) }, 'Random glitch'), el('button', { onclick: () => addLayer(pick(Math.random, SHADERS.filter(s => s.group === 'backgrounds')).id) }, 'Random realm'))));
+    el('div', { className: 'row' }, el('button', { onclick: () => pickShader(pick(Math.random, SHADERS.filter(s => s.group === 'glitch')).id) }, sw ? 'Swap to random glitch' : 'Random glitch'), el('button', { onclick: () => pickShader(pick(Math.random, SHADERS.filter(s => s.group === 'backgrounds')).id) }, sw ? 'Swap to random realm' : 'Random realm'))));
   out.push(el('div', { className: 'note' }, 'Each shader has Runs on: Whole cover processes everything below it in this list; Background, Photo, All type, All graphics or one element runs it on just that, which then goes back in at its own place in the stack. Realms fill the shape they run on.'));
   return out;
 }
+// The selected shader layer, if any: browser clicks then swap its shader instead of adding a layer.
+const swapTarget = () => state.layers.find(l => !l.fixed && l.uid === selected);
+// Keeps the layer's place, opacity, blend, target, shape, mask, mute/solo and time; takes the new shader's dials.
+function swapLayer(layer, id) {
+  const fresh = mkLayer(id);
+  commit(() => Object.assign(layer, { id, values: fresh.values, frames: fresh.frames, seed: fresh.seed }));
+  renderPanel();
+}
+function pickShader(id) { const l = swapTarget(); if (l) swapLayer(l, id); else addLayer(id); }
 function addLayer(id) {
   const gen = isGenerator(id);
   // Volume draws white density; difference keeps it visible on light paper.
