@@ -49,7 +49,7 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
 .tpl{padding:0;border-radius:6px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;text-transform:none;letter-spacing:0}
 .tpl canvas{width:100%;aspect-ratio:1;display:block}
 .tpl span{padding:5px 6px;color:var(--muted);text-align:left}
-.tpl.on{border-color:var(--accent)}.tpl.on span{color:var(--fg)}
+.tpl.on{border-color:var(--accent);background:var(--bg);color:var(--fg)}.tpl.on span{color:var(--accent)}
 .pal{display:flex;height:26px;border-radius:5px;overflow:hidden;padding:0;border:2px solid transparent}
 .pal i{flex:1}.pal.on{border-color:var(--fg)}
 .layer{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
@@ -104,6 +104,7 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
 <script>
 __ENGINE__
 const SHADERS = __SHADERS__;
+__MICRO__
 
 /* ---------- helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -284,47 +285,16 @@ function lines(ctx, list, family, x, y, w, size, color, o = {}) {
   list.forEach((t, i) => { ctx.fillText(t, ax, y + i * size * (o.lead || 1.25), w); });
   ctx.restore();
 }
-function barcode(ctx, x, y, w, h, seed, color, label) {
-  const r = rng(seed * 7 + 3); ctx.save(); ctx.fillStyle = color;
-  const bars = []; let total = 0;
-  while (total < 95) { const b = 1 + Math.floor(r() * 3), g = 1 + Math.floor(r() * 3); bars.push(b, g); total += b + g; }
-  const unit = w / total; let cx = x;
-  const lh = label ? h * .78 : h;
-  bars.forEach((b, i) => { if (i % 2 === 0) ctx.fillRect(cx, y, b * unit, lh); cx += b * unit; });
-  if (label) { ctx.font = `${h * .18}px "sp-space-mono",monospace`; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center'; ctx.fillText(label, x + w / 2, y + h, w); }
-  ctx.restore();
-}
-function qr(ctx, x, y, s, seed, color, bg) {
-  const n = 25, c = s / n, r = rng(seed * 13 + 1);
-  ctx.save(); if (bg) { ctx.fillStyle = bg; ctx.fillRect(x - c, y - c, s + 2 * c, s + 2 * c); }
-  ctx.fillStyle = color;
-  const finder = (fx, fy) => { ctx.fillRect(x + fx * c, y + fy * c, 7 * c, 7 * c); ctx.clearRect(x + (fx + 1) * c, y + (fy + 1) * c, 5 * c, 5 * c); if (bg) { ctx.fillStyle = bg; ctx.fillRect(x + (fx + 1) * c, y + (fy + 1) * c, 5 * c, 5 * c); ctx.fillStyle = color; } ctx.fillRect(x + (fx + 2) * c, y + (fy + 2) * c, 3 * c, 3 * c); };
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-    const inF = (i < 8 && j < 8) || (i > 16 && j < 8) || (i < 8 && j > 16);
-    if (!inF && r() > .52) ctx.fillRect(x + i * c, y + j * c, c + .5, c + .5);
-  }
-  finder(0, 0); finder(18, 0); finder(0, 18); ctx.restore();
-}
-function mark(ctx, kind, x, y, s, color) {
-  ctx.save(); ctx.translate(x + s / 2, y + s / 2); ctx.fillStyle = color; ctx.strokeStyle = color;
-  if (kind === 'hazard') {
-    ctx.lineWidth = s * .07;
-    for (let k = 0; k < 3; k++) { ctx.save(); ctx.rotate(k * Math.PI * 2 / 3); ctx.beginPath(); ctx.arc(0, -s * .2, s * .2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-    ctx.beginPath(); ctx.arc(0, 0, s * .1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(0, 0, s * .32, 0, Math.PI * 2); ctx.lineWidth = s * .04; ctx.stroke();
-  } else if (kind === 'bolt') {
-    ctx.beginPath(); [[-.5,-.2],[-.2,-.5],[.15,-.15],[.15,-.5],[.5,-.5],[.5,.2],[.2,.5],[-.15,.15],[-.15,.5],[-.5,.5]].forEach(([a, b], i) => i ? ctx.lineTo(a * s, b * s * .6) : ctx.moveTo(a * s, b * s * .6)); ctx.fill();
-  } else if (kind === 'disc') {
-    ctx.beginPath(); ctx.arc(0, 0, s * .45, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = 'destination-out';
-    for (let k = 0; k < 6; k++) ctx.fillRect(-s * .5, -s * .45 + k * s * .16, s, s * .05);
-  } else if (kind === 'star') {
-    ctx.beginPath(); for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, rr = k % 2 ? s * .18 : s * .5; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.fill();
-  } else if (kind === 'cross') {
-    ctx.fillRect(-s * .5, -s * .08, s, s * .16); ctx.fillRect(-s * .08, -s * .5, s * .16, s);
-    ctx.lineWidth = s * .05; ctx.strokeRect(-s * .3, -s * .3, s * .6, s * .6);
-  }
-  ctx.restore();
+/* Graphic slots: each template places named slots; which micrographic fills each is the user's choice. */
+const SLOTS = { emblem: 'Emblem', corner: 'Corner mark', feature: 'Feature shape', strip: 'Strip' };
+const INKS = [['auto', 'Template colour'], ['ink1', 'Ink 1'], ['ink2', 'Ink 2'], ['accent', 'Accent'], ['paper', 'Paper'], ['text', 'Type on band']];
+let usedSlots = new Set();
+function G(c, slot, x, y, w, h, fallback) {
+  usedSlots.add(slot);
+  const g = (state.graphics || {})[slot] || {};
+  if (!g.id || g.id === 'none') return;
+  const ink = g.ink && g.ink !== 'auto' ? state.colors[g.ink] : fallback;
+  drawMicro(c, g.id, x, y, w, h, ink, state.seed + slot.length * 31);
 }
 function splitTwo(s) {
   const w = s.trim().split(/\s+/);
@@ -355,7 +325,7 @@ T('band', 'Band', (W, H, p, t) => {
     photo: [0, 31 * u, W, H - 31 * u],
     under(c) { c.fillStyle = p.accent; c.fillRect(0, 0, W, 31 * u); },
     over(c) {
-      mark(c, t.mark, 5 * u, 6 * u, 20 * u, p.text === p.accent ? p.ink1 : p.ink1);
+      G(c, 'emblem', 5 * u, 6 * u, 20 * u, 20 * u, p.ink1);
       fitText(c, t.kanaTitle, fam(t.kanaFont), 48 * u, 4 * u, 47 * u, 5 * u, { color: p.ink1, align: 'right' });
       const two = splitTwo(t.artist);
       two.forEach((s, i) => wordmark(c, s, 40 * u, (11 + i * 9.5 * (2 / two.length)) * u, 55 * u, (two.length > 1 ? 8.5 : 15) * u, { color: p.ink1, align: 'right' }));
@@ -372,7 +342,7 @@ T('split', 'Split', (W, H, p, t) => {
       fitText(c, t.kanaArtist, fam(t.kanaFont), 6 * u, 18 * u, 30 * u, 3.6 * u, { color: p.ink2 });
       fitText(c, t.kanaTitle, fam(t.kanaFont), 50 * u, 18 * u, 44 * u, 3.6 * u, { color: p.ink2, align: 'right' });
       vertText(c, t.title, fam(t.kanaFont), 86 * u, 78 * u, 8 * u, 16 * u, { color: p.ink1 });
-      mark(c, t.mark, 76 * u, 84 * u, 9 * u, p.ink1);
+      G(c, 'corner', 76 * u, 84 * u, 9 * u, 9 * u, p.ink1);
     }
   };
 });
@@ -389,7 +359,7 @@ T('headline', 'Headline', (W, H, p, t) => {
       fitText(c, tt, fam(t.kanaFont), 46 * u, 19 * u, 51 * u, 14 * u, { color: p.text, stretch: true, stroke: .02 });
       c.fillStyle = p.ink1; c.fillRect(88 * u, 50 * u, 9 * u, 46 * u);
       vertText(c, t.tagline, fam(t.smallFont), 89 * u, 52 * u, 7 * u, 42 * u, { color: p.paper, rotate: true });
-      mark(c, t.mark, 88 * u, 38 * u, 9 * u, p.ink1);
+      G(c, 'corner', 88 * u, 38 * u, 9 * u, 9 * u, p.ink1);
     }
   };
 });
@@ -397,13 +367,13 @@ T('strip', 'Strip', (W, H, p, t) => {
   const u = W / 100;
   return {
     photo: [36 * u, 4 * u, 60 * u, 82 * u],
-    under(c) { c.fillStyle = p.accent; c.beginPath(); c.moveTo(0, 30 * u); c.lineTo(30 * u, 50 * u); c.lineTo(8 * u, 54 * u); c.lineTo(30 * u, 72 * u); c.lineTo(0, 66 * u); c.fill(); },
+    under(c) { G(c, 'feature', 1 * u, 40 * u, 32 * u, 32 * u, p.accent); },
     over(c) {
-      c.fillStyle = p.ink1; for (let i = 0; i < 24; i++) c.fillRect(2 * u, (4 + i * 1.1) * u, 8 * u, .5 * u);
+      G(c, 'strip', 2 * u, 4 * u, 8 * u, 30 * u, p.ink1);
       vertText(c, t.kanaTitle || t.title, fam(t.kanaFont), 21 * u, 4 * u, 13 * u, 50 * u, { color: p.ink1 });
       vertText(c, t.artist.toLowerCase(), fam(t.smallFont), 11 * u, 4 * u, 4.5 * u, 34 * u, { color: p.ink1, rotate: true, align: 'left' });
       c.strokeStyle = p.ink2; c.lineWidth = .5 * u; c.strokeRect(35 * u, 3 * u, 62 * u, 84 * u);
-      mark(c, t.mark, 4 * u, 84 * u, 10 * u, p.ink1);
+      G(c, 'corner', 4 * u, 84 * u, 10 * u, 10 * u, p.ink1);
       fitText(c, t.catalogue, fam(t.smallFont), 70 * u, 90 * u, 27 * u, 3 * u, { color: p.ink2, align: 'right' });
     }
   };
@@ -419,6 +389,7 @@ T('bleed', 'Full bleed', (W, H, p, t) => {
       wordmark(c, t.artist, 3 * u, 3 * u, 94 * u, 15 * u, { color: ink, stretch: true });
       fitText(c, t.title.toUpperCase(), fam(t.smallFont), 50 * u, 20 * u, 47 * u, 2.6 * u, { color: ink, align: 'right' });
       fitText(c, t.kanaTitle, fam(t.kanaFont), 3 * u, 92 * u, 40 * u, 4 * u, { color: p.text });
+      G(c, 'corner', 87 * u, 87 * u, 10 * u, 10 * u, ink);
     }
   };
 });
@@ -431,6 +402,7 @@ T('inset', 'Inset', (W, H, p, t) => {
       fitText(c, t.title.toLowerCase(), fam(t.smallFont), 52 * u, 6.5 * u, 35 * u, 2.6 * u, { color: p.accent, align: 'right' });
       c.strokeStyle = p.ink1; c.lineWidth = .35 * u; c.strokeRect(12 * u, 12 * u, 76 * u, 70 * u);
       fitText(c, t.side, fam(t.smallFont), 30 * u, 86 * u, 40 * u, 2.2 * u, { color: p.accent, align: 'center' });
+      G(c, 'corner', 46 * u, 90 * u, 8 * u, 8 * u, p.accent);
     }
   };
 });
@@ -444,7 +416,7 @@ T('column', 'Column', (W, H, p, t) => {
       c.fillStyle = p.ink1; const n = [...tt].length;
       for (let i = 0; i < Math.min(n, 12); i++) { c.beginPath(); c.arc(26 * u, (5 + 90 / n * (i + .5)) * u, .9 * u, 0, 7); c.fill(); }
       vertText(c, t.artist, fam(t.wordFont), 28 * u, 5 * u, 4 * u, 60 * u, { color: p.ink1, rotate: true, align: 'left' });
-      mark(c, t.mark, 86 * u, 87 * u, 10 * u, p.accent);
+      G(c, 'corner', 86 * u, 87 * u, 10 * u, 10 * u, p.accent);
     }
   };
 });
@@ -461,6 +433,7 @@ T('poster', 'Poster', (W, H, p, t) => {
       const rh = Math.min(26, 78 / Math.max(1, rowsT.length));
       rowsT.forEach((r, i) => fitText(c, r, fam(t.kanaFont), 64 * u, (18 + i * rh) * u, 33 * u, rh * .92 * u, { color: p.ink1, align: 'center' }));
       fitText(c, t.catalogue, fam(t.smallFont), 66 * u, 92 * u, 30 * u, 2.2 * u, { color: p.ink1, align: 'right' });
+      G(c, 'corner', 66 * u, 86 * u, 8 * u, 8 * u, p.ink1);
     }
   };
 });
@@ -473,7 +446,7 @@ T('spine', 'Spine', (W, H, p, t) => {
       wordmark(c, t.artist, 85 * u, 4 * u, 12 * u, 92 * u, { color: p.ink1, vertical: true });
       vertText(c, t.tagline, fam(t.smallFont), 3 * u, 4 * u, 4 * u, 56 * u, { color: p.paper, rotate: true, align: 'left' });
       vertText(c, t.kanaArtist, fam(t.kanaFont), 10 * u, 4 * u, 8 * u, 56 * u, { color: p.paper });
-      qr(c, 4 * u, 74 * u, 18 * u, state.seed, p.ink1, p.paper);
+      G(c, 'emblem', 4 * u, 74 * u, 18 * u, 18 * u, p.ink1);
       fitText(c, t.catalogue, fam(t.smallFont), 3 * u, 67 * u, 20 * u, 2.6 * u, { color: p.paper });
     }
   };
@@ -501,7 +474,7 @@ T('tape', 'Tape (J-card)', (W, H, p, t) => {
       c.fillStyle = p.paper; c.fillRect(sx, 0, JCARD.spine * mm, H);
       vertText(c, t.artist, fam(t.wordFont), sx + 1.2 * mm, b + 4 * mm, 4.6 * mm, 44 * mm, { color: p.ink1, rotate: true, align: 'left' });
       vertText(c, t.title, fam(t.smallFont), sx + 6.6 * mm, b + 4 * mm, 4.6 * mm, 60 * mm, { color: p.ink1, rotate: true, align: 'left' });
-      mark(c, t.mark, sx + 2.5 * mm, b + hh - 18 * mm, 7.5 * mm, p.accent);
+      G(c, 'corner', sx + 2.5 * mm, b + hh - 18 * mm, 7.5 * mm, 7.5 * mm, p.accent);
       vertText(c, t.catalogue, fam(t.smallFont), sx + 3.5 * mm, b + hh - 9 * mm, 5 * mm, 8 * mm, { color: p.ink1, rotate: true });
       // Front: A/B strip, title block, photo, label line.
       c.fillStyle = p.accent; c.fillRect(frx, b, 7 * u, hh);
@@ -512,7 +485,7 @@ T('tape', 'Tape (J-card)', (W, H, p, t) => {
       c.fillStyle = p.ink1; c.fillRect(frx + 8 * u, b + hh - 13 * mm, fw - 16 * u, .3 * mm);
       fitText(c, t.artist, fam(t.smallFont), frx + 8 * u, b + hh - 11 * mm, 40 * u, 3 * mm, { color: p.ink1 });
       fitText(c, t.catalogue, fam(t.smallFont), frx + 52 * u, b + hh - 11 * mm, fw - 60 * u, 3 * mm, { color: p.ink1, align: 'right' });
-      barcode(c, frx + fw - 30 * u, b + hh - 7 * mm, 22 * u, 5 * mm, state.seed, p.ink1);
+      G(c, 'strip', frx + fw - 30 * u, b + hh - 7 * mm, 22 * u, 5 * mm, p.ink1);
       if (state.export.guides) {
         c.save(); c.strokeStyle = 'rgba(0,160,255,.8)'; c.lineWidth = Math.max(1, .15 * mm); c.setLineDash([mm * 1.2, mm * .8]);
         for (const x of [sx, frx]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
@@ -546,15 +519,17 @@ function layerInfo(id) {
   return SHADER_BY[id];
 }
 
+const DEFAULT_GRAPHICS = () => ({ emblem: { id: 'disorientor', ink: 'auto' }, corner: { id: 'disorientor', ink: 'auto' }, feature: { id: 'burst16', ink: 'auto' }, strip: { id: 'barcode', ink: 'auto' } });
 const DEFAULT = () => ({
-  v: 2, seed: 1234, template: 'headline', palette: 'rose',
+  v: 3, seed: 1234, template: 'headline', palette: 'rose',
   colors: { ...PALETTES[2] },
   photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, src: 'shader' },
   print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2 },
   type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
-    tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b', mark: 'hazard',
+    tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b',
     wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
     tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
+  graphics: DEFAULT_GRAPHICS(),
   layers: [ { id: 'PHOTO', fixed: true }, { id: 'TYPE', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }) ],
   export: { size: 3000, guides: false, dpi: 300 }
 });
@@ -575,7 +550,7 @@ const undoStack = [];
 function snapshot() { undoStack.push(JSON.stringify(state)); if (undoStack.length > 64) undoStack.shift(); }
 function commit(fn, noHistory) { if (!noHistory) snapshot(); fn && fn(); save(); scheduleRender(); }
 function save() { try { localStorage.setItem('sleeve-press', JSON.stringify(state)); } catch {} }
-function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); return s && s.v === 2 ? s : null; } catch { return null; } }
+function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); if (s && s.v === 2) { s.v = 3; s.graphics = DEFAULT_GRAPHICS(); delete s.type.mark; } return s && s.v === 3 ? s : null; } catch { return null; } }
 function savePhoto() {
   if (!photoImg) return;
   try {
@@ -952,10 +927,29 @@ function openProject(file) {
     const d = JSON.parse(t);
     if (!d || !(d.v >= 1) || !Array.isArray(d.layers)) throw new Error('not a sleeve+press project');
     const photo = d.photoData; delete d.photoData;
-    commit(() => { state = { ...DEFAULT(), ...d, v: 2 }; });
+    commit(() => { state = { ...DEFAULT(), ...d, graphics: d.graphics || DEFAULT_GRAPHICS(), v: 3 }; });
     if (photo) loadPhotoURL(photo, true), localStorage.setItem('sleeve-press-photo', photo);
     renderPanel(); toast('Project opened.');
   }).catch(e => toast("Couldn't open that project: " + e.message));
+}
+
+// Which slots a template places, found by laying it out once on a scratch canvas.
+function slotsFor(id) {
+  const scratch = document.createElement('canvas').getContext('2d');
+  usedSlots = new Set();
+  const L = TEMPLATES[id].fn(200, 200, state.colors, state.type);
+  L.under(scratch); L.over(scratch);
+  return Object.keys(SLOTS).filter(sl => usedSlots.has(sl));
+}
+function shuffleGraphics(r) {
+  const of = shapes => MICRO.filter(m => shapes.includes(m[3]) && m[2] !== 'disorientor').map(m => m[0]);
+  const keepLogo = r() < .5;
+  state.graphics = {
+    emblem: { id: keepLogo ? 'disorientor' : pick(r, of(['sq'])), ink: 'auto' },
+    corner: { id: r() < .4 ? pick(r, ['disorientor', 'disorientor-ring', 'disorientor-tile']) : pick(r, of(['sq'])), ink: 'auto' },
+    feature: { id: pick(r, of(['sq'])), ink: 'auto' },
+    strip: { id: pick(r, of(['wide', 'tall'])), ink: 'auto' }
+  };
 }
 
 /* ---------- randomize ---------- */
@@ -971,7 +965,7 @@ function randomize() {
     state.print.misreg = +(r() * .6).toFixed(2); state.print.grain = +(.15 + r() * .5).toFixed(2);
     const display = FONTS.filter(f => f.group === 'display' || f.group === 'serif'), jp = FONTS.filter(f => f.group === 'japanese');
     state.type.wordFont = pick(r, display).id; state.type.kanaFont = pick(r, jp).id; state.type.smallFont = pick(r, FONTS.filter(f => f.group === 'mono')).id;
-    state.type.mark = pick(r, ['hazard', 'bolt', 'disc', 'star', 'cross', 'none']);
+    shuffleGraphics(r);
     state.type.warp = r() < .3 ? +(r() * .6).toFixed(2) : 0; state.type.outline = r() < .15;
     const glitch = SHADERS.filter(s => s.group === 'glitch' && s.id !== 'master_glitch_pipeline');
     const keep = state.layers.filter(l => l.fixed);
@@ -989,8 +983,8 @@ function randomize() {
 }
 
 /* ---------- controls ---------- */
-const TABS = [['template', 'Template'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['shaders', 'Shaders'], ['export', 'Export']];
-let activeTab = 'template', selected = null, browserQuery = '';
+const TABS = [['template', 'Template'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
+let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'emblem';
 function renderTabs() {
   $('tabs').replaceChildren(...TABS.map(([id, label]) => el('button', { className: activeTab === id ? 'on' : '', role: 'tab', 'aria-selected': activeTab === id, onclick: () => { activeTab = id; renderTabs(); renderPanel(); } }, label)));
 }
@@ -1108,7 +1102,6 @@ function renderPanel() {
       text('Tagline', () => T2.tagline, v => T2.tagline = v),
       text('Catalogue no.', () => T2.catalogue, v => T2.catalogue = v),
       text('Side line', () => T2.side, v => T2.side = v),
-      select('Mark', [['hazard', 'Hazard'], ['bolt', 'Bolt'], ['disc', 'Striped disc'], ['star', 'Burst'], ['cross', 'Cross'], ['none', 'None']], () => T2.mark, v => T2.mark = v),
       el('h3', {}, 'Fonts'),
       fontSelect('Wordmark', 'wordFont', ['display', 'serif', 'mono', 'japanese']),
       fontSelect('Japanese', 'kanaFont', ['japanese', 'display', 'serif', 'mono']),
@@ -1120,6 +1113,8 @@ function renderPanel() {
       slider('Slice warp', () => T2.warp, v => T2.warp = v, 0, 1),
       check('Outline', () => T2.outline, v => T2.outline = v));
     if (S.template === 'tape') kids.push(text('Side A tracks', () => T2.tracksA, v => T2.tracksA = v, true), text('Side B tracks', () => T2.tracksB, v => T2.tracksB = v, true));
+  } else if (activeTab === 'graphics') {
+    kids.push(...graphicsPanel());
   } else if (activeTab === 'shaders') {
     kids.push(...shaderPanel());
   } else if (activeTab === 'export') {
@@ -1143,6 +1138,32 @@ function renderPanel() {
   P.replaceChildren(...kids.flat());
 }
 
+function graphicsPanel() {
+  const S = state, slots = slotsFor(S.template), out = [];
+  S.graphics = S.graphics || DEFAULT_GRAPHICS();
+  if (!slots.includes(activeSlot)) activeSlot = slots[0];
+  out.push(el('h3', {}, 'Slots in this layout'),
+    el('div', { className: 'row' }, ...slots.map(sl => el('button', { className: activeSlot === sl ? 'on' : '', onclick: () => { activeSlot = sl; renderPanel(); } }, SLOTS[sl]))),
+    el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => shuffleGraphics(Math.random)); renderPanel(); } }, 'Shuffle all'), el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed')));
+  if (!activeSlot) return [...out, el('div', { className: 'note' }, 'This layout has no graphic slots.')];
+  const cur = S.graphics[activeSlot] || (S.graphics[activeSlot] = { id: 'none', ink: 'auto' });
+  out.push(select('Ink', INKS, () => cur.ink || 'auto', v => cur.ink = v));
+  const ink = cur.ink && cur.ink !== 'auto' ? S.colors[cur.ink] : S.colors.ink1;
+  const thumb = id => {
+    const c = el('canvas', { width: 96, height: 96 });
+    const k = c.getContext('2d'); k.fillStyle = S.colors.paper; k.fillRect(0, 0, 96, 96);
+    const g = MICRO_BY[id];
+    if (g) g.shape === 'sq' ? drawMicro(k, id, 12, 12, 72, 72, ink, S.seed) : g.shape === 'wide' ? drawMicro(k, id, 8, 32, 80, 32, ink, S.seed) : drawMicro(k, id, 32, 8, 32, 80, ink, S.seed);
+    return c;
+  };
+  const tile = (id, name) => el('button', { className: 'tpl' + (cur.id === id ? ' on' : ''), title: name, onclick: () => { commit(() => cur.id = id); renderPanel(); } }, id === 'none' ? el('canvas', { width: 96, height: 96 }) : thumb(id), el('span', {}, name));
+  out.push(el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(84px,1fr))' }, tile('none', 'None')));
+  for (const era of MICRO_ERAS) {
+    out.push(el('h3', {}, era), el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(84px,1fr))' }, ...MICRO.filter(m => m[2] === era).map(m => tile(m[0], m[1]))));
+  }
+  out.push(el('div', { className: 'note' }, 'All of these are drawn from plain geometry for this tool: no logos, trademarks or marks from real releases, apart from your own disorientor logo.'));
+  return out;
+}
 function shaderPanel() {
   const S = state, out = [];
   out.push(el('h3', {}, 'Stack — top of the list draws first'));

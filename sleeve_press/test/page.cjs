@@ -63,6 +63,10 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       await evaluate(`state.template = 'headline'; activeTab = 'shaders'; renderTabs(); renderPanel();
         addLayer('field_reaction'); addLayer('t03_gray_scott_reaction_diffusion'); new Promise(r => setTimeout(r, 2500))`);
       await shot('shaders-tab');
+      await evaluate(`state.template = 'strip'; activeTab = 'graphics'; activeSlot = 'feature'; renderTabs(); renderPanel(); scheduleRender(); new Promise(r => setTimeout(r, 1200))`);
+      await shot('graphics-tab');
+      const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
+      console.log('slots', slots);
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-1');
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-2');
       // Full-size export path (without the download): render 3000 px and check it is not blank.

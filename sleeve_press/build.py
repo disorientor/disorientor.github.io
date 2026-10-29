@@ -24,7 +24,10 @@ data = json.dumps(ported, separators=(',', ':'))
 assert '</script' not in data
 font = base64.b64encode((root/'fonts/DepartureMono-Regular.otf').read_bytes()).decode()
 engine = (root/'src/engine.js').read_text()
-src = (root/'src/sleeve.src.html').read_text().replace('__ENGINE__', engine).replace('__SHADERS__', data).replace('__FONT__', font)
+# The disorientor logo is traced to one SVG path; micro.js draws it with Path2D.
+logo = re.search(r' d="([^"]+)"', (root/'assets/disorientor-logo.svg').read_text()).group(1)
+micro = (root/'src/micro.js').read_text().replace('__LOGO__', logo)
+src = (root/'src/sleeve.src.html').read_text().replace('__ENGINE__', engine).replace('__MICRO__', micro).replace('__SHADERS__', data).replace('__FONT__', font)
 head = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'
 html = head + src + '</body></html>'
 site.mkdir(exist_ok=True)
