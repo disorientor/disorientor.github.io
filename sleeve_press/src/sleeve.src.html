@@ -428,11 +428,15 @@ function wordmark(ctx, text, x, y, w, h, o) {
 let LAY = { W: 1, H: 1, hits: [] };
 const extraOf = id => id && id.startsWith('x:') ? (state.extras || []).find(e => 'x:' + e.uid === id) : null;
 const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...(extraOf(id) || ((state.layout || {})[state.template] || {})[id]) });
+// ISO: elements a shader targets on their own are drawn on separate canvases. The main pass skips them
+// (ISO.skip); an isolation pass draws only one (ISO.only) and records no hits.
+let ISO = { only: null, skip: new Set() };
 function E(c, id, name, kind, x, y, w, h, fn) {
   const o = place(id);
   const cx = x + w / 2 + o.x * LAY.W, cy = y + h / 2 + o.y * LAY.H;
-  LAY.hits.push({ id, name, kind, cx, cy, w: w * o.s, h: h * o.s, r: o.r, hide: o.hide });
-  if (o.hide || !c) return;
+  if (ISO.only) { if (id !== ISO.only) return; }
+  else LAY.hits.push({ id, name, kind, cx, cy, w: w * o.s, h: h * o.s, r: o.r, hide: o.hide });
+  if (o.hide || !c || (!ISO.only && ISO.skip.has(id))) return;
   c.save(); c.translate(cx, cy); c.rotate(o.r * Math.PI / 180); c.scale(o.s, o.s); c.translate(-(x + w / 2), -(y + h / 2));
   fn(c);
   c.restore();
@@ -442,7 +446,7 @@ const TX = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'type', x, y, w, h, f
 const BAND = (c, id, name, x, y, w, h, color) => E(c, id, name, 'band', x, y, w, h, k => { k.fillStyle = color; k.fillRect(x, y, w, h); });
 function photoRect(r) {
   const o = place('photo');
-  LAY.hits.push({ id: 'photo', name: 'Photo frame', kind: 'photo', cx: r[0] + r[2] / 2 + o.x * LAY.W, cy: r[1] + r[3] / 2 + o.y * LAY.H, w: r[2] * o.s, h: r[3] * o.s, r: 0, hide: o.hide });
+  if (!ISO.only) LAY.hits.push({ id: 'photo', name: 'Photo frame', kind: 'photo', cx: r[0] + r[2] / 2 + o.x * LAY.W, cy: r[1] + r[3] / 2 + o.y * LAY.H, w: r[2] * o.s, h: r[3] * o.s, r: 0, hide: o.hide });
   if (o.hide) return [0, 0, 0, 0];
   const w = r[2] * o.s, h = r[3] * o.s;
   return [r[0] + r[2] / 2 + o.x * LAY.W - w / 2, r[1] + r[3] / 2 + o.y * LAY.H - h / 2, w, h];
@@ -857,7 +861,7 @@ const DEFAULT = () => ({
     tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
   graphics: DEFAULT_GRAPHICS(), extras: [],
   layout: {},
-  layers: [ { id: 'PHOTO', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }), { id: 'TYPE', fixed: true }, { id: 'GRAPHICS', fixed: true } ],
+  layers: [ { id: 'BACKGROUND', fixed: true }, { id: 'PHOTO', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }), { id: 'TYPE', fixed: true }, { id: 'GRAPHICS', fixed: true } ],
   export: { size: 3000, guides: false, dpi: 300 }
 });
 function mkLayer(id, extra = {}) {
@@ -883,6 +887,7 @@ function normalize(s) {
   s.extras = s.extras || [];
   s.layout = s.layout || {};
   if (!s.layers.some(l => l.id === 'GRAPHICS')) s.layers.splice(s.layers.findIndex(l => l.id === 'TYPE') + 1, 0, { id: 'GRAPHICS', fixed: true });
+  if (!s.layers.some(l => l.id === 'BACKGROUND')) s.layers.unshift({ id: 'BACKGROUND', fixed: true });
   return s;
 }
 function savePhoto() {
@@ -986,6 +991,48 @@ void godot_fragment() {
     : mk == 5 ? texture(gfx, UV).a : mk == 6 ? 1.0 - texture(gfx, UV).a : 1.0;
   COLOR = vec4(mix(a.rgb, blendOp(a.rgb, b.rgb, int(mode + .5)), clamp(b.a * opacity * m, 0.0, 1.0)), 1.0);
 }`, { base: 'base', layer: 'layer', typ: 'typ', gfx: 'gfx' });
+// Isolated targets: straight-alpha layers processed on their own, then composited where they belong.
+const COPY_SH = own('sp_copy', `uniform sampler2D src; void godot_fragment() { COLOR = texture(src, UV); }`, { src: 'src' });
+const ALPHA_SH = own('sp_alpha', `uniform sampler2D src; void godot_fragment() { COLOR = vec4(vec3(texture(src, UV).a), 1.0); }`, { src: 'src' });
+// Spreads colour into transparent pixels so shaders that sample neighbours don't drag black in from the edges.
+const BLEED_SH = own('sp_bleed', `
+uniform sampler2D src;
+void godot_fragment() {
+  vec4 o = texture(src, UV);
+  if (o.a > .99) { COLOR = o; return; }
+  vec3 acc = vec3(0.0); float w = 0.0;
+  float px = sp_res.x / 1024.0;
+  for (int r = 0; r < 7; r++) {
+    float rad = exp2(float(r)) * px;
+    for (int k = 0; k < 8; k++) {
+      float a = float(k) * .7853982;
+      vec4 c = texture(src, UV + vec2(cos(a), sin(a)) * rad / sp_res);
+      acc += c.rgb * c.a; w += c.a;
+    }
+    if (w > 1.0) break;
+  }
+  vec3 rgb = w > 0.0 ? acc / w : o.rgb;
+  COLOR = vec4(mix(rgb, o.rgb, o.a), o.a);
+}`, { src: 'src' });
+const ISO_SH = own('sp_iso', `
+uniform sampler2D base; uniform sampler2D fx; uniform sampler2D fxa; uniform float opacity; uniform float mode; uniform float spread;
+vec3 blendOp(vec3 a, vec3 b, int m) {
+  if (m == 1) return a * b;
+  if (m == 2) return 1.0 - (1.0 - a) * (1.0 - b);
+  if (m == 3) return mix(2.0 * a * b, 1.0 - 2.0 * (1.0 - a) * (1.0 - b), step(.5, a));
+  if (m == 4) return abs(a - b);
+  if (m == 5) return min(a + b, 1.0);
+  if (m == 6) return min(a, b);
+  if (m == 7) return max(a, b);
+  return b;
+}
+void godot_fragment() {
+  vec4 b = texture(base, UV); vec3 c = texture(fx, UV).rgb;
+  // Spread: the effect also moves the shape (its alpha went through the same shader). Clip: the shape stays.
+  float a = spread > .5 ? clamp(texture(fxa, UV).r, 0.0, 1.0) : b.a;
+  vec3 under = b.a > .004 ? b.rgb : c;
+  COLOR = vec4(mix(under, blendOp(under, c, int(mode + .5)), opacity), mix(b.a, a, opacity));
+}`, { base: 'base', fx: 'fx', fxa: 'fxa' });
 const PRESS_SH = own('sp_press', `
 uniform sampler2D stack; uniform vec3 paper; uniform float misreg; uniform float grain; uniform float spread; uniform float seed;
 float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
@@ -1020,6 +1067,16 @@ function tgt(name, w, h, float) {
   return targets[name] = eng.target(w, h, float);
 }
 const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'difference', 'add', 'darken', 'lighten'];
+// Where a shader layer runs: the whole cover (the stack so far), or one isolated layer or element.
+const TARGET_GROUPS = [['cover', 'Whole cover'], ['background', 'Background (paper & bands)'], ['photo', 'Photo'], ['type', 'All type'], ['graphics', 'All graphics']];
+const KIND_LAYER = { band: 'background', type: 'type', graphics: 'graphics' };
+const targetOf = l => l.target || 'cover';
+function targetLabel(t) {
+  const g = TARGET_GROUPS.find(x => x[0] === t);
+  if (g) return g[1];
+  const h = lastHits.hits.find(h => 'el:' + h.id === t);
+  return h ? h.name : 'an element not in this layout';
+}
 const MASKS = [['all', 'Whole cover'], ['photo', 'Photo only'], ['outside', 'Outside photo'], ['type', 'Type only'], ['untyped', 'Not type'], ['graphics', 'Graphics only'], ['ungraphic', 'Not graphics']];
 
 function dims(maxSide) {
@@ -1053,15 +1110,23 @@ function removeExtra(id) {
   if (selId === id) selectItem(null);
   if (activeSlot === id) activeSlot = 'add';
 }
-function buildCover(W, H) {
+function buildCover(W, H, isolate = []) {
   LAY = { W, H, hits: [] };
+  ISO = { only: null, skip: new Set(isolate) };
   const L = TEMPLATES[state.template].fn(W, H, state.colors, state.type);
   const rect = photoRect(L.photo);
   const under = canvasLayer(W, H, k => L.under(k), state.colors.paper);
   const gfx = document.createElement('canvas'); gfx.width = W; gfx.height = H; GFX = gfx.getContext('2d');
   let type;
-  try { type = canvasLayer(W, H, k => L.over(k)); drawExtras(W, H); } finally { GFX = null; }
-  return { rect, under, type, gfx, hits: LAY.hits };
+  const iso = {};
+  try {
+    type = canvasLayer(W, H, k => L.over(k)); drawExtras(W, H);
+    for (const id of isolate) {
+      ISO.only = id;
+      iso[id] = canvasLayer(W, H, k => { GFX = k; L.under(k); L.over(k); drawExtras(W, H); });
+    }
+  } finally { GFX = null; ISO = { only: null, skip: new Set() }; }
+  return { rect, under, type, gfx, iso, hits: LAY.hits };
 }
 function canvasLayer(W, H, draw, bg) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -1173,38 +1238,46 @@ function runLayer(layer, src, W, H) {
 let renderQueued = false, rendering = false, lastError = '', lastHits = { W: 1, H: 1, hits: [] };
 function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderPreview(); }); } }
 function renderTo(W, H) {
-  const C = buildCover(W, H), col = state.colors, rect = C.rect;
+  const solo = state.layers.some(l => l.solo);
+  const active = state.layers.filter(l => !l.fixed && !l.mute && !(solo && !l.solo) && layerInfo(l.id));
+  const isoIds = [...new Set(active.map(targetOf).filter(t => t.startsWith('el:')).map(t => t.slice(3)))];
+  const C = buildCover(W, H, isoIds), col = state.colors, rect = C.rect;
   const underTex = eng.upload(C.under, targets._underTex), typeTex = eng.upload(C.type, targets._typeTex), gfxTex = eng.upload(C.gfx, targets._gfxTex);
   targets._underTex = underTex; targets._typeTex = typeTex; targets._gfxTex = gfxTex;
   lastHits = { W, H, hits: C.hits };
   let stack = tgt('sA', W, H, false), spare = tgt('sB', W, H, false);
-  eng.run(SHADER_BY['composition_copy'], stack, { src: underTex, clear: true });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, stack.fb); const pc = hex2rgb(col.paper); gl.clearColor(pc[0], pc[1], pc[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
   if (photoImg && !photoTex) photoTex = eng.upload(photoImg);
   const pt = state.photo.src === 'upload' && photoTex ? photoTex : defaultPhoto();
   const pw = state.photo.src === 'upload' && photoTex ? [photoTex.w, photoTex.h] : [1024, 1024];
   const pr = state.print, ph = state.photo, mode = PRINT_MODES.findIndex(m => m[0] === pr.mode);
+  const photoT = tgt('photo', W, H, false);
+  eng.run(PHOTO_SH, photoT, { bind: { photo: pt }, res: [W, H], clear: true, values: {
+    rect, img: pw, xf: [ph.zoom, ph.x, ph.y, ph.rot * Math.PI / 180], mode: [mode],
+    ink1: hex2rgb(col.ink1), ink2: hex2rgb(col.ink2), paper: hex2rgb(pr.mode === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
+    lv: ph.autoLevels === false ? [0, 1] : levelsFor(pt), tone: [ph.bright, ph.contrast, ph.gamma, 0], ht: [pr.dot * W / 100, pr.angle, pr.threshold, pr.softness], invert: [ph.invert ? 1 : 0] } });
+  const errs = [];
+  // Layers by target. Isolated ones are processed on their own before anything is composited.
+  const base = { background: underTex, photo: photoT.tex, type: typeTex, graphics: gfxTex };
+  isoIds.forEach((id, i) => { base['el:' + id] = eng.upload(C.iso[id], targets['_iso' + i]); targets['_iso' + i] = base['el:' + id]; });
+  for (const T of Object.keys(base)) {
+    const mine = active.filter(l => targetOf(l) === T);
+    if (mine.length) base[T] = isolate(base[T], mine, T, W, H, errs);
+  }
   const comp = (layerTex, opacity, blend, mask) => {
     eng.run(COMP_SH, spare, { bind: { base: stack.tex, layer: layerTex, typ: typeTex, gfx: gfxTex }, values: { opacity: [opacity], mode: [BLENDS.indexOf(blend)], mask: [Math.max(0, MASKS.findIndex(m => m[0] === mask))], rect }, res: [W, H] });
     [stack, spare] = [spare, stack];
   };
-  const solo = state.layers.some(l => l.solo);
-  const errs = [];
+  // An isolated element goes back in right after the layer it came from.
+  const elementsOf = layerName => isoIds.filter(id => { const h = C.hits.find(h => h.id === id); return h && KIND_LAYER[h.kind] === layerName; });
   for (const layer of state.layers) {
-    if (layer.mute || (solo && !layer.solo && !layer.fixed)) continue;
-    if (layer.id === 'PHOTO') {
-      const t = tgt('photo', W, H, false);
-      eng.run(PHOTO_SH, t, { bind: { photo: pt }, res: [W, H], clear: true, values: {
-        rect, img: pw, xf: [ph.zoom, ph.x, ph.y, ph.rot * Math.PI / 180], mode: [mode],
-        ink1: hex2rgb(col.ink1), ink2: hex2rgb(col.ink2), paper: hex2rgb(pr.mode === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
-        lv: ph.autoLevels === false ? [0, 1] : levelsFor(pt), tone: [ph.bright, ph.contrast, ph.gamma, 0], ht: [pr.dot * W / 100, pr.angle, pr.threshold, pr.softness], invert: [ph.invert ? 1 : 0] } });
-      comp(t.tex, 1, 'normal', 'all');
-    } else if (layer.id === 'TYPE') {
-      comp(typeTex, 1, 'normal', 'all');
-    } else if (layer.id === 'GRAPHICS') {
-      comp(gfxTex, 1, 'normal', 'all');
-    } else {
+    if (layer.mute) continue;
+    const fixed = { BACKGROUND: 'background', PHOTO: 'photo', TYPE: 'type', GRAPHICS: 'graphics' }[layer.id];
+    if (fixed) {
+      comp(base[fixed], 1, 'normal', 'all');
+      for (const id of elementsOf(fixed)) comp(base['el:' + id], 1, 'normal', 'all');
+    } else if (active.includes(layer) && targetOf(layer) === 'cover') {
       const info = layerInfo(layer.id);
-      if (!info) continue;
       const tex = runLayer(layer, stack.tex, W, H);
       if (!FIELDS[layer.id] && !eng.programs.get(layer.id)) { errs.push(info.name); continue; }
       comp(tex, layer.opacity, layer.blend, layer.mask);
@@ -1214,6 +1287,28 @@ function renderTo(W, H) {
   eng.run(PRESS_SH, out, { bind: { stack: stack.tex }, res: [W, H], values: { paper: hex2rgb(col.paper), misreg: [pr.misreg], grain: [pr.grain], spread: [pr.spread], seed: [state.seed % 97] } });
   lastError = errs.length ? `Couldn't compile: ${errs.join(', ')}` : '';
   return out;
+}
+// Runs `layers` in order on one straight-alpha layer. Each shader sees the layer with its colour bled into the
+// transparent area; with Shape set to spread, the alpha goes through the same shader so the effect moves the
+// shape too. Generators and simulation fields always fill the existing shape.
+function isolate(tex, layers, T, W, H, errs) {
+  let cur = tex, n = 0;
+  for (const layer of layers) {
+    const bled = tgt('isoBleed', W, H, false), alpha = tgt('isoAlpha', W, H, false), outC = tgt('isoC', W, H, false), outA = tgt('isoA', W, H, false);
+    eng.run(BLEED_SH, bled, { bind: { src: cur }, res: [W, H], clear: true });
+    eng.run(COPY_SH, outC, { bind: { src: runLayer(layer, bled.tex, W, H) }, res: [W, H], clear: true });
+    if (!FIELDS[layer.id] && !eng.programs.get(layer.id)) { errs.push(layerInfo(layer.id).name); continue; }
+    const spread = layer.shape !== 'clip' && !FIELDS[layer.id] && !isGenerator(layer.id);
+    if (spread) {
+      eng.run(ALPHA_SH, alpha, { bind: { src: cur }, res: [W, H], clear: true });
+      eng.run(COPY_SH, outA, { bind: { src: runLayer(layer, alpha.tex, W, H) }, res: [W, H], clear: true });
+    }
+    const dst = tgt(`iso:${T}:${n++ % 2}`, W, H, false);
+    eng.run(ISO_SH, dst, { bind: { base: cur, fx: outC.tex, fxa: spread ? outA.tex : outC.tex }, res: [W, H], clear: true,
+      values: { opacity: [layer.opacity], mode: [BLENDS.indexOf(layer.blend)], spread: [spread ? 1 : 0] } });
+    cur = dst.tex;
+  }
+  return cur;
 }
 function renderPreview() {
   const box = $('stage').getBoundingClientRect();
@@ -1238,7 +1333,8 @@ async function renderPixels(W, H) {
   gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(px.buffer), W, H), 0, 0);
-  for (const k of ['sA', 'sB', 'lA', 'lB', 'photo', 'out', 'fieldOut', 'fdA', 'fdB']) { eng.free(targets[k]); delete targets[k]; }
+  for (const k of Object.keys(targets)) if (!k.startsWith('_') && !['shaderPhoto', 'levels'].includes(k)) { eng.free(targets[k]); delete targets[k]; }
+  for (const k of Object.keys(targets)) if (k.startsWith('_')) { gl.deleteTexture(targets[k]); delete targets[k]; }
   scheduleRender();
   return c;
 }
@@ -1353,7 +1449,7 @@ function randomize() {
       fx.push(lay);
     }
     const top = r() < .5 ? [keep.find(l => l.id === 'TYPE'), keep.find(l => l.id === 'GRAPHICS')] : [keep.find(l => l.id === 'GRAPHICS'), keep.find(l => l.id === 'TYPE')];
-    state.layers = [...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [...top, ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), ...top])];
+    state.layers = [keep.find(l => l.id === 'BACKGROUND'), ...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [...top, ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), ...top])];
   });
   renderPanel();
 }
@@ -1608,7 +1704,7 @@ function shaderPanel() {
   const list = el('div', { style: 'display:flex;flex-direction:column;gap:6px' });
   S.layers.forEach((layer, i) => {
     const info = layer.fixed ? null : layerInfo(layer.id);
-    const name = layer.fixed ? { PHOTO: 'PHOTO (print treatment)', TYPE: 'TYPE', GRAPHICS: 'GRAPHICS (micrographics)' }[layer.id] : (info ? info.name : layer.id);
+    const name = layer.fixed ? { BACKGROUND: 'BACKGROUND (paper & bands)', PHOTO: 'PHOTO (print treatment)', TYPE: 'TYPE', GRAPHICS: 'GRAPHICS (micrographics)' }[layer.id] : (info ? info.name : layer.id) + (targetOf(layer) !== 'cover' ? `  → ${targetLabel(targetOf(layer))}` : '');
     const move = d => commit(() => { const j = i + d; if (j < 0 || j >= S.layers.length) return; [S.layers[i], S.layers[j]] = [S.layers[j], S.layers[i]]; });
     const head = el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selected = selected === (layer.uid || layer.id) ? null : (layer.uid || layer.id); renderPanel(); } },
       el('b', { title: name }, name),
@@ -1637,7 +1733,7 @@ function shaderPanel() {
   search.addEventListener('input', () => { browserQuery = search.value; const pos = search.selectionStart; renderPanel(); const s2 = $('panel').querySelector('#browser input'); s2.focus(); s2.setSelectionRange(pos, pos); });
   out.push(el('div', { id: 'browser' }, search, glist,
     el('div', { className: 'row' }, el('button', { onclick: () => addLayer(pick(Math.random, SHADERS.filter(s => s.group === 'glitch')).id) }, 'Random glitch'), el('button', { onclick: () => addLayer(pick(Math.random, SHADERS.filter(s => s.group === 'backgrounds')).id) }, 'Random realm'))));
-  out.push(el('div', { className: 'note' }, 'Realms and mesh surfaces go behind the photo, outside its frame; glitch passes go on top. Move any layer above or below PHOTO and TYPE to choose what it processes.'));
+  out.push(el('div', { className: 'note' }, 'Each shader has Runs on: Whole cover processes everything below it in this list; Background, Photo, All type, All graphics or one element runs it on just that, which then goes back in at its own place in the stack. Realms fill the shape they run on.'));
   return out;
 }
 function addLayer(id) {
@@ -1650,13 +1746,24 @@ function addLayer(id) {
   });
   selected = lay.uid; renderPanel();
 }
+function targetSelect(layer) {
+  const elems = lastHits.hits.filter((h, i, a) => h.kind !== 'photo' && a.findIndex(x => x.id === h.id) === i);
+  const s = el('select', { 'aria-label': 'Runs on', onchange: () => { commit(() => { layer.target = s.value; if (s.value !== 'cover' && layer.mask !== 'all') layer.mask = 'all'; }); renderPanel(); } },
+    el('optgroup', { label: 'Layers' }, ...TARGET_GROUPS.map(([v, t]) => el('option', { value: v, selected: targetOf(layer) === v }, t))),
+    el('optgroup', { label: 'One element' }, ...elems.map(h => el('option', { value: 'el:' + h.id, selected: targetOf(layer) === 'el:' + h.id }, `${h.name} (${h.kind})`))));
+  if (targetOf(layer).startsWith('el:') && !elems.some(h => 'el:' + h.id === targetOf(layer))) s.append(el('option', { value: targetOf(layer), selected: true }, 'An element not in this layout'));
+  return el('div', { className: 'ctl' }, el('label', {}, 'Runs on'), s);
+}
 function layerControls(layer, info) {
   const box = el('div', { className: 'lb' });
   const add = (...xs) => box.append(...xs.flat());
   const s = SHADER_BY[layer.id];
   add(slider('Opacity', () => layer.opacity, v => layer.opacity = v, 0, 1),
     select('Blend', BLENDS.map(b => [b, b]), () => layer.blend, v => layer.blend = v),
-    select('Applies to', MASKS, () => layer.mask, v => layer.mask = v),
+    targetSelect(layer),
+    targetOf(layer) === 'cover' ? select('Applies to', MASKS, () => layer.mask, v => layer.mask = v)
+      : (FIELDS[layer.id] || isGenerator(layer.id)) ? el('div', { className: 'note' }, 'Fills the target\'s shape.')
+      : select('Shape', [['spread', 'Effect moves the shape'], ['clip', 'Clip to the shape']], () => layer.shape || 'spread', v => layer.shape = v),
     slider('Time', () => layer.time, v => layer.time = v, 0, 60, .01, 'Freezes animated shaders at this moment'));
   if (FIELDS[layer.id] || (s && FEEDBACK(s))) add(slider(FIELDS[layer.id] ? 'Steps' : 'Frames', () => layer.frames, v => layer.frames = v, 1, FIELDS[layer.id] ? 4000 : 240, 1, FIELDS[layer.id] ? 'Simulation steps before the frame is taken' : 'Feedback frames run before the still is taken'));
   if (FIELDS[layer.id]) add(slider('Seed', () => layer.seed, v => layer.seed = v, 0, 9999, 1));
