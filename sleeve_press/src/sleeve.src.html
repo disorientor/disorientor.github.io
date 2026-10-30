@@ -209,20 +209,41 @@ const FONTS = [
   ['unifraktur-maguntia','UnifrakturMaguntia','serif'],['pirata-one','Pirata One','serif'],['space-mono','Space Mono','mono'],['vt323','VT323','mono'],
   ['ibm-plex-mono','IBM Plex Mono','mono'],['dela-gothic-one','Dela Gothic One','japanese'],['reggae-one','Reggae One','japanese'],
   ['rocknroll-one','RocknRoll One','japanese'],['rampart-one','Rampart One','japanese'],['dotgothic16','DotGothic16','japanese'],
-  ['zen-antique','Zen Antique','japanese'],['shippori-mincho-b1','Shippori Mincho B1','japanese'],['noto-sans-jp','Noto Sans JP','japanese']
+  ['zen-antique','Zen Antique','japanese'],['shippori-mincho-b1','Shippori Mincho B1','japanese'],['noto-sans-jp','Noto Sans JP','japanese'],
+  ['press-start-2p','Press Start 2P','mono'],['silkscreen','Silkscreen','mono'],
+  ['orbitron','Orbitron','display'],['electrolize','Electrolize','display'],
+  ['audiowide','Audiowide','display'],['michroma','Michroma','display'],
+  ['righteous','Righteous','display'],['faster-one','Faster One','display'],['mr-dafoe','Mr Dafoe','display'],
+  ['cinzel','Cinzel','serif'],['cinzel-decorative','Cinzel Decorative','serif'],['bodoni-moda','Bodoni Moda','serif'],
+  ['hachi-maru-pop','Hachi Maru Pop','japanese'],['kaisei-tokumin','Kaisei Tokumin','japanese'],
+  ['zen-maru-gothic','Zen Maru Gothic','japanese'],['potta-one','Potta One','japanese'],['klee-one','Klee One','japanese']
 ].map(([id, name, group]) => ({ id, name, group, family: id === 'departure-mono' ? 'Departure Mono' : 'sp-' + id }));
 const FONT_BY = Object.fromEntries(FONTS.map(f => [f.id, f]));
+const FONT_GROUPS = [
+  ['display', 'Display & Retro'],
+  ['serif', 'Serif & Classical'],
+  ['mono', 'Pixel & Monospace'],
+  ['japanese', 'Japanese & Katakana']
+];
 const fontLoads = {};
 const JP_FALLBACK = '"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP","Noto Sans CJK JP",sans-serif';
 function loadFont(id) {
+  if (!id) return Promise.resolve();
   if (fontLoads[id]) return fontLoads[id];
   const f = FONT_BY[id];
+  if (!f) return Promise.resolve();
   // Departure Mono is already embedded for the interface.
   if (id === 'departure-mono') return fontLoads[id] = document.fonts.load('20px "Departure Mono"');
   return fontLoads[id] = new FontFace(f.family, `url(fonts/${id}.woff2)`).load().then(face => { document.fonts.add(face); f.ready = true; scheduleRender(); })
     .catch(() => { f.failed = true; toast(`Couldn't load ${f.name}; using a system font.`); });
 }
-const fam = id => { const f = FONT_BY[id] || FONT_BY['archivo-black']; loadFont(f.id); return `"${f.family}",${JP_FALLBACK}`; };
+let CURRENT_TX_ID = null;
+const fam = (id, explicit) => {
+  let fId = explicit ? id : ((CURRENT_TX_ID && state && state.type && state.type.fonts && state.type.fonts[CURRENT_TX_ID]) || id);
+  const f = FONT_BY[fId] || FONT_BY[id] || FONT_BY['archivo-black'];
+  loadFont(f.id);
+  return `"${f.family}",${JP_FALLBACK}`;
+};
 const fontsReady = () => Promise.all(Object.values(fontLoads));
 
 /* ---------- palettes and templates ---------- */
@@ -407,13 +428,15 @@ function splitTwo(s) {
   const m = Math.ceil(s.length / 2); return [s.slice(0, m), s.slice(m)];
 }
 // Wordmark: drawn on its own canvas so warp can slice it into displaced rows.
-function wordmark(ctx, text, x, y, w, h, o) {
+function wordmark(ctx, text, x, y, w, h, o = {}) {
   const S = state.type;
+  const fId = (CURRENT_TX_ID && S.fonts && S.fonts[CURRENT_TX_ID]) || o.font || S.wordFont;
+  const family = fam(fId, true);
   const opts = { stretch: o.stretch ?? S.stretch, condense: S.condense, tracking: S.tracking, color: o.color, gradient: o.gradient, stroke: S.outline || o.outline ? .035 : 0, align: o.align, valign: o.valign };
-  if (!S.warp) return o.vertical ? vertText(ctx, text, fam(S.wordFont), x, y, w, h, { ...opts, rotate: true, ccw: o.ccw }) : fitText(ctx, text, fam(S.wordFont), x, y, w, h, opts);
+  if (!S.warp) return o.vertical ? vertText(ctx, text, family, x, y, w, h, { ...opts, rotate: true, ccw: o.ccw }) : fitText(ctx, text, family, x, y, w, h, opts);
   const c = document.createElement('canvas'); c.width = Math.ceil(w); c.height = Math.ceil(h);
   const k = c.getContext('2d');
-  if (o.vertical) vertText(k, text, fam(S.wordFont), 0, 0, w, h, { ...opts, rotate: true, ccw: o.ccw }); else fitText(k, text, fam(S.wordFont), 0, 0, w, h, opts);
+  if (o.vertical) vertText(k, text, family, 0, 0, w, h, { ...opts, rotate: true, ccw: o.ccw }); else fitText(k, text, family, 0, 0, w, h, opts);
   const r = rng(state.seed + 5), rows = 6 + Math.floor(r() * 18);
   let yy = 0;
   while (yy < h) {
@@ -427,7 +450,8 @@ function wordmark(ctx, text, x, y, w, h, o) {
    recorded so the element can be picked and dragged on the cover. */
 let LAY = { W: 1, H: 1, hits: [] };
 const extraOf = id => id && id.startsWith('x:') ? (state.extras || []).find(e => 'x:' + e.uid === id) : null;
-const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...(extraOf(id) || ((state.layout || {})[state.template] || {})[id]) });
+const extraTextOf = id => id && id.startsWith('xt:') ? (state.extraTexts || []).find(e => 'xt:' + e.uid === id) : null;
+const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...(extraTextOf(id) || extraOf(id) || ((state.layout || {})[state.template] || {})[id]) });
 // ISO: elements a shader targets on their own are drawn on separate canvases. The main pass skips them
 // (ISO.skip); an isolation pass draws only one (ISO.only) and records no hits.
 let ISO = { only: null, skip: new Set() };
@@ -442,7 +466,15 @@ function E(c, id, name, kind, x, y, w, h, fn) {
   c.restore();
 }
 // Shorthands: a type element, a band (flat shape under the photo), the photo frame.
-const TX = (c, id, name, x, y, w, h, fn) => E(c, id, name, 'type', x, y, w, h, fn);
+const TX = (c, id, name, x, y, w, h, fn) => {
+  const prev = CURRENT_TX_ID;
+  CURRENT_TX_ID = id;
+  try {
+    return E(c, id, name, 'type', x, y, w, h, fn);
+  } finally {
+    CURRENT_TX_ID = prev;
+  }
+};
 const BAND = (c, id, name, x, y, w, h, color) => E(c, id, name, 'band', x, y, w, h, k => { k.fillStyle = color; k.fillRect(x, y, w, h); });
 function photoRect(r) {
   const o = place('photo');
@@ -2489,9 +2521,9 @@ const DEFAULT = () => ({
   print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 },
   type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
     tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b',
-    wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
+    wordFont: 'archivo-black', kanaFont: 'dela-gothic-one', smallFont: 'space-mono', fonts: {}, stretch: true, condense: 1, tracking: 0, outline: false, warp: 0,
     tracksA: 'Haecceity\nBlue Hour\nFluorescent\nNo Signal', tracksB: 'Ex Cathedra\nGlass Room\nEnd Credits' },
-  graphics: DEFAULT_GRAPHICS(), extras: [],
+  graphics: DEFAULT_GRAPHICS(), extras: [], extraTexts: [],
   layout: {},
   layers: [ { id: 'BACKGROUND', fixed: true }, { id: 'PHOTO', fixed: true }, mkLayer('13_pixel_sort', { values: { u_intensity: [0.6] } }), { id: 'TYPE', fixed: true }, { id: 'GRAPHICS', fixed: true } ],
   export: { size: 3000, guides: false, dpi: 300 }
@@ -2517,6 +2549,9 @@ function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press'
 // Older saves have no graphics layer or layout map; graphics then go straight above the type.
 function normalize(s) {
   s.extras = s.extras || [];
+  s.extraTexts = s.extraTexts || [];
+  s.type = s.type || {};
+  s.type.fonts = s.type.fonts || {};
   s.layout = s.layout || {};
   s.print = s.print || {};
   if (s.print.ringwear === undefined) s.print.ringwear = 0;
@@ -2962,6 +2997,75 @@ function removeExtra(id) {
   if (selId === id) selectItem(null);
   if (activeSlot === id) activeSlot = 'add';
 }
+function drawExtraTexts(k, W, H) {
+  const u = W / 100;
+  (state.extraTexts || []).forEach(et => {
+    if (!et.text) return;
+    const fontId = et.font || 'righteous';
+    const family = fam(fontId, true);
+    const fontSize = Math.max(8, (et.size || 5) * u);
+    k.save();
+    k.font = `${fontSize}px ${family}`;
+    if (et.tracking) k.letterSpacing = `${et.tracking}px`;
+    const m = k.measureText(et.text);
+    k.restore();
+    const asc = m.actualBoundingBoxAscent || fontSize * 0.8;
+    const desc = m.actualBoundingBoxDescent || fontSize * 0.2;
+    const tw = Math.max(12, m.width);
+    const th = Math.max(12, asc + desc);
+    const isVert = !!et.vertical;
+    const bw = isVert ? Math.max(th, fontSize * 1.3) + 2 * u : tw + 3 * u;
+    const bh = isVert ? (tw + 3 * u) : Math.max(th, fontSize * 1.3) + 1 * u;
+    const bx = (W - bw) / 2;
+    const by = (H - bh) / 2;
+    const ink = et.ink && et.ink !== 'auto' ? (state.colors[et.ink] || et.ink) : state.colors.ink1;
+    const opts = {
+      color: ink,
+      align: et.align || 'center',
+      valign: 'center',
+      tracking: et.tracking || 0,
+      stroke: et.outline ? 0.035 : 0
+    };
+    E(k, 'xt:' + et.uid, et.text, 'type', bx, by, bw, bh, ctx => {
+      if (isVert) {
+        vertText(ctx, et.text, family, bx, by, bw, bh, { ...opts, rotate: !isCJK(et.text) });
+      } else {
+        fitText(ctx, et.text, family, bx, by, bw, bh, opts);
+      }
+    });
+  });
+}
+function addExtraText(from) {
+  const et = {
+    uid: Math.random().toString(36).slice(2, 8),
+    text: from ? from.text : 'VAPORWAVE',
+    font: from ? from.font : 'righteous',
+    x: from ? from.x + .04 : (Math.random() - .5) * .3,
+    y: from ? from.y + .04 : (Math.random() - .5) * .3,
+    s: from ? from.s : 1,
+    r: from ? from.r : 0,
+    size: from ? from.size : 5,
+    ink: from ? from.ink : 'auto',
+    align: from ? from.align : 'center',
+    vertical: from ? !!from.vertical : false,
+    tracking: from ? from.tracking : 0,
+    outline: from ? !!from.outline : false,
+    hide: false
+  };
+  commit(() => {
+    state.extraTexts = state.extraTexts || [];
+    state.extraTexts.push(et);
+  });
+  selectItem('xt:' + et.uid);
+  return et;
+}
+function removeExtraText(id) {
+  commit(() => state.extraTexts = (state.extraTexts || []).filter(e => 'xt:' + e.uid !== id));
+  if (selId === id) selectItem(null);
+}
+function duplicateExtraText(et) {
+  return addExtraText({ ...et, x: (et.x || 0) + 0.04, y: (et.y || 0) + 0.04 });
+}
 function buildCover(W, H, isolate = []) {
   LAY = { W, H, hits: [] };
   ISO = { only: null, skip: new Set(isolate) };
@@ -2972,10 +3076,10 @@ function buildCover(W, H, isolate = []) {
   let type;
   const iso = {};
   try {
-    type = canvasLayer(W, H, k => L.over(k)); drawExtras(W, H);
+    type = canvasLayer(W, H, k => { L.over(k); drawExtraTexts(k, W, H); }); drawExtras(W, H);
     for (const id of isolate) {
       ISO.only = id;
-      iso[id] = canvasLayer(W, H, k => { GFX = k; L.under(k); L.over(k); drawExtras(W, H); });
+      iso[id] = canvasLayer(W, H, k => { GFX = k; L.under(k); L.over(k); drawExtraTexts(k, W, H); drawExtras(W, H); });
     }
   } finally { GFX = null; ISO = { only: null, skip: new Set() }; }
   return { rect, under, type, gfx, iso, hits: LAY.hits };
@@ -3297,6 +3401,7 @@ function randomize() {
     state.print.stamp = r() < .15 ? +(r() * .4).toFixed(2) : 0;
     const display = FONTS.filter(f => f.group === 'display' || f.group === 'serif'), jp = FONTS.filter(f => f.group === 'japanese');
     state.type.wordFont = pick(r, display).id; state.type.kanaFont = pick(r, jp).id; state.type.smallFont = pick(r, FONTS.filter(f => f.group === 'mono')).id;
+    state.type.fonts = {};
     shuffleGraphics(r);
     state.type.warp = r() < .3 ? +(r() * .6).toFixed(2) : 0; state.type.outline = r() < .15;
     const glitch = SHADERS.filter(s => s.group === 'glitch' && s.id !== 'master_glitch_pipeline');
@@ -3361,6 +3466,24 @@ function fontSelect(label, key, groups) {
     ...groups.map(g => el('optgroup', { label: g }, ...FONTS.filter(f => f.group === g).map(f => el('option', { value: f.id, selected: state.type[key] === f.id }, f.name)))));
   return el('div', { className: 'ctl' }, el('label', {}, label), s);
 }
+function fontPicker(label, get, set, defaultId = 'archivo-black') {
+  const cur = get() || defaultId;
+  const s = el('select', {
+    'aria-label': label,
+    onchange: () => commit(() => {
+      set(s.value);
+      loadFont(s.value);
+    })
+  },
+    ...FONT_GROUPS.map(([gId, gLabel]) => {
+      const gFonts = FONTS.filter(f => f.group === gId);
+      return el('optgroup', { label: gLabel },
+        ...gFonts.map(f => el('option', { value: f.id, selected: f.id === cur }, f.name))
+      );
+    })
+  );
+  return el('div', { className: 'ctl' }, el('label', {}, label), s);
+}
 function templateThumb(id) {
   const c = el('canvas', { width: 120, height: 120 });
   const k = c.getContext('2d'), tp = TEMPLATES[id], a = tp.aspect || 1;
@@ -3373,7 +3496,7 @@ function templateThumb(id) {
     k.fillStyle = state.colors.paper; k.fillRect(0, 0, W, H);
     L.under(k);
     k.fillStyle = state.colors.ink2; k.globalAlpha = .55; const pr = photoRect(L.photo); k.fillRect(...pr); k.globalAlpha = 1;
-    GFX = k; L.over(k);
+    GFX = k; L.over(k); drawExtraTexts(k, W, H);
   } catch {} finally { GFX = null; state.template = keep; }
   k.restore();
   return c;
@@ -3467,30 +3590,147 @@ function renderPanel() {
       el('div', { className: 'note' }, 'Inks come from the palette: Ink 1 prints the shadows, Ink 2 the second plate, Accent for third-plate treatments, and Paper the highlight stock.'));
   } else if (activeTab === 'type') {
     const T2 = S.type;
+    T2.fonts = T2.fonts || {};
     const auto = (key, src) => { if (T2['autoKana' + key]) T2['kana' + key] = toKatakana(T2[src]); };
-    kids.push(text('Artist', () => T2.artist, v => { T2.artist = v; auto('Artist', 'artist'); }),
-      text('Title', () => T2.title, v => { T2.title = v; auto('Title', 'title'); }),
-      el('h3', {}, 'Katakana'),
-      text('Artist ア', () => T2.kanaArtist, v => { T2.kanaArtist = v; T2.autoKanaArtist = false; }),
-      check('Auto from artist', () => T2.autoKanaArtist, v => { T2.autoKanaArtist = v; auto('Artist', 'artist'); setTimeout(renderPanel); }),
-      text('Title ア', () => T2.kanaTitle, v => { T2.kanaTitle = v; T2.autoKanaTitle = false; }),
-      check('Auto from title', () => T2.autoKanaTitle, v => { T2.autoKanaTitle = v; auto('Title', 'title'); setTimeout(renderPanel); }),
-      el('div', { className: 'note' }, 'Katakana is sounded out from the Latin text (DISORIENTOR → ディスオリエンター). Type over it for real Japanese.'),
-      el('h3', {}, 'Small print'),
-      text('Tagline', () => T2.tagline, v => T2.tagline = v),
-      text('Catalogue no.', () => T2.catalogue, v => T2.catalogue = v),
-      text('Side line', () => T2.side, v => T2.side = v),
-      el('h3', {}, 'Fonts'),
-      fontSelect('Wordmark', 'wordFont', ['display', 'serif', 'mono', 'japanese']),
-      fontSelect('Japanese', 'kanaFont', ['japanese', 'display', 'serif', 'mono']),
-      fontSelect('Small print', 'smallFont', ['mono', 'display', 'serif', 'japanese']),
-      el('h3', {}, 'Wordmark'),
-      check('Stretch to fit', () => T2.stretch, v => T2.stretch = v),
-      slider('Condense', () => T2.condense, v => T2.condense = v, .4, 1.6),
-      slider('Tracking', () => T2.tracking, v => T2.tracking = v, -15, 40, .5),
-      slider('Slice warp', () => T2.warp, v => T2.warp = v, 0, 1),
-      check('Outline', () => T2.outline, v => T2.outline = v));
-    if (S.template === 'tape') kids.push(text('Side A tracks', () => T2.tracksA, v => T2.tracksA = v, true), text('Side B tracks', () => T2.tracksB, v => T2.tracksB = v, true));
+
+    kids.push(
+      el('h3', {}, 'Type & Lettering'),
+      el('div', { className: 'row' },
+        el('button', { className: 'primary', onclick: () => { addExtraText(); renderPanel(); } }, '+ Add text'),
+        el('span', { className: 'note' }, 'Independent font, scale & rotation per text'))
+    );
+
+    // Section 1: Added / Custom texts
+    if ((S.extraTexts || []).length > 0) {
+      kids.push(el('h3', {}, `Custom Texts (${S.extraTexts.length})`));
+      S.extraTexts.forEach((et, i) => {
+        const id = 'xt:' + et.uid;
+        const isSel = selId === id;
+        const curFont = et.font || 'righteous';
+        const head = el('div', {
+          className: 'lh',
+          onclick: e => {
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+            selectItem(isSel ? null : id);
+          }
+        },
+          el('b', {}, `"${et.text || 'Text'}"${et.hide ? ' (hidden)' : ''}`),
+          el('span', { className: 'note', style: 'margin-right:4px' }, FONT_BY[curFont]?.name || curFont),
+          el('button', {
+            className: 'mini' + (et.hide ? ' on' : ''),
+            title: et.hide ? 'Show' : 'Hide',
+            onclick: () => { commit(() => et.hide = !et.hide); renderPanel(); }
+          }, et.hide ? 'Show' : 'Hide'),
+          el('button', {
+            className: 'mini',
+            title: 'Duplicate',
+            'aria-label': 'Duplicate',
+            onclick: () => { duplicateExtraText(et); renderPanel(); }
+          }, '+'),
+          el('button', {
+            className: 'mini',
+            title: 'Delete',
+            'aria-label': 'Delete',
+            onclick: () => { removeExtraText(id); renderPanel(); }
+          }, '×')
+        );
+        const body = el('div', { className: 'lb' },
+          text('Text', () => et.text, v => et.text = v),
+          fontPicker('Font', () => et.font, v => et.font = v, 'righteous'),
+          slider('Size / Scale', () => et.s ?? 1, v => et.s = v, 0.1, 4, 0.01),
+          slider('Rotate', () => et.r ?? 0, v => et.r = v, -180, 180, 0.5),
+          select('Colour', INKS, () => et.ink || 'auto', v => et.ink = v),
+          check('Vertical (tategaki)', () => !!et.vertical, v => et.vertical = v),
+          check('Outline', () => !!et.outline, v => et.outline = v),
+          slider('Tracking', () => et.tracking || 0, v => et.tracking = v, -15, 40, 0.5)
+        );
+        kids.push(el('div', { className: 'layer' + (isSel ? ' sel' : ''), 'data-tx-id': id }, head, body));
+      });
+    }
+
+    // Section 2: Template Texts
+    kids.push(el('h3', {}, 'Template Texts'));
+
+    function makeTextCard(id, name, getter, setter, defaultFont, opts = {}) {
+      const pl = placement(id);
+      const isSel = selId === id;
+      const curFont = T2.fonts[id] || defaultFont || 'archivo-black';
+      const head = el('div', {
+        className: 'lh',
+        onclick: e => {
+          if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+          selectItem(isSel ? null : id);
+        }
+      },
+        el('b', {}, `${name}${pl.hide ? ' (hidden)' : ''}`),
+        el('span', { className: 'note', style: 'margin-right:4px' }, FONT_BY[curFont]?.name || curFont),
+        el('button', {
+          className: 'mini' + (pl.hide ? ' on' : ''),
+          title: pl.hide ? 'Show' : 'Hide',
+          onclick: () => { commit(() => pl.hide = !pl.hide); renderPanel(); }
+        }, pl.hide ? 'Show' : 'Hide'),
+        el('button', {
+          className: 'mini',
+          title: 'Reset transform',
+          onclick: () => { commit(() => Object.assign(pl, { x: 0, y: 0, s: 1, r: 0 })); renderPanel(); }
+        }, 'Reset')
+      );
+      const body = el('div', { className: 'lb' });
+      if (getter && setter) {
+        body.append(text(opts.label || name, getter, setter, opts.multiline));
+      }
+      if (opts.extraControls) {
+        body.append(...opts.extraControls);
+      }
+      body.append(
+        fontPicker('Font', () => T2.fonts[id], v => { T2.fonts[id] = v; }, defaultFont),
+        slider('Size / Scale', () => pl.s ?? 1, v => pl.s = v, 0.1, 4, 0.01),
+        slider('Rotate', () => pl.r ?? 0, v => pl.r = v, -180, 180, 0.5)
+      );
+      if (opts.isWordmark) {
+        body.append(
+          check('Stretch to fit', () => T2.stretch, v => T2.stretch = v),
+          slider('Condense', () => T2.condense, v => T2.condense = v, .4, 1.6),
+          slider('Tracking', () => T2.tracking, v => T2.tracking = v, -15, 40, .5),
+          slider('Slice warp', () => T2.warp, v => T2.warp = v, 0, 1),
+          check('Outline', () => T2.outline, v => T2.outline = v)
+        );
+      }
+      return el('div', { className: 'layer' + (isSel ? ' sel' : ''), 'data-tx-id': id }, head, body);
+    }
+
+    // Artist
+    kids.push(makeTextCard('artist', 'Artist wordmark', () => T2.artist, v => { T2.artist = v; auto('Artist', 'artist'); }, T2.wordFont, { isWordmark: true }));
+    // Title
+    kids.push(makeTextCard('title', 'Title', () => T2.title, v => { T2.title = v; auto('Title', 'title'); }, T2.wordFont || T2.kanaFont));
+    // Katakana Title
+    kids.push(makeTextCard('kanaTitle', 'Title (katakana)', () => T2.kanaTitle, v => { T2.kanaTitle = v; T2.autoKanaTitle = false; }, T2.kanaFont, {
+      extraControls: [check('Auto from title', () => T2.autoKanaTitle, v => { T2.autoKanaTitle = v; auto('Title', 'title'); setTimeout(renderPanel); })]
+    }));
+    // Katakana Artist
+    kids.push(makeTextCard('kanaArtist', 'Artist (katakana)', () => T2.kanaArtist, v => { T2.kanaArtist = v; T2.autoKanaArtist = false; }, T2.kanaFont, {
+      extraControls: [check('Auto from artist', () => T2.autoKanaArtist, v => { T2.autoKanaArtist = v; auto('Artist', 'artist'); setTimeout(renderPanel); })]
+    }));
+    // Tagline
+    kids.push(makeTextCard('tagline', 'Tagline', () => T2.tagline, v => T2.tagline = v, T2.smallFont));
+    // Catalogue
+    kids.push(makeTextCard('catalogue', 'Catalogue no.', () => T2.catalogue, v => T2.catalogue = v, T2.smallFont));
+    // Side line
+    kids.push(makeTextCard('side', 'Side line', () => T2.side, v => T2.side = v, T2.smallFont));
+
+    if (S.template === 'tape') {
+      kids.push(
+        makeTextCard('tracksA', 'Side A tracks', () => T2.tracksA, v => T2.tracksA = v, T2.smallFont, { multiline: true }),
+        makeTextCard('tracksB', 'Side B tracks', () => T2.tracksB, v => T2.tracksB = v, T2.smallFont, { multiline: true })
+      );
+    }
+
+    // Any other template-specific text hits active in this layout
+    const stdIds = new Set(['artist', 'title', 'kanaTitle', 'kanaArtist', 'tagline', 'catalogue', 'side', 'tracksA', 'tracksB', 'frame', 'dots', 'rule', 'rules', 'div', 'perfLine', 'borders', 'brackets', 'axes', 'gridRules', 'bottomBar', 'gutters']);
+    const otherTypeHits = lastHits.hits.filter((h, idx, arr) => h.kind === 'type' && !h.id.startsWith('xt:') && !stdIds.has(h.id) && arr.findIndex(x => x.id === h.id) === idx);
+    for (const oth of otherTypeHits) {
+      kids.push(makeTextCard(oth.id, oth.name, null, null, T2.fonts[oth.id] || T2.smallFont));
+    }
   } else if (activeTab === 'arrange') {
     kids.push(...arrangePanel());
   } else if (activeTab === 'graphics') {
@@ -3528,7 +3768,7 @@ function arrangePanel() {
       el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selectItem(selId === h.id ? null : h.id); renderPanel(); } },
         el('b', {}, h.name + (o.hide ? ' (hidden)' : '')), el('span', { className: 'note' }, h.kind),
         el('button', { className: 'mini' + (o.hide ? ' on' : ''), title: o.hide ? 'Show' : 'Hide', onclick: () => { commit(() => placement(h.id).hide = !o.hide); renderPanel(); } }, o.hide ? 'Show' : 'Hide'),
-        extraOf(h.id) ? el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { removeExtra(h.id); renderPanel(); } }, '×') : null)));
+        (extraOf(h.id) || extraTextOf(h.id)) ? el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { if (extraTextOf(h.id)) removeExtraText(h.id); else removeExtra(h.id); renderPanel(); } }, '×') : null)));
     if (selId === h.id) {
       const pl = placement(h.id);
       list.lastChild.append(el('div', { className: 'lb' },
@@ -3736,13 +3976,27 @@ function pickAt(pt) {
   return best && best.h;
 }
 function placement(id) {
+  const xt = extraTextOf(id);
+  if (xt) return xt;
   const ex = extraOf(id);
   if (ex) return ex;
   state.layout = state.layout || {};
   const T3 = state.layout[state.template] || (state.layout[state.template] = {});
   return T3[id] || (T3[id] = { x: 0, y: 0, s: 1, r: 0, hide: false });
 }
-function selectItem(id) { selId = id; const h = lastHits.hits.find(h => h.id === id); $('selName').textContent = h ? h.name : ''; drawOverlay(); if (activeTab === 'arrange') renderPanel(); }
+function selectItem(id) {
+  selId = id;
+  const h = lastHits.hits.find(h => h.id === id);
+  $('selName').textContent = h ? h.name : '';
+  drawOverlay();
+  if (activeTab === 'arrange' || activeTab === 'type') {
+    renderPanel();
+    if (activeTab === 'type' && id) {
+      const card = $('panel').querySelector(`[data-tx-id="${id}"]`);
+      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+}
 function drawOverlay() {
   const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
   // The overlay holds d device pixels per CSS pixel but is shown at exactly the cover's CSS size.
@@ -3797,14 +4051,14 @@ cv.addEventListener('pointermove', e => {
   scheduleRender();
 });
 const photoRectNow = () => { const h = lastHits.hits.find(h => h.id === 'photo'); return h ? [h.cx - h.w / 2, h.cy - h.h / 2, h.w, h.h] : [0, 0, lastHits.W, lastHits.H]; };
-const endPointer = e => { pointers.delete(e.pointerId); if (!pointers.size && gesture) { gesture = null; save(); if (activeTab === 'image' || activeTab === 'arrange') renderPanel(); } };
+const endPointer = e => { pointers.delete(e.pointerId); if (!pointers.size && gesture) { gesture = null; save(); if (activeTab === 'image' || activeTab === 'arrange' || activeTab === 'type') renderPanel(); } };
 cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('pointerleave', () => { if (hoverId) { hoverId = null; drawOverlay(); } });
 let wheelTimer;
 cv.addEventListener('wheel', e => {
   e.preventDefault();
   if (!wheelTimer) snapshot();
-  clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; save(); if (activeTab === 'arrange') renderPanel(); }, 400);
+  clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; save(); if (activeTab === 'arrange' || activeTab === 'type') renderPanel(); }, 400);
   if (mode === 'pan') { state.photo.zoom = clamp(state.photo.zoom * Math.exp(-e.deltaY * .0015), .3, 4); }
   else {
     const h = pickAt(toCover(e)) || lastHits.hits.find(h => h.id === selId);
@@ -3829,8 +4083,14 @@ addEventListener('keydown', e => {
   else if (e.key === 'v') setMode('move');
   else if (e.key === 'p') setMode('pan');
   else if (e.key === 'Escape') selectItem(null);
-  else if ((e.key === 'Delete' || e.key === 'Backspace') && extraOf(selId)) { e.preventDefault(); removeExtra(selId); renderPanel(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && extraOf(selId)) { e.preventDefault(); addExtra(extraOf(selId).id, extraOf(selId)); renderPanel(); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace')) {
+    if (extraTextOf(selId)) { e.preventDefault(); removeExtraText(selId); renderPanel(); }
+    else if (extraOf(selId)) { e.preventDefault(); removeExtra(selId); renderPanel(); }
+  }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+    if (extraTextOf(selId)) { e.preventDefault(); duplicateExtraText(extraTextOf(selId)); renderPanel(); }
+    else if (extraOf(selId)) { e.preventDefault(); addExtra(extraOf(selId).id, extraOf(selId)); renderPanel(); }
+  }
   else if (selId && /^(Arrow(Up|Down|Left|Right)|\+|=|-|\[|\])$/.test(e.key)) {
     e.preventDefault(); snapshot();
     const o = placement(selId), st = e.shiftKey ? .02 : .0025;
@@ -3838,7 +4098,7 @@ addEventListener('keydown', e => {
     else if (e.key === 'ArrowUp') o.y -= st; else if (e.key === 'ArrowDown') o.y += st;
     else if (e.key === '+' || e.key === '=') o.s *= 1.04; else if (e.key === '-') o.s /= 1.04;
     else if (e.key === '[') o.r -= e.shiftKey ? 15 : 1; else if (e.key === ']') o.r += e.shiftKey ? 15 : 1;
-    save(); scheduleRender(); if (activeTab === 'arrange') renderPanel();
+    save(); scheduleRender(); if (activeTab === 'arrange' || activeTab === 'type') renderPanel();
   }
 });
 addEventListener('resize', scheduleRender);
@@ -3846,6 +4106,8 @@ cv.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('The GP
 
 /* ---------- start ---------- */
 try { const p = localStorage.getItem('sleeve-press-photo'); if (p && state.photo.src === 'upload') loadPhotoURL(p, true); else if (state.photo.src === 'upload') state.photo.src = 'shader'; } catch {}
-['archivo-black', 'dela-gothic-one', 'space-mono', state.type.wordFont, state.type.kanaFont, state.type.smallFont].forEach(loadFont);
+['archivo-black', 'dela-gothic-one', 'space-mono', 'righteous', 'cinzel', state.type.wordFont, state.type.kanaFont, state.type.smallFont].forEach(loadFont);
+if (state.type.fonts) Object.values(state.type.fonts).forEach(loadFont);
+(state.extraTexts || []).forEach(et => et.font && loadFont(et.font));
 renderTabs(); renderPanel(); scheduleRender();
 </script>

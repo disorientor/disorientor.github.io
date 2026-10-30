@@ -23,6 +23,18 @@ FONTS = {  # output name: (file, weight for variable fonts, Japanese)
     'rocknroll-one': ('RocknRollOne-Regular.ttf', None, True), 'rampart-one': ('RampartOne-Regular.ttf', None, True),
     'dotgothic16': ('DotGothic16-Regular.ttf', None, True), 'zen-antique': ('ZenAntique-Regular.ttf', None, True),
     'shippori-mincho-b1': ('ShipporiMinchoB1-ExtraBold.ttf', None, True), 'noto-sans-jp': ('NotoSansJP[wght].ttf', 900, True),
+    'press-start-2p': ('PressStart2P-Regular.ttf', None, False), 'silkscreen': ('Silkscreen-Regular.ttf', None, False),
+    'orbitron': ('Orbitron[wght].ttf', 800, False), 'electrolize': ('Electrolize-Regular.ttf', None, False),
+    'audiowide': ('Audiowide-Regular.ttf', None, False), 'michroma': ('Michroma-Regular.ttf', None, False),
+    'righteous': ('Righteous-Regular.ttf', None, False), 'faster-one': ('FasterOne-Regular.ttf', None, False),
+    'cinzel': ('Cinzel[wght].ttf', 700, False), 'cinzel-decorative': ('CinzelDecorative-Bold.ttf', None, False),
+    'bodoni-moda': ('BodoniModa[opsz,wght].ttf', {'wght': 800, 'opsz': 144}, False),
+    'mr-dafoe': ('MrDafoe-Regular.ttf', None, False),
+    'hachi-maru-pop': ('HachiMaruPop-Regular.ttf', None, True),
+    'kaisei-tokumin': ('KaiseiTokumin-Bold.ttf', None, True),
+    'zen-maru-gothic': ('ZenMaruGothic-Black.ttf', None, True),
+    'potta-one': ('PottaOne-Regular.ttf', None, True),
+    'klee-one': ('KleeOne-SemiBold.ttf', None, True),
 }
 
 def jis_level1():

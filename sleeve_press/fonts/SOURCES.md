@@ -35,3 +35,20 @@ Departure Mono (`DepartureMono-Regular.otf`, OFL, Helena Zhang) is embedded in t
 | zen-antique.woff2 | Zen Antique | zenantique | ZenAntique-Regular.ttf |
 | shippori-mincho-b1.woff2 | Shippori Mincho B1 ExtraBold | shipporiminchob1 | ShipporiMinchoB1-ExtraBold.ttf |
 | noto-sans-jp.woff2 | Noto Sans JP (900) | notosansjp | NotoSansJP[wght].ttf |
+| press-start-2p.woff2 | Press Start 2P | pressstart2p | PressStart2P-Regular.ttf |
+| silkscreen.woff2 | Silkscreen | silkscreen | Silkscreen-Regular.ttf |
+| orbitron.woff2 | Orbitron (800) | orbitron | Orbitron[wght].ttf |
+| electrolize.woff2 | Electrolize | electrolize | Electrolize-Regular.ttf |
+| audiowide.woff2 | Audiowide | audiowide | Audiowide-Regular.ttf |
+| michroma.woff2 | Michroma | michroma | Michroma-Regular.ttf |
+| righteous.woff2 | Righteous | righteous | Righteous-Regular.ttf |
+| faster-one.woff2 | Faster One | fasterone | FasterOne-Regular.ttf |
+| cinzel.woff2 | Cinzel (700) | cinzel | Cinzel[wght].ttf |
+| cinzel-decorative.woff2 | Cinzel Decorative Bold | cinzeldecorative | CinzelDecorative-Bold.ttf |
+| bodoni-moda.woff2 | Bodoni Moda (800) | bodonimoda | BodoniModa[opsz,wght].ttf |
+| mr-dafoe.woff2 | Mr Dafoe | mrdafoe | MrDafoe-Regular.ttf |
+| hachi-maru-pop.woff2 | Hachi Maru Pop | hachimarupop | HachiMaruPop-Regular.ttf |
+| kaisei-tokumin.woff2 | Kaisei Tokumin Bold | kaiseitokumin | KaiseiTokumin-Bold.ttf |
+| zen-maru-gothic.woff2 | Zen Maru Gothic Black | zenmarugothic | ZenMaruGothic-Black.ttf |
+| potta-one.woff2 | Potta One | pottaone | PottaOne-Regular.ttf |
+| klee-one.woff2 | Klee One SemiBold | kleeone | KleeOne-SemiBold.ttf |
