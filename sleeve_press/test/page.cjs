@@ -120,6 +120,58 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.woff2': 'font/
       console.log('swap', JSON.stringify(swap));
       assert(swap.id === '04_macroblock_scramble' && swap.same && swap.at && swap.opacity === .55 && swap.blend === 'screen' && swap.target === 'type' && swap.time === 7 && swap.dials.includes('u_block_dimension') && swap.added === 1, 'hot swap failed');
       await shot('swap');
+      // Image stacking: add stacked realm shader image, duplicate it, test blend modes & opacity, reorder, delete, hit-testing
+      const imgStack = JSON.parse(await evaluate(`(async () => {
+        state.template = 'headline'; activeTab = 'image'; renderTabs(); renderPanel();
+        const initialCount = state.images.length;
+        await addImage('shader:f01_raymarched_mandelbulb');
+        const img2 = state.images[1];
+        img2.blend = 'difference';
+        img2.opacity = 0.8;
+        img2.frame = 'cover';
+        scheduleRender();
+        await new Promise(r => setTimeout(r, 600));
+        const afterAddCount = state.images.length;
+        const hitsAfterAdd = lastHits.hits.filter(h => h.id === 'photo' || h.id.startsWith('img:')).length;
+
+        // Duplicate
+        duplicateImage(img2.uid);
+        const afterDupCount = state.images.length;
+
+        // Reorder
+        const dupUid = state.images[2].uid;
+        moveImage(dupUid, -1);
+        const reorderedIndex = state.images.findIndex(i => i.uid === dupUid);
+
+        // Remove duplicate
+        removeImage(dupUid);
+        const afterRemoveCount = state.images.length;
+
+        // Render pixels with stacked image
+        const c = await renderPixels(...dims(500));
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let s = 0; for (let i = 0; i < d.length; i += 2000) s += d[i] + d[i+1] + d[i+2];
+
+        // Clean up stacked image so subsequent template tests stay pristine
+        removeImage(img2.uid);
+
+        return JSON.stringify({
+          initialCount,
+          afterAddCount,
+          hitsAfterAdd,
+          afterDupCount,
+          reorderedIndex,
+          afterRemoveCount,
+          finalCount: state.images.length,
+          hasPixels: s > 0,
+          syncPhoto: state.photo === state.images[0]
+        });
+      })()`));
+      console.log('image stack', JSON.stringify(imgStack));
+      assert(imgStack.initialCount === 1 && imgStack.afterAddCount === 2 && imgStack.hitsAfterAdd === 2 &&
+             imgStack.afterDupCount === 3 && imgStack.reorderedIndex === 1 && imgStack.afterRemoveCount === 2 &&
+             imgStack.finalCount === 1 && imgStack.hasPixels && imgStack.syncPhoto, 'image stacking test failed');
+      await shot('image-stack');
       const slots = await evaluate(`JSON.stringify(Object.fromEntries(Object.keys(TEMPLATES).map(t => [t, slotsFor(t)])))`);
       console.log('slots', slots);
       await evaluate(`randomize(); new Promise(r => setTimeout(r, 1500))`); await shot('random-1');

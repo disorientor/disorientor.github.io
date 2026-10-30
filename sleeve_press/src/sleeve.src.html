@@ -109,9 +109,9 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
     </div>
   </main>
 </div>
-<input id="file" type="file" accept="image/*" hidden>
+<input id="file" type="file" accept="image/*" multiple hidden>
 <input id="projFile" type="file" accept=".json,application/json" hidden>
-<div id="drop" hidden>Drop a photo</div>
+<div id="drop" hidden>Drop images to add to stack</div>
 <div id="toast" hidden></div>
 
 <script>
@@ -451,6 +451,7 @@ function wordmark(ctx, text, x, y, w, h, o = {}) {
 let LAY = { W: 1, H: 1, hits: [] };
 const extraOf = id => id && id.startsWith('x:') ? (state.extras || []).find(e => 'x:' + e.uid === id) : null;
 const extraTextOf = id => id && id.startsWith('xt:') ? (state.extraTexts || []).find(e => 'xt:' + e.uid === id) : null;
+const imageOf = id => id && (id === 'photo' ? (state.images?.[0] || state.photo) : (id.startsWith('img:') ? (state.images || []).find(e => 'img:' + e.uid === id) : null));
 const place = id => ({ x: 0, y: 0, s: 1, r: 0, hide: false, ...(extraTextOf(id) || extraOf(id) || ((state.layout || {})[state.template] || {})[id]) });
 // ISO: elements a shader targets on their own are drawn on separate canvases. The main pass skips them
 // (ISO.skip); an isolation pass draws only one (ISO.only) and records no hits.
@@ -477,11 +478,54 @@ const TX = (c, id, name, x, y, w, h, fn) => {
 };
 const BAND = (c, id, name, x, y, w, h, color) => E(c, id, name, 'band', x, y, w, h, k => { k.fillStyle = color; k.fillRect(x, y, w, h); });
 function photoRect(r) {
+  const baseImg = state.images?.[0];
   const o = place('photo');
-  if (!ISO.only) LAY.hits.push({ id: 'photo', name: 'Photo frame', kind: 'photo', cx: r[0] + r[2] / 2 + o.x * LAY.W, cy: r[1] + r[3] / 2 + o.y * LAY.H, w: r[2] * o.s, h: r[3] * o.s, r: 0, hide: o.hide });
-  if (o.hide) return [0, 0, 0, 0];
-  const w = r[2] * o.s, h = r[3] * o.s;
-  return [r[0] + r[2] / 2 + o.x * LAY.W - w / 2, r[1] + r[3] / 2 + o.y * LAY.H - h / 2, w, h];
+  if (!ISO.only) {
+    let bcx, bcy, bw, bh;
+    if (baseImg?.frame === 'cover') {
+      bcx = LAY.W / 2 + o.x * LAY.W; bcy = LAY.H / 2 + o.y * LAY.H;
+      bw = LAY.W * o.s; bh = LAY.H * o.s;
+    } else if (baseImg?.frame === 'custom') {
+      bcx = LAY.W / 2 + o.x * LAY.W; bcy = LAY.H / 2 + o.y * LAY.H;
+      bw = (baseImg.fw ?? 0.7) * LAY.W * o.s; bh = (baseImg.fh ?? 0.7) * LAY.H * o.s;
+    } else {
+      bcx = r[0] + r[2] / 2 + o.x * LAY.W; bcy = r[1] + r[3] / 2 + o.y * LAY.H;
+      bw = r[2] * o.s; bh = r[3] * o.s;
+    }
+    LAY.hits.push({ id: 'photo', name: baseImg?.name || 'Photo frame', kind: 'photo', cx: bcx, cy: bcy, w: bw, h: bh, r: o.r || 0, hide: o.hide || !!baseImg?.hide });
+    if (state.images && state.images.length > 1) {
+      for (let i = 1; i < state.images.length; i++) {
+        const ph = state.images[i];
+        const hid = 'img:' + ph.uid;
+        const po = place(hid);
+        let cx, cy, w, h;
+        if (ph.frame === 'cover') {
+          cx = LAY.W / 2 + po.x * LAY.W; cy = LAY.H / 2 + po.y * LAY.H;
+          w = LAY.W * po.s; h = LAY.H * po.s;
+        } else if (ph.frame === 'custom') {
+          cx = LAY.W / 2 + po.x * LAY.W; cy = LAY.H / 2 + po.y * LAY.H;
+          w = (ph.fw ?? 0.7) * LAY.W * po.s; h = (ph.fh ?? 0.7) * LAY.H * po.s;
+        } else {
+          cx = r[0] + r[2] / 2 + po.x * LAY.W; cy = r[1] + r[3] / 2 + po.y * LAY.H;
+          w = r[2] * po.s; h = r[3] * po.s;
+        }
+        LAY.hits.push({ id: hid, name: ph.name || `Image #${i + 1}`, kind: 'photo', cx, cy, w, h, r: po.r || 0, hide: ph.hide || po.hide });
+      }
+    }
+  }
+  if (o.hide || baseImg?.hide) return [0, 0, 0, 0];
+  let w, h, cx, cy;
+  if (baseImg?.frame === 'cover') {
+    cx = LAY.W / 2 + o.x * LAY.W; cy = LAY.H / 2 + o.y * LAY.H;
+    w = LAY.W * o.s; h = LAY.H * o.s;
+  } else if (baseImg?.frame === 'custom') {
+    cx = LAY.W / 2 + o.x * LAY.W; cy = LAY.H / 2 + o.y * LAY.H;
+    w = (baseImg.fw ?? 0.7) * LAY.W * o.s; h = (baseImg.fh ?? 0.7) * LAY.H * o.s;
+  } else {
+    cx = r[0] + r[2] / 2 + o.x * LAY.W; cy = r[1] + r[3] / 2 + o.y * LAY.H;
+    w = r[2] * o.s; h = r[3] * o.s;
+  }
+  return [cx - w / 2, cy - h / 2, w, h];
 }
 
 /* Each template returns { photo: [x, y, w, h], under(ctx), over(ctx) } for a W x H render. */
@@ -2517,7 +2561,10 @@ const DEFAULT_GRAPHICS = () => ({ emblem: { id: 'disorientor', ink: 'auto' }, co
 const DEFAULT = () => ({
   v: 3, seed: 1234, template: 'headline', palette: 'rose',
   colors: { ...PALETTES[0] },
-  photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, src: 'shader' },
+  photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, autoLevels: true, src: 'shader', shader: 'f05_quaternion_julia_4d' },
+  images: [
+    { uid: 'base', name: 'Base photo', zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, autoLevels: true, src: 'shader', shader: 'f05_quaternion_julia_4d', blend: 'normal', opacity: 1, treatment: 'inherit', frame: 'template', hide: false }
+  ],
   print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: .5, softness: .08, misreg: .25, grain: .35, spread: .2, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 },
   type: { artist: 'DISORIENTOR', title: 'Haecceity', kanaArtist: 'ディスオリエンター', kanaTitle: 'ヘクシーイティ', autoKanaArtist: true, autoKanaTitle: true,
     tagline: 'DISORIENTOR ENVIRONMENTS', catalogue: 'SP-0042', side: 'side a / side b',
@@ -2541,6 +2588,10 @@ function mkLayer(id, extra = {}) {
 }
 let state = load() || DEFAULT();
 let photoImg = null;           // the uploaded picture (HTMLImageElement or canvas)
+const imageImgs = new Map();
+const imageTexs = new Map();
+let activeImageUid = null;
+let pendingUploadUid = null;
 const undoStack = [];
 function snapshot() { undoStack.push(JSON.stringify(state)); if (undoStack.length > 64) undoStack.shift(); }
 function commit(fn, noHistory) { if (!noHistory) snapshot(); fn && fn(); save(); scheduleRender(); }
@@ -2550,6 +2601,31 @@ function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press'
 function normalize(s) {
   s.extras = s.extras || [];
   s.extraTexts = s.extraTexts || [];
+  s.images = s.images || [];
+  if (!s.images.length) {
+    const p = s.photo || {};
+    s.images.push({
+      uid: 'base',
+      name: 'Base photo',
+      src: p.src || 'shader',
+      shader: p.shader || 'f05_quaternion_julia_4d',
+      zoom: p.zoom ?? 1,
+      x: p.x ?? 0,
+      y: p.y ?? 0,
+      rot: p.rot ?? 0,
+      bright: p.bright ?? 0,
+      contrast: p.contrast ?? 0.25,
+      gamma: p.gamma ?? 1,
+      invert: p.invert ?? false,
+      autoLevels: p.autoLevels ?? true,
+      blend: 'normal',
+      opacity: 1,
+      treatment: 'inherit',
+      frame: 'template',
+      hide: !!p.hide
+    });
+  }
+  s.photo = s.images[0];
   s.type = s.type || {};
   s.type.fonts = s.type.fonts || {};
   s.layout = s.layout || {};
@@ -2564,18 +2640,155 @@ function normalize(s) {
   return s;
 }
 function savePhoto() {
-  if (!photoImg) return;
   try {
-    const c = document.createElement('canvas'), k = Math.min(1, 1400 / Math.max(photoImg.width, photoImg.height));
-    c.width = photoImg.width * k; c.height = photoImg.height * k; c.getContext('2d').drawImage(photoImg, 0, 0, c.width, c.height);
-    localStorage.setItem('sleeve-press-photo', c.toDataURL('image/jpeg', .86));
+    const baseEl = imageImgs.get(state.images?.[0]?.uid) || photoImg;
+    if (baseEl) {
+      const c = document.createElement('canvas'), k = Math.min(1, 1400 / Math.max(baseEl.width, baseEl.height));
+      c.width = Math.round(baseEl.width * k); c.height = Math.round(baseEl.height * k);
+      c.getContext('2d').drawImage(baseEl, 0, 0, c.width, c.height);
+      localStorage.setItem('sleeve-press-photo', c.toDataURL('image/jpeg', .86));
+    } else {
+      localStorage.removeItem('sleeve-press-photo');
+    }
+    const map = {};
+    for (const im of state.images || []) {
+      const el = imageImgs.get(im.uid);
+      if (el) {
+        const c = document.createElement('canvas'), k = Math.min(1, 1000 / Math.max(el.width, el.height));
+        c.width = Math.round(el.width * k); c.height = Math.round(el.height * k);
+        c.getContext('2d').drawImage(el, 0, 0, c.width, c.height);
+        map[im.uid] = c.toDataURL('image/jpeg', .82);
+      }
+    }
+    if (Object.keys(map).length) localStorage.setItem('sleeve-press-images', JSON.stringify(map));
+    else localStorage.removeItem('sleeve-press-images');
   } catch {}
 }
+function loadImageFor(imgObj, urlOrData, keepFraming) {
+  const el = new Image();
+  el.onload = () => {
+    imageImgs.set(imgObj.uid, el);
+    const oldTex = imageTexs.get(imgObj.uid);
+    if (oldTex) { try { eng.free(oldTex); } catch {} imageTexs.delete(imgObj.uid); }
+    if (state.images[0]?.uid === imgObj.uid) { photoImg = el; photoTex = null; }
+    imgObj.src = 'upload';
+    if (!keepFraming) {
+      imgObj.zoom = 1; imgObj.x = 0; imgObj.y = 0; imgObj.rot = 0;
+    }
+    savePhoto();
+    save();
+    scheduleRender();
+    if (activeTab === 'image') renderPanel();
+  };
+  el.onerror = () => toast("That file couldn't be read as an image.");
+  el.src = urlOrData;
+}
 function loadPhotoURL(url, keep) {
-  const img = new Image();
-  img.onload = () => { photoImg = img; photoTex = null; if (!keep) { commit(() => { state.photo.src = 'upload'; state.photo.zoom = 1; state.photo.x = 0; state.photo.y = 0; }); savePhoto(); } else scheduleRender(); };
-  img.onerror = () => toast("That file couldn't be read as an image.");
-  img.src = url;
+  const baseImg = state.images?.[0] || state.photo;
+  loadImageFor(baseImg, url, keep);
+}
+function addImage(src = 'upload', fileOrUrl = null, name = null) {
+  const uid = Math.random().toString(36).slice(2, 8);
+  const n = (state.images || []).length + 1;
+  const isFirst = !(state.images && state.images.length);
+  const newImg = {
+    uid,
+    name: name || (src === 'shader' ? 'Realm #' + n : 'Image #' + n),
+    src,
+    shader: src === 'shader' ? (SHADERS.find(s => s.group === 'backgrounds' && !state.images?.some(x => x.shader === s.id))?.id || 'f05_quaternion_julia_4d') : 'f05_quaternion_julia_4d',
+    zoom: 1, x: 0, y: 0, rot: 0,
+    bright: 0, contrast: 0.25, gamma: 1, invert: false, autoLevels: true,
+    blend: isFirst ? 'normal' : 'normal',
+    opacity: 1,
+    treatment: 'inherit',
+    frame: 'template',
+    hide: false
+  };
+  commit(() => {
+    state.images = state.images || [];
+    state.images.push(newImg);
+    activeImageUid = uid;
+    selectItem('img:' + uid);
+  });
+  if (src === 'upload') {
+    if (fileOrUrl) loadImageFor(newImg, fileOrUrl);
+    else {
+      pendingUploadUid = uid;
+      $('file').click();
+    }
+  } else {
+    scheduleRender();
+    renderPanel();
+  }
+}
+function duplicateImage(img) {
+  if (typeof img === 'string') img = state.images.find(x => x.uid === img);
+  if (!img) return;
+  const uid = Math.random().toString(36).slice(2, 8);
+  const copy = {
+    ...JSON.parse(JSON.stringify(img)),
+    uid,
+    name: (img.name || 'Image') + ' copy'
+  };
+  commit(() => {
+    const idx = state.images.indexOf(img);
+    state.images.splice(idx + 1, 0, copy);
+    activeImageUid = uid;
+    selectItem('img:' + uid);
+    if (imageImgs.has(img.uid)) imageImgs.set(uid, imageImgs.get(img.uid));
+  });
+  scheduleRender();
+  renderPanel();
+}
+function moveImage(i, d) {
+  if (typeof i === 'string') i = state.images.findIndex(x => x.uid === i);
+  if (i < 0) return;
+  const j = i + d;
+  if (j < 0 || j >= state.images.length) return;
+  commit(() => {
+    [state.images[i], state.images[j]] = [state.images[j], state.images[i]];
+    state.photo = state.images[0];
+  });
+  scheduleRender();
+  renderPanel();
+}
+function removeImage(uid) {
+  if (typeof uid === 'object' && uid !== null) uid = uid.uid;
+  if (state.images.length <= 1) {
+    commit(() => {
+      state.images[0] = {
+        uid: 'base',
+        name: 'Base photo',
+        src: 'shader',
+        shader: 'f05_quaternion_julia_4d',
+        zoom: 1, x: 0, y: 0, rot: 0,
+        bright: 0, contrast: 0.25, gamma: 1, invert: false, autoLevels: true,
+        blend: 'normal', opacity: 1, treatment: 'inherit', frame: 'template',
+        hide: false
+      };
+      state.photo = state.images[0];
+      photoImg = null; photoTex = null;
+      imageImgs.delete(uid); imageTexs.delete(uid);
+    });
+    savePhoto();
+    scheduleRender();
+    renderPanel();
+    return;
+  }
+  commit(() => {
+    const idx = state.images.findIndex(x => x.uid === uid);
+    if (idx !== -1) {
+      state.images.splice(idx, 1);
+      imageImgs.delete(uid);
+      imageTexs.delete(uid);
+    }
+    state.photo = state.images[0];
+    if (activeImageUid === uid) activeImageUid = state.images[0]?.uid;
+    if (selId === 'img:' + uid || (idx === 0 && selId === 'photo')) selectItem(null);
+  });
+  savePhoto();
+  scheduleRender();
+  renderPanel();
 }
 
 /* ---------- own shaders (same format as the ported ones) ---------- */
@@ -2815,6 +3028,27 @@ void godot_fragment() {
 }`, { base: 'base', layer: 'layer', typ: 'typ', gfx: 'gfx' });
 // Isolated targets: straight-alpha layers processed on their own, then composited where they belong.
 const COPY_SH = own('sp_copy', `uniform sampler2D src; void godot_fragment() { COLOR = texture(src, UV); }`, { src: 'src' });
+const IMG_COMP_SH = own('sp_img_comp', `
+uniform sampler2D base; uniform sampler2D layer;
+uniform float opacity; uniform float mode;
+vec3 blendOp(vec3 a, vec3 b, int m) {
+  if (m == 1) return a * b;
+  if (m == 2) return 1.0 - (1.0 - a) * (1.0 - b);
+  if (m == 3) return mix(2.0 * a * b, 1.0 - 2.0 * (1.0 - a) * (1.0 - b), step(.5, a));
+  if (m == 4) return abs(a - b);
+  if (m == 5) return min(a + b, 1.0);
+  if (m == 6) return min(a, b);
+  if (m == 7) return max(a, b);
+  return b;
+}
+void godot_fragment() {
+  vec4 a = texture(base, UV), b = texture(layer, UV);
+  float alpha = clamp(b.a * opacity, 0.0, 1.0);
+  vec3 blended = a.a > 0.001 ? blendOp(a.rgb, b.rgb, int(mode + .5)) : b.rgb;
+  vec3 c = mix(a.rgb, blended, alpha);
+  float outA = clamp(a.a + alpha * (1.0 - a.a), 0.0, 1.0);
+  COLOR = vec4(c, outA);
+}`, { base: 'base', layer: 'layer' });
 const ALPHA_SH = own('sp_alpha', `uniform sampler2D src; void godot_fragment() { COLOR = vec4(vec3(texture(src, UV).a), 1.0); }`, { src: 'src' });
 // Spreads colour into transparent pixels so shaders that sample neighbours don't drag black in from the edges.
 const BLEED_SH = own('sp_bleed', `
@@ -2956,7 +3190,7 @@ function tgt(name, w, h, float) {
 const BLENDS = ['normal', 'multiply', 'screen', 'overlay', 'difference', 'add', 'darken', 'lighten'];
 // Where a shader layer runs: the whole cover (the stack so far), or one isolated layer or element.
 const TARGET_GROUPS = [['cover', 'Whole cover'], ['background', 'Background (paper & bands)'], ['photo', 'Photo'], ['type', 'All type'], ['graphics', 'All graphics']];
-const KIND_LAYER = { band: 'background', matte: 'type', type: 'type', graphics: 'graphics' };
+const KIND_LAYER = { photo: 'photo', band: 'background', matte: 'type', type: 'type', graphics: 'graphics' };
 const targetOf = l => l.target || 'cover';
 function targetLabel(t) {
   const g = TARGET_GROUPS.find(x => x[0] === t);
@@ -3082,7 +3316,7 @@ function buildCover(W, H, isolate = []) {
       iso[id] = canvasLayer(W, H, k => { GFX = k; L.under(k); L.over(k); drawExtraTexts(k, W, H); drawExtras(W, H); });
     }
   } finally { GFX = null; ISO = { only: null, skip: new Set() }; }
-  return { rect, under, type, gfx, iso, hits: LAY.hits };
+  return { rect, photoRaw: L.photo, under, type, gfx, iso, hits: LAY.hits };
 }
 function canvasLayer(W, H, draw, bg) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -3091,15 +3325,20 @@ function canvasLayer(W, H, draw, bg) {
   draw(k, W, H);
   return c;
 }
+const realmTexMap = new Map();
+function realmPhoto(key) {
+  key = key || 'f05_quaternion_julia_4d';
+  if (realmTexMap.has(key)) return realmTexMap.get(key);
+  const s = SHADER_BY[key] || SHADER_BY['f05_quaternion_julia_4d'];
+  const t = tgt('realm_' + key, 1024, 1024, false);
+  eng.run(s, t, { time: 4.2, clear: true });
+  realmTexMap.set(key, t.tex);
+  return t.tex;
+}
 // Default picture when nothing is uploaded: a frame of one of the app's realms.
 function defaultPhoto() {
-  const key = state.photo.shader || 'f05_quaternion_julia_4d';
-  if (shaderPhotoTex && shaderPhotoKey === key) return shaderPhotoTex;
-  const s = SHADER_BY[key] || SHADER_BY['f05_quaternion_julia_4d'];
-  const t = tgt('shaderPhoto', 1024, 1024, false);
-  eng.run(s, t, { time: 4.2, clear: true });
-  shaderPhotoKey = key; shaderPhotoTex = t.tex;
-  return t.tex;
+  const key = state.photo?.shader || state.images?.[0]?.shader || 'f05_quaternion_julia_4d';
+  return realmPhoto(key);
 }
 // Auto levels: the 2nd and 98th percentile of the picture's luminance, measured once per picture.
 const levelCache = new WeakMap();
@@ -3193,6 +3432,106 @@ function runLayer(layer, src, W, H) {
 }
 let renderQueued = false, rendering = false, lastError = '', lastHits = { W: 1, H: 1, hits: [] };
 function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderPreview(); }); } }
+function renderPhotoStack(W, H, baseRect, C, col, pr) {
+  const images = (state.images && state.images.length) ? state.images : [state.photo || { uid: 'base', src: 'shader' }];
+  let compA = tgt('photoCompA', W, H, false);
+  let compB = tgt('photoCompB', W, H, false);
+  let curT = tgt('photoCur', W, H, false);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, compA.fb);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  let drawnCount = 0;
+  for (let i = 0; i < images.length; i++) {
+    const ph = images[i];
+    const hid = i === 0 ? 'photo' : 'img:' + ph.uid;
+    const po = place(hid);
+    if (ph.hide || po.hide) continue;
+
+    let pt = null, pw = [1024, 1024];
+    if (ph.src === 'upload') {
+      let imgEl = imageImgs.get(ph.uid);
+      if (!imgEl && i === 0 && photoImg) imgEl = photoImg;
+      if (imgEl && imgEl.width) {
+        let tex = imageTexs.get(ph.uid);
+        if (!tex) {
+          tex = eng.upload(imgEl);
+          imageTexs.set(ph.uid, tex);
+        }
+        pt = tex;
+        pw = [imgEl.width, imgEl.height];
+      }
+    }
+    if (!pt) {
+      pt = realmPhoto(ph.shader || (i === 0 ? (state.photo?.shader || 'f05_quaternion_julia_4d') : 'f05_quaternion_julia_4d'));
+      pw = [1024, 1024];
+    }
+
+    let imgR;
+    if (ph.frame === 'cover') {
+      const cx = W / 2 + po.x * W, cy = H / 2 + po.y * H;
+      const w = W * po.s, h = H * po.s;
+      imgR = [Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)];
+    } else if (ph.frame === 'custom') {
+      const cx = W / 2 + po.x * W, cy = H / 2 + po.y * H;
+      const w = (ph.fw ?? 0.7) * W * po.s, h = (ph.fh ?? 0.7) * H * po.s;
+      imgR = [Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)];
+    } else if (i === 0) {
+      imgR = baseRect;
+    } else {
+      const templRect = (C && C.photoRaw) || baseRect;
+      const cx = templRect[0] + templRect[2] / 2 + po.x * W, cy = templRect[1] + templRect[3] / 2 + po.y * H;
+      const w = templRect[2] * po.s, h = templRect[3] * po.s;
+      imgR = [Math.round(cx - w / 2), Math.round(cy - h / 2), Math.round(w), Math.round(h)];
+    }
+
+    if (imgR[2] <= 0 || imgR[3] <= 0) continue;
+
+    const modeKey = (ph.treatment && ph.treatment !== 'inherit') ? ph.treatment : pr.mode;
+    const modeIdx = Math.max(0, PRINT_MODES.findIndex(m => m[0] === modeKey));
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, curT.fb);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    eng.run(PHOTO_SH, curT, {
+      bind: { photo: pt },
+      res: [W, H],
+      clear: true,
+      values: {
+        rect: imgR,
+        img: pw,
+        xf: [ph.zoom ?? 1, ph.x ?? 0, ph.y ?? 0, (ph.rot ?? 0) * Math.PI / 180],
+        mode: [modeIdx],
+        ink1: hex2rgb(col.ink1),
+        ink2: hex2rgb(col.ink2),
+        accent: hex2rgb(col.accent),
+        paper: hex2rgb(modeKey === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
+        lv: ph.autoLevels === false ? [0, 1] : levelsFor(pt),
+        tone: [ph.bright ?? 0, ph.contrast ?? 0.25, ph.gamma ?? 1, 0],
+        ht: [pr.dot * W / 100, pr.angle, pr.threshold, pr.softness],
+        invert: [ph.invert ? 1 : 0]
+      }
+    });
+
+    if (drawnCount === 0) {
+      eng.run(COPY_SH, compA, { bind: { src: curT.tex }, res: [W, H], clear: true });
+    } else {
+      const blendIdx = Math.max(0, BLENDS.indexOf(ph.blend || 'normal'));
+      const opacity = ph.opacity ?? 1;
+      eng.run(IMG_COMP_SH, compB, {
+        bind: { base: compA.tex, layer: curT.tex },
+        res: [W, H],
+        clear: true,
+        values: { opacity: [opacity], mode: [blendIdx] }
+      });
+      [compA, compB] = [compB, compA];
+    }
+    drawnCount++;
+  }
+  return compA;
+}
 function renderTo(W, H) {
   const solo = state.layers.some(l => l.solo);
   const active = state.layers.filter(l => !l.fixed && !l.mute && !(solo && !l.solo) && layerInfo(l.id));
@@ -3203,15 +3542,8 @@ function renderTo(W, H) {
   lastHits = { W, H, hits: C.hits };
   let stack = tgt('sA', W, H, false), spare = tgt('sB', W, H, false);
   gl.bindFramebuffer(gl.FRAMEBUFFER, stack.fb); const pc = hex2rgb(col.paper); gl.clearColor(pc[0], pc[1], pc[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
-  if (photoImg && !photoTex) photoTex = eng.upload(photoImg);
-  const pt = state.photo.src === 'upload' && photoTex ? photoTex : defaultPhoto();
-  const pw = state.photo.src === 'upload' && photoTex ? [photoTex.w, photoTex.h] : [1024, 1024];
-  const pr = state.print, ph = state.photo, mode = PRINT_MODES.findIndex(m => m[0] === pr.mode);
-  const photoT = tgt('photo', W, H, false);
-  eng.run(PHOTO_SH, photoT, { bind: { photo: pt }, res: [W, H], clear: true, values: {
-    rect, img: pw, xf: [ph.zoom, ph.x, ph.y, ph.rot * Math.PI / 180], mode: [mode],
-    ink1: hex2rgb(col.ink1), ink2: hex2rgb(col.ink2), accent: hex2rgb(col.accent), paper: hex2rgb(pr.mode === 'colour' ? '#ffffff' : col.photoPaper || col.paper),
-    lv: ph.autoLevels === false ? [0, 1] : levelsFor(pt), tone: [ph.bright, ph.contrast, ph.gamma, 0], ht: [pr.dot * W / 100, pr.angle, pr.threshold, pr.softness], invert: [ph.invert ? 1 : 0] } });
+  const pr = state.print;
+  const photoT = renderPhotoStack(W, H, rect, C, col, pr);
   const errs = [];
   // Layers by target. Isolated ones are processed on their own before anything is composited.
   const base = { background: underTex, photo: photoT.tex, type: typeTex, graphics: gfxTex };
@@ -3294,7 +3626,7 @@ async function renderPixels(W, H) {
   gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(px.buffer), W, H), 0, 0);
-  for (const k of Object.keys(targets)) if (!k.startsWith('_') && !['shaderPhoto', 'levels'].includes(k)) { eng.free(targets[k]); delete targets[k]; }
+  for (const k of Object.keys(targets)) if (!k.startsWith('_') && !['shaderPhoto', 'levels'].includes(k) && !k.startsWith('realm_')) { eng.free(targets[k]); delete targets[k]; }
   for (const k of Object.keys(targets)) if (k.startsWith('_')) { gl.deleteTexture(targets[k]); delete targets[k]; }
   scheduleRender();
   return c;
@@ -3351,7 +3683,26 @@ async function pdfFromCanvas(c, wPt, hPt) {
   return new Blob(parts, { type: 'application/pdf' });
 }
 function saveProject() {
-  const data = { ...state, photoData: photoImg ? (() => { const c = document.createElement('canvas'); c.width = photoImg.width; c.height = photoImg.height; c.getContext('2d').drawImage(photoImg, 0, 0); return c.toDataURL('image/jpeg', .92); })() : null };
+  const imagesData = {};
+  for (const img of state.images || []) {
+    const el = imageImgs.get(img.uid);
+    if (el) {
+      const c = document.createElement('canvas');
+      const k = Math.min(1, 1400 / Math.max(el.width, el.height));
+      c.width = Math.round(el.width * k); c.height = Math.round(el.height * k);
+      c.getContext('2d').drawImage(el, 0, 0, c.width, c.height);
+      imagesData[img.uid] = c.toDataURL('image/jpeg', 0.9);
+    }
+  }
+  const basePhotoEl = imageImgs.get(state.images?.[0]?.uid) || photoImg;
+  const data = {
+    ...state,
+    photoData: basePhotoEl ? (() => {
+      const c = document.createElement('canvas'); c.width = basePhotoEl.width; c.height = basePhotoEl.height;
+      c.getContext('2d').drawImage(basePhotoEl, 0, 0); return c.toDataURL('image/jpeg', .92);
+    })() : null,
+    imagesData
+  };
   download(new Blob([JSON.stringify(data)], { type: 'application/json' }), `${slug()}.sleeve.json`);
 }
 function openProject(file) {
@@ -3359,8 +3710,16 @@ function openProject(file) {
     const d = JSON.parse(t);
     if (!d || !(d.v >= 1) || !Array.isArray(d.layers)) throw new Error('not a sleeve+press project');
     const photo = d.photoData; delete d.photoData;
+    const imagesData = d.imagesData || {}; delete d.imagesData;
     commit(() => { state = normalize({ ...DEFAULT(), ...d, graphics: d.graphics || DEFAULT_GRAPHICS(), v: 3 }); });
-    if (photo) loadPhotoURL(photo, true), localStorage.setItem('sleeve-press-photo', photo);
+    if (imagesData && Object.keys(imagesData).length) {
+      for (const [uid, url] of Object.entries(imagesData)) {
+        const im = (state.images || []).find(x => x.uid === uid);
+        if (im) loadImageFor(im, url, true);
+      }
+    } else if (photo && state.images?.[0]) {
+      loadImageFor(state.images[0], photo, true);
+    }
     renderPanel(); toast('Project opened.');
   }).catch(e => toast("Couldn't open that project: " + e.message));
 }
@@ -3530,22 +3889,7 @@ function renderPanel() {
       color('Type on band', () => S.colors.text, v => S.colors.text = v),
       el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed'), el('span', { className: 'note' }, 'Seed moves barcodes, QR blocks, warp slices and grain.')));
   } else if (activeTab === 'image') {
-    kids.push(el('div', { className: 'row' }, el('button', { className: 'primary', onclick: () => $('file').click() }, 'Upload photo'),
-        el('span', { className: 'note' }, 'or drop / paste an image')),
-      select('Picture', [['upload', 'Uploaded photo'], ['shader', 'Frame of a Haecceity realm']], () => S.photo.src, v => { if (v === 'upload' && !photoImg) { $('file').click(); return; } S.photo.src = v; }));
-    if (S.photo.src === 'shader') kids.push(select('Realm', SHADERS.filter(s => s.group === 'backgrounds').map(s => [s.id, s.name]), () => S.photo.shader || 'f05_quaternion_julia_4d', v => S.photo.shader = v));
-    kids.push(el('h3', {}, 'Framing'),
-      slider('Zoom', () => S.photo.zoom, v => S.photo.zoom = v, .3, 4, .01),
-      slider('Offset X', () => S.photo.x, v => S.photo.x = v, -.6, .6, .005),
-      slider('Offset Y', () => S.photo.y, v => S.photo.y = v, -.6, .6, .005),
-      slider('Rotate', () => S.photo.rot, v => S.photo.rot = v, -180, 180, 1),
-      el('div', { className: 'note' }, 'Drag the cover to move the photo; scroll or pinch to zoom.'),
-      el('h3', {}, 'Tone'),
-      slider('Brightness', () => S.photo.bright, v => S.photo.bright = v, -.5, .5),
-      slider('Contrast', () => S.photo.contrast, v => S.photo.contrast = v, -.5, 1.5),
-      slider('Gamma', () => S.photo.gamma, v => S.photo.gamma = v, .3, 3),
-      check('Auto levels', () => S.photo.autoLevels !== false, v => S.photo.autoLevels = v),
-      check('Invert', () => S.photo.invert, v => S.photo.invert = v));
+    kids.push(...imagePanel());
   } else if (activeTab === 'print') {
     const STOCKS = [['smooth','Smooth card'],['laid','Laid cotton paper'],['linen','Woven linen / cloth'],['newsprint','Fibrous newsprint'],['kraft','Unbleached kraft board'],['gloss','Tip-on gloss lamination']];
     const applyPreset = p => {
@@ -3758,6 +4102,208 @@ function renderPanel() {
   P.replaceChildren(...kids.flat());
 }
 
+function imageThumb(img, size = 28) {
+  const c = el('canvas', { width: size, height: size });
+  c.style.cssText = `width:${size}px;height:${size}px;border-radius:3px;flex:none;object-fit:cover;background:#181818;border:1px solid rgba(255,255,255,0.12)`;
+  const ctx = c.getContext('2d');
+  if (img.src === 'upload') {
+    const elImg = imageImgs.get(img.uid) || (img.uid === state.images?.[0]?.uid ? photoImg : null);
+    if (elImg && elImg.width && elImg.height) {
+      const scale = Math.max(size / elImg.width, size / elImg.height);
+      const sw = elImg.width * scale, sh = elImg.height * scale;
+      ctx.drawImage(elImg, (size - sw) / 2, (size - sh) / 2, sw, sh);
+      return c;
+    }
+  }
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, state.colors?.ink1 || '#4a5568');
+  grad.addColorStop(1, state.colors?.accent || '#2d3748');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = state.colors?.paper || '#fff';
+  ctx.font = 'bold 8px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(img.src === 'shader' ? 'RLM' : 'IMG', size / 2, size / 2);
+  return c;
+}
+
+function imagePanel() {
+  const S = state, out = [];
+  S.images = S.images || [];
+  if (!S.images.length) normalize(S);
+  if (!activeImageUid || !S.images.some(x => x.uid === activeImageUid)) {
+    activeImageUid = S.images[0]?.uid || 'base';
+  }
+
+  out.push(
+    el('h3', {}, 'Image Layers & Stack'),
+    el('div', { className: 'row' },
+      el('button', { className: 'primary', onclick: () => { pendingUploadUid = null; $('file').click(); } }, '+ Upload image'),
+      el('button', { onclick: () => addImage('shader') }, '+ Add realm'),
+      el('span', { className: 'note' }, 'Stack & blend multiple images')
+    )
+  );
+
+  out.push(el('h3', {}, `Images in Stack (${S.images.length})`));
+  const list = el('div', { style: 'display:flex;flex-direction:column;gap:6px' });
+
+  S.images.forEach((img, i) => {
+    const isBase = (i === 0);
+    const hid = isBase ? 'photo' : 'img:' + img.uid;
+    const isSel = (activeImageUid === img.uid) || (selId === hid);
+
+    const tn = imageThumb(img, 28);
+    const blendLabel = (img.blend || 'normal').toUpperCase();
+    const opVal = Math.round((img.opacity ?? 1) * 100);
+    const pill = `${blendLabel} ${opVal}%`;
+
+    const head = el('div', {
+      className: 'lh',
+      onclick: e => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+        activeImageUid = img.uid;
+        selectItem(hid);
+        renderPanel();
+      }
+    },
+      tn,
+      el('b', {}, `${img.name || (isBase ? 'Base photo' : `Image #${i + 1}`)}${img.hide ? ' (hidden)' : ''}`),
+      el('span', { className: 'note', style: 'margin-right:4px' }, pill),
+      el('button', {
+        className: 'mini',
+        title: 'Move back (draws behind)',
+        'aria-label': 'Move back',
+        disabled: i === 0,
+        onclick: () => moveImage(i, -1)
+      }, '↑'),
+      el('button', {
+        className: 'mini',
+        title: 'Move forward (draws in front)',
+        'aria-label': 'Move forward',
+        disabled: i === S.images.length - 1,
+        onclick: () => moveImage(i, 1)
+      }, '↓'),
+      el('button', {
+        className: 'mini' + (img.hide ? ' on' : ''),
+        title: img.hide ? 'Show' : 'Hide',
+        onclick: () => { commit(() => img.hide = !img.hide); renderPanel(); }
+      }, img.hide ? 'Show' : 'Hide'),
+      el('button', {
+        className: 'mini',
+        title: 'Duplicate',
+        'aria-label': 'Duplicate',
+        onclick: () => duplicateImage(img)
+      }, '⧉'),
+      (S.images.length > 1) ? el('button', {
+        className: 'mini',
+        title: 'Delete',
+        'aria-label': 'Delete',
+        onclick: () => removeImage(img.uid)
+      }, '×') : null
+    );
+
+    const body = el('div', { className: 'lb' });
+
+    body.append(
+      select('Picture', [['upload', 'Uploaded photo'], ['shader', 'Frame of a Haecceity realm']], () => img.src, v => {
+        if (v === 'upload' && !imageImgs.has(img.uid) && !(isBase && photoImg)) {
+          pendingUploadUid = img.uid;
+          $('file').click();
+          return;
+        }
+        img.src = v;
+        if (isBase) S.photo.src = v;
+        setTimeout(renderPanel);
+      })
+    );
+
+    if (img.src === 'upload') {
+      const hasImg = imageImgs.has(img.uid) || (isBase && photoImg);
+      body.append(
+        el('div', { className: 'row' },
+          el('button', { className: 'mini', onclick: () => { pendingUploadUid = img.uid; $('file').click(); } }, hasImg ? 'Change image…' : 'Select image file…'),
+          hasImg ? el('span', { className: 'note' }, 'Photo loaded') : el('span', { className: 'note warn' }, 'No file selected yet')
+        )
+      );
+    } else {
+      body.append(
+        select('Realm', SHADERS.filter(s => s.group === 'backgrounds').map(s => [s.id, s.name]), () => img.shader || 'f05_quaternion_julia_4d', v => {
+          img.shader = v;
+          if (isBase) S.photo.shader = v;
+          scheduleRender();
+        })
+      );
+    }
+
+    body.append(
+      el('h3', {}, 'Blending & Opacity'),
+      select('Blend mode', [
+        ['normal', 'Normal'],
+        ['multiply', 'Multiply'],
+        ['screen', 'Screen'],
+        ['overlay', 'Overlay'],
+        ['difference', 'Difference'],
+        ['add', 'Add / Dodge'],
+        ['darken', 'Darken'],
+        ['lighten', 'Lighten']
+      ], () => img.blend || 'normal', v => { img.blend = v; scheduleRender(); }),
+      slider('Opacity', () => img.opacity ?? 1, v => { img.opacity = v; scheduleRender(); }, 0, 1, 0.01)
+    );
+
+    body.append(
+      el('h3', {}, 'Framing & Placement'),
+      select('Frame', [
+        ['template', 'Template photo frame'],
+        ['cover', 'Full cover'],
+        ['custom', 'Custom frame']
+      ], () => img.frame || 'template', v => { img.frame = v; setTimeout(renderPanel); scheduleRender(); })
+    );
+
+    if (img.frame === 'custom') {
+      body.append(
+        slider('Frame width', () => img.fw ?? 0.7, v => { img.fw = v; scheduleRender(); }, 0.1, 1.5, 0.01),
+        slider('Frame height', () => img.fh ?? 0.7, v => { img.fh = v; scheduleRender(); }, 0.1, 1.5, 0.01)
+      );
+    }
+
+    body.append(
+      slider('Zoom', () => img.zoom ?? 1, v => { img.zoom = v; if (isBase) S.photo.zoom = v; scheduleRender(); }, 0.3, 4, 0.01),
+      slider('Offset X', () => img.x ?? 0, v => { img.x = v; if (isBase) S.photo.x = v; scheduleRender(); }, -0.6, 0.6, 0.005),
+      slider('Offset Y', () => img.y ?? 0, v => { img.y = v; if (isBase) S.photo.y = v; scheduleRender(); }, -0.6, 0.6, 0.005),
+      slider('Rotate picture', () => img.rot ?? 0, v => { img.rot = v; if (isBase) S.photo.rot = v; scheduleRender(); }, -180, 180, 1),
+      el('div', { className: 'note' }, 'Move mode (V) drags the frame on the cover; Pan photo mode (P) pans the picture inside.')
+    );
+
+    body.append(
+      el('h3', {}, 'Tone'),
+      slider('Brightness', () => img.bright ?? 0, v => { img.bright = v; if (isBase) S.photo.bright = v; scheduleRender(); }, -0.5, 0.5),
+      slider('Contrast', () => img.contrast ?? 0.25, v => { img.contrast = v; if (isBase) S.photo.contrast = v; scheduleRender(); }, -0.5, 1.5),
+      slider('Gamma', () => img.gamma ?? 1, v => { img.gamma = v; if (isBase) S.photo.gamma = v; scheduleRender(); }, 0.3, 3),
+      check('Auto levels', () => img.autoLevels !== false, v => { img.autoLevels = v; if (isBase) S.photo.autoLevels = v; scheduleRender(); }),
+      check('Invert', () => !!img.invert, v => { img.invert = v; if (isBase) S.photo.invert = v; scheduleRender(); })
+    );
+
+    body.append(
+      el('h3', {}, 'Print Treatment'),
+      select('Treatment', [['inherit', 'Inherit from Print tab'], ...PRINT_MODES], () => img.treatment || 'inherit', v => {
+        img.treatment = v;
+        scheduleRender();
+      })
+    );
+
+    const card = el('div', {
+      className: 'layer' + (isSel ? ' sel' : ''),
+      'data-img-id': hid
+    }, head, isSel ? body : null);
+
+    list.append(card);
+  });
+
+  out.push(list);
+  return out;
+}
+
 function arrangePanel() {
   const out = [el('div', { className: 'note' }, 'Drag anything on the cover in Move mode. Wheel or pinch scales it, Shift+wheel rotates; arrow keys nudge (Shift for bigger steps), + / − scale, [ / ] rotate, Esc deselects. Positions are kept per layout.')];
   const items = lastHits.hits.filter((h, i, a) => a.findIndex(x => x.id === h.id) === i);
@@ -3768,7 +4314,7 @@ function arrangePanel() {
       el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selectItem(selId === h.id ? null : h.id); renderPanel(); } },
         el('b', {}, h.name + (o.hide ? ' (hidden)' : '')), el('span', { className: 'note' }, h.kind),
         el('button', { className: 'mini' + (o.hide ? ' on' : ''), title: o.hide ? 'Show' : 'Hide', onclick: () => { commit(() => placement(h.id).hide = !o.hide); renderPanel(); } }, o.hide ? 'Show' : 'Hide'),
-        (extraOf(h.id) || extraTextOf(h.id)) ? el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { if (extraTextOf(h.id)) removeExtraText(h.id); else removeExtra(h.id); renderPanel(); } }, '×') : null)));
+        (extraOf(h.id) || extraTextOf(h.id) || (h.id.startsWith('img:') && state.images?.length > 1)) ? el('button', { className: 'mini', title: 'Delete', 'aria-label': 'Delete', onclick: () => { if (extraTextOf(h.id)) removeExtraText(h.id); else if (extraOf(h.id)) removeExtra(h.id); else removeImage(h.id.slice(4)); renderPanel(); } }, '×') : null)));
     if (selId === h.id) {
       const pl = placement(h.id);
       list.lastChild.append(el('div', { className: 'lb' },
@@ -3901,7 +4447,7 @@ function addLayer(id) {
   selected = lay.uid; renderPanel();
 }
 function targetSelect(layer) {
-  const elems = lastHits.hits.filter((h, i, a) => h.kind !== 'photo' && a.findIndex(x => x.id === h.id) === i);
+  const elems = lastHits.hits.filter((h, i, a) => a.findIndex(x => x.id === h.id) === i);
   const s = el('select', { 'aria-label': 'Runs on', onchange: () => { commit(() => { layer.target = s.value; if (s.value !== 'cover' && layer.mask !== 'all') layer.mask = 'all'; }); renderPanel(); } },
     el('optgroup', { label: 'Layers' }, ...TARGET_GROUPS.map(([v, t]) => el('option', { value: v, selected: targetOf(layer) === v }, t))),
     el('optgroup', { label: 'One element' }, ...elems.map(h => el('option', { value: 'el:' + h.id, selected: targetOf(layer) === 'el:' + h.id }, `${h.name} (${h.kind})`))));
@@ -3942,7 +4488,27 @@ function layerControls(layer, info) {
 }
 
 /* ---------- photo input and canvas gestures ---------- */
-$('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadPhotoURL(URL.createObjectURL(f)); e.target.value = ''; if (activeTab === 'image') setTimeout(renderPanel, 300); });
+$('file').addEventListener('change', e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  if (pendingUploadUid) {
+    const imgObj = (state.images || []).find(x => x.uid === pendingUploadUid);
+    if (imgObj) {
+      loadImageFor(imgObj, URL.createObjectURL(files[0]));
+      for (let i = 1; i < files.length; i++) addImage('upload', URL.createObjectURL(files[i]), files[i].name);
+    }
+    pendingUploadUid = null;
+  } else {
+    if (state.images?.length === 1 && state.images[0].src === 'shader') {
+      loadImageFor(state.images[0], URL.createObjectURL(files[0]));
+      for (let i = 1; i < files.length; i++) addImage('upload', URL.createObjectURL(files[i]), files[i].name);
+    } else {
+      for (const f of files) addImage('upload', URL.createObjectURL(f), f.name);
+    }
+  }
+  e.target.value = '';
+  if (activeTab === 'image') setTimeout(renderPanel, 300);
+});
 $('projFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) openProject(f); e.target.value = ''; });
 let dragDepth = 0;
 addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { dragDepth++; $('drop').hidden = false; } });
@@ -3950,11 +4516,28 @@ addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('
 addEventListener('dragover', e => e.preventDefault());
 addEventListener('drop', e => {
   e.preventDefault(); dragDepth = 0; $('drop').hidden = true;
-  const f = [...e.dataTransfer.files][0];
-  if (!f) return;
-  if (f.name.endsWith('.json')) openProject(f); else if (f.type.startsWith('image/')) loadPhotoURL(URL.createObjectURL(f));
+  const files = [...e.dataTransfer.files];
+  if (!files.length) return;
+  const json = files.find(f => f.name.endsWith('.json'));
+  if (json) { openProject(json); return; }
+  const imgFiles = files.filter(f => f.type.startsWith('image/'));
+  if (imgFiles.length) {
+    if (state.images?.length === 1 && state.images[0].src === 'shader') {
+      loadImageFor(state.images[0], URL.createObjectURL(imgFiles[0]));
+      for (let i = 1; i < imgFiles.length; i++) addImage('upload', URL.createObjectURL(imgFiles[i]), imgFiles[i].name);
+    } else {
+      for (const f of imgFiles) addImage('upload', URL.createObjectURL(f), f.name);
+    }
+    toast(`Added ${imgFiles.length} image${imgFiles.length > 1 ? 's' : ''} to stack.`);
+  }
 });
-addEventListener('paste', e => { const f = [...(e.clipboardData || {}).files || []].find(f => f.type.startsWith('image/')); if (f) loadPhotoURL(URL.createObjectURL(f)); });
+addEventListener('paste', e => {
+  const files = [...(e.clipboardData || {}).files || []].filter(f => f.type.startsWith('image/'));
+  if (files.length) {
+    for (const f of files) addImage('upload', URL.createObjectURL(f), 'Pasted image');
+    toast(`Added pasted image to stack.`);
+  }
+});
 /* Cover gestures. Move mode: drag picks the topmost element under the pointer (graphics and type, then the
    photo frame, then bands) and moves it; wheel or pinch scales it, Shift+wheel rotates. Pan mode: drag pans the
    picture inside its frame, wheel or pinch zooms it. Positions are stored per template in state.layout. */
@@ -3988,11 +4571,18 @@ function selectItem(id) {
   selId = id;
   const h = lastHits.hits.find(h => h.id === id);
   $('selName').textContent = h ? h.name : '';
+  if (id === 'photo' || (id && id.startsWith('img:'))) {
+    activeImageUid = id === 'photo' ? (state.images?.[0]?.uid || 'base') : id.slice(4);
+  }
   drawOverlay();
-  if (activeTab === 'arrange' || activeTab === 'type') {
+  if (activeTab === 'arrange' || activeTab === 'type' || activeTab === 'image') {
     renderPanel();
     if (activeTab === 'type' && id) {
       const card = $('panel').querySelector(`[data-tx-id="${id}"]`);
+      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    if (activeTab === 'image' && id) {
+      const card = $('panel').querySelector(`[data-img-id="${id}"]`);
       if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
@@ -4024,9 +4614,13 @@ cv.addEventListener('pointerdown', e => {
       const h = pickAt(toCover(e));
       selectItem(h ? h.id : null);
       if (h) { snapshot(); const o = placement(h.id); gesture = { id: h.id, start: [e.clientX, e.clientY], x: o.x, y: o.y, s: o.s }; }
-    } else { snapshot(); gesture = { pan: true, x: state.photo.x, y: state.photo.y, zoom: state.photo.zoom, start: [e.clientX, e.clientY] }; }
+    } else {
+      snapshot();
+      const curImg = (selId && imageOf(selId)) || (activeImageUid && (state.images || []).find(x => x.uid === activeImageUid)) || (state.images || [])[0] || state.photo;
+      gesture = { pan: true, img: curImg, x: curImg.x, y: curImg.y, zoom: curImg.zoom, start: [e.clientX, e.clientY] };
+    }
   }
-  if (pointers.size === 2 && gesture) { const [a, b] = [...pointers.values()]; gesture.dist = Math.hypot(a[0] - b[0], a[1] - b[1]); gesture.s0 = gesture.pan ? state.photo.zoom : placement(gesture.id).s; }
+  if (pointers.size === 2 && gesture) { const [a, b] = [...pointers.values()]; gesture.dist = Math.hypot(a[0] - b[0], a[1] - b[1]); gesture.s0 = gesture.pan ? (gesture.img ? gesture.img.zoom : state.photo.zoom) : placement(gesture.id).s; }
 });
 cv.addEventListener('pointermove', e => {
   if (!pointers.has(e.pointerId)) {
@@ -4038,11 +4632,17 @@ cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect();
   if (pointers.size === 2 && gesture.dist) {
     const [a, b] = [...pointers.values()], f = Math.hypot(a[0] - b[0], a[1] - b[1]) / gesture.dist;
-    if (gesture.pan) state.photo.zoom = clamp(gesture.s0 * f, .3, 4); else placement(gesture.id).s = clamp(gesture.s0 * f, .05, 8);
+    if (gesture.pan) {
+      const targetImg = gesture.img || state.photo;
+      targetImg.zoom = clamp(gesture.s0 * f, .3, 4);
+      if (targetImg === state.images?.[0]) state.photo.zoom = targetImg.zoom;
+    } else placement(gesture.id).s = clamp(gesture.s0 * f, .05, 8);
   } else if (gesture.pan) {
     const rect = photoRectNow(), pw = rect[2] / lastHits.W * r.width, ph = rect[3] / lastHits.H * r.height;
-    state.photo.x = clamp(gesture.x + (e.clientX - gesture.start[0]) / Math.max(1, pw) / state.photo.zoom, -.6, .6);
-    state.photo.y = clamp(gesture.y + (e.clientY - gesture.start[1]) / Math.max(1, ph) / state.photo.zoom, -.6, .6);
+    const targetImg = gesture.img || state.photo;
+    targetImg.x = clamp(gesture.x + (e.clientX - gesture.start[0]) / Math.max(1, pw) / targetImg.zoom, -.6, .6);
+    targetImg.y = clamp(gesture.y + (e.clientY - gesture.start[1]) / Math.max(1, ph) / targetImg.zoom, -.6, .6);
+    if (targetImg === state.images?.[0]) { state.photo.x = targetImg.x; state.photo.y = targetImg.y; }
   } else {
     const o = placement(gesture.id);
     o.x = gesture.x + (e.clientX - gesture.start[0]) / r.width;
@@ -4050,7 +4650,10 @@ cv.addEventListener('pointermove', e => {
   }
   scheduleRender();
 });
-const photoRectNow = () => { const h = lastHits.hits.find(h => h.id === 'photo'); return h ? [h.cx - h.w / 2, h.cy - h.h / 2, h.w, h.h] : [0, 0, lastHits.W, lastHits.H]; };
+const photoRectNow = () => {
+  const h = (selId && lastHits.hits.find(h => h.id === selId && h.kind === 'photo')) || lastHits.hits.find(h => h.id === 'photo');
+  return h ? [h.cx - h.w / 2, h.cy - h.h / 2, h.w, h.h] : [0, 0, lastHits.W, lastHits.H];
+};
 const endPointer = e => { pointers.delete(e.pointerId); if (!pointers.size && gesture) { gesture = null; save(); if (activeTab === 'image' || activeTab === 'arrange' || activeTab === 'type') renderPanel(); } };
 cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('pointerleave', () => { if (hoverId) { hoverId = null; drawOverlay(); } });
@@ -4058,8 +4661,12 @@ let wheelTimer;
 cv.addEventListener('wheel', e => {
   e.preventDefault();
   if (!wheelTimer) snapshot();
-  clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; save(); if (activeTab === 'arrange' || activeTab === 'type') renderPanel(); }, 400);
-  if (mode === 'pan') { state.photo.zoom = clamp(state.photo.zoom * Math.exp(-e.deltaY * .0015), .3, 4); }
+  clearTimeout(wheelTimer); wheelTimer = setTimeout(() => { wheelTimer = null; save(); if (activeTab === 'arrange' || activeTab === 'type' || activeTab === 'image') renderPanel(); }, 400);
+  if (mode === 'pan') {
+    const curImg = (selId && imageOf(selId)) || (activeImageUid && (state.images || []).find(x => x.uid === activeImageUid)) || (state.images || [])[0] || state.photo;
+    curImg.zoom = clamp(curImg.zoom * Math.exp(-e.deltaY * .0015), .3, 4);
+    if (curImg === state.images?.[0]) state.photo.zoom = curImg.zoom;
+  }
   else {
     const h = pickAt(toCover(e)) || lastHits.hits.find(h => h.id === selId);
     if (!h) return;
@@ -4086,10 +4693,15 @@ addEventListener('keydown', e => {
   else if ((e.key === 'Delete' || e.key === 'Backspace')) {
     if (extraTextOf(selId)) { e.preventDefault(); removeExtraText(selId); renderPanel(); }
     else if (extraOf(selId)) { e.preventDefault(); removeExtra(selId); renderPanel(); }
+    else if (selId && selId.startsWith('img:')) { e.preventDefault(); removeImage(selId.slice(4)); renderPanel(); }
   }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
     if (extraTextOf(selId)) { e.preventDefault(); duplicateExtraText(extraTextOf(selId)); renderPanel(); }
     else if (extraOf(selId)) { e.preventDefault(); addExtra(extraOf(selId).id, extraOf(selId)); renderPanel(); }
+    else if (selId && (selId === 'photo' || selId.startsWith('img:'))) {
+      const im = imageOf(selId);
+      if (im) { e.preventDefault(); duplicateImage(im); renderPanel(); }
+    }
   }
   else if (selId && /^(Arrow(Up|Down|Left|Right)|\+|=|-|\[|\])$/.test(e.key)) {
     e.preventDefault(); snapshot();
@@ -4098,14 +4710,30 @@ addEventListener('keydown', e => {
     else if (e.key === 'ArrowUp') o.y -= st; else if (e.key === 'ArrowDown') o.y += st;
     else if (e.key === '+' || e.key === '=') o.s *= 1.04; else if (e.key === '-') o.s /= 1.04;
     else if (e.key === '[') o.r -= e.shiftKey ? 15 : 1; else if (e.key === ']') o.r += e.shiftKey ? 15 : 1;
-    save(); scheduleRender(); if (activeTab === 'arrange' || activeTab === 'type') renderPanel();
+    save(); scheduleRender(); if (activeTab === 'arrange' || activeTab === 'type' || activeTab === 'image') renderPanel();
   }
 });
 addEventListener('resize', scheduleRender);
 cv.addEventListener('webglcontextlost', e => { e.preventDefault(); toast('The GPU reset; reload the page to keep working.'); });
 
 /* ---------- start ---------- */
-try { const p = localStorage.getItem('sleeve-press-photo'); if (p && state.photo.src === 'upload') loadPhotoURL(p, true); else if (state.photo.src === 'upload') state.photo.src = 'shader'; } catch {}
+try {
+  const pMap = localStorage.getItem('sleeve-press-images');
+  if (pMap) {
+    const map = JSON.parse(pMap);
+    for (const [uid, url] of Object.entries(map)) {
+      const im = (state.images || []).find(x => x.uid === uid);
+      if (im) loadImageFor(im, url, true);
+    }
+  }
+  const p = localStorage.getItem('sleeve-press-photo');
+  if (p && state.images?.[0]?.src === 'upload' && !imageImgs.has(state.images[0].uid)) {
+    loadImageFor(state.images[0], p, true);
+  } else if (!pMap && !p && state.photo?.src === 'upload') {
+    state.photo.src = 'shader';
+    if (state.images?.[0]) state.images[0].src = 'shader';
+  }
+} catch {}
 ['archivo-black', 'dela-gothic-one', 'space-mono', 'righteous', 'cinzel', state.type.wordFont, state.type.kanaFont, state.type.smallFont].forEach(loadFont);
 if (state.type.fonts) Object.values(state.type.fonts).forEach(loadFont);
 (state.extraTexts || []).forEach(et => et.font && loadFont(et.font));
