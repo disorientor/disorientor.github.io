@@ -239,6 +239,16 @@ function loadFont(id) {
     .catch(() => { f.failed = true; toast(`Couldn't load ${f.name}; using a system font.`); });
 }
 let CURRENT_TX_ID = null;
+// Every string a layout draws inside a type element is numbered in draw order (TX_N), recorded in LAY.texts so the
+// Type tab can list it, and replaced by the user's text for that element in this layout (place(id).texts[n]).
+let TX_N = 0;
+function TXT(text) {
+  if (!CURRENT_TX_ID) return text;
+  const id = CURRENT_TX_ID, n = TX_N++;
+  if (!ISO.only && LAY.texts) { const a = LAY.texts[id] || (LAY.texts[id] = []); if (a[n] === undefined) a[n] = text ?? ''; }
+  const ov = place(id).texts;
+  return ov && ov[n] != null ? ov[n] : text;
+}
 const fam = (id, explicit) => {
   let fId = explicit ? id : ((CURRENT_TX_ID && state && state.type && state.type.fonts && state.type.fonts[CURRENT_TX_ID]) || id);
   const f = FONT_BY[fId] || FONT_BY[id] || FONT_BY['archivo-black'];
@@ -353,6 +363,7 @@ const T = (id, name, fn, opts = {}) => TEMPLATES[id] = { id, name, group: opts.g
 
 /* Type helpers. All sizes are in pixels of the render; u is 1% of the cover's short side. */
 function fitText(ctx, text, family, x, y, w, h, o = {}) {
+  if (!o.sub) text = TXT(text);
   if (!text) return;
   ctx.save();
   ctx.font = `100px ${family}`;
@@ -383,10 +394,11 @@ function fitText(ctx, text, family, x, y, w, h, o = {}) {
   return { width, height: realH };
 }
 function vertText(ctx, text, family, x, y, w, h, o = {}) {
+  if (!o.sub) text = TXT(text);
   if (!text) return;
   if (!isCJK(text) || o.rotate) {
     ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(o.ccw ? -Math.PI / 2 : Math.PI / 2);
-    fitText(ctx, text, family, -h / 2, -w / 2, h, w, { ...o, align: o.align || 'center', valign: 'center' });
+    fitText(ctx, text, family, -h / 2, -w / 2, h, w, { ...o, sub: true, align: o.align || 'center', valign: 'center' });
     ctx.restore(); return;
   }
   const chars = [...text.replace(/\s+/g, '')];
@@ -407,7 +419,7 @@ function lines(ctx, list, family, x, y, w, size, color, o = {}) {
   ctx.save(); ctx.font = `${size}px ${family}`; ctx.fillStyle = color; ctx.textBaseline = 'top';
   ctx.textAlign = o.align || 'left';
   const ax = o.align === 'right' ? x + w : o.align === 'center' ? x + w / 2 : x;
-  list.forEach((t, i) => { ctx.fillText(t, ax, y + i * size * (o.lead || 1.25), w); });
+  list.forEach((t, i) => { t = TXT(t); if (t) ctx.fillText(t, ax, y + i * size * (o.lead || 1.25), w); });
   ctx.restore();
 }
 /* Graphic slots: each template places named slots; which micrographic fills each is the user's choice. */
@@ -469,12 +481,12 @@ function E(c, id, name, kind, x, y, w, h, fn) {
 }
 // Shorthands: a type element, a band (flat shape under the photo), the photo frame.
 const TX = (c, id, name, x, y, w, h, fn) => {
-  const prev = CURRENT_TX_ID;
-  CURRENT_TX_ID = id;
+  const prev = CURRENT_TX_ID, prevN = TX_N;
+  CURRENT_TX_ID = id; TX_N = 0;
   try {
     return E(c, id, name, 'type', x, y, w, h, fn);
   } finally {
-    CURRENT_TX_ID = prev;
+    CURRENT_TX_ID = prev; TX_N = prevN;
   }
 };
 const BAND = (c, id, name, x, y, w, h, color) => E(c, id, name, 'band', x, y, w, h, k => { k.fillStyle = color; k.fillRect(x, y, w, h); });
@@ -3302,7 +3314,7 @@ function duplicateExtraText(et) {
   return addExtraText({ ...et, x: (et.x || 0) + 0.04, y: (et.y || 0) + 0.04 });
 }
 function buildCover(W, H, isolate = []) {
-  LAY = { W, H, hits: [] };
+  LAY = { W, H, hits: [], texts: {} };
   ISO = { only: null, skip: new Set(isolate) };
   const L = TEMPLATES[state.template].fn(W, H, state.colors, state.type);
   const rect = photoRect(L.photo);
@@ -3317,7 +3329,7 @@ function buildCover(W, H, isolate = []) {
       iso[id] = canvasLayer(W, H, k => { GFX = k; L.under(k); L.over(k); drawExtraTexts(k, W, H); drawExtras(W, H); });
     }
   } finally { GFX = null; ISO = { only: null, skip: new Set() }; }
-  return { rect, photoRaw: L.photo, under, type, gfx, iso, hits: LAY.hits };
+  return { rect, photoRaw: L.photo, under, type, gfx, iso, hits: LAY.hits, texts: LAY.texts };
 }
 function canvasLayer(W, H, draw, bg) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -3431,7 +3443,7 @@ function runLayer(layer, src, W, H) {
   }
   return b.tex;
 }
-let renderQueued = false, rendering = false, lastError = '', lastHits = { W: 1, H: 1, hits: [] };
+let renderQueued = false, rendering = false, lastError = '', lastHits = { W: 1, H: 1, hits: [], texts: {} };
 function scheduleRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(() => { renderQueued = false; renderPreview(); }); } }
 function renderPhotoStack(W, H, baseRect, C, col, pr) {
   const images = (state.images && state.images.length) ? state.images : [state.photo || { uid: 'base', src: 'shader' }];
@@ -3540,7 +3552,7 @@ function renderTo(W, H) {
   const C = buildCover(W, H, isoIds), col = state.colors, rect = C.rect;
   const underTex = eng.upload(C.under, targets._underTex), typeTex = eng.upload(C.type, targets._typeTex), gfxTex = eng.upload(C.gfx, targets._gfxTex);
   targets._underTex = underTex; targets._typeTex = typeTex; targets._gfxTex = gfxTex;
-  lastHits = { W, H, hits: C.hits };
+  lastHits = { W, H, hits: C.hits, texts: C.texts };
   let stack = tgt('sA', W, H, false), spare = tgt('sB', W, H, false);
   gl.bindFramebuffer(gl.FRAMEBUFFER, stack.fb); const pc = hex2rgb(col.paper); gl.clearColor(pc[0], pc[1], pc[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
   const pr = state.print;
@@ -4025,6 +4037,20 @@ function renderPanel() {
       if (getter && setter) {
         body.append(text(opts.label || name, getter, setter, opts.multiline));
       }
+      // The words this layout draws in the element: each one editable here, for this layout only.
+      const drawn = (lastHits.texts || {})[id] || [];
+      const own = getter && drawn.length === 1 && drawn[0] === getter();
+      if (!own) drawn.forEach((orig, n) => {
+        if (orig === undefined) return;
+        const cur = () => (pl.texts && pl.texts[n] != null) ? pl.texts[n] : orig;
+        body.append(text(drawn.length > 1 ? `Text ${n + 1}` : 'Text', cur, v => {
+          pl.texts = pl.texts || {};
+          if (v === orig) delete pl.texts[n]; else pl.texts[n] = v;
+        }));
+      });
+      if (pl.texts && Object.keys(pl.texts).length) body.append(el('div', { className: 'row' },
+        el('button', { className: 'mini', onclick: () => { commit(() => delete pl.texts); renderPanel(); } }, 'Restore layout text'),
+        el('span', { className: 'note' }, 'Edited text stays with this layout and no longer follows the fields above.')));
       if (opts.extraControls) {
         body.append(...opts.extraControls);
       }
