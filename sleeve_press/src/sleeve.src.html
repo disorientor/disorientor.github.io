@@ -76,6 +76,21 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
 .glist button:hover{background:var(--raised)}
 .note{color:var(--muted)}
 .warn{color:var(--warn)}
+.c-card{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;text-align:left;transition:border-color .15s}
+.c-card:hover{border-color:var(--muted)}
+.c-card.on{border-color:var(--accent)}
+.c-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.c-title{font-size:12px;font-weight:bold;color:var(--fg);letter-spacing:.02em}
+.c-era{font-size:9.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.c-sub{font-size:10px;color:var(--accent);opacity:.85}
+.c-desc{font-size:10.5px;color:var(--muted);line-height:1.45}
+.c-tags{display:flex;flex-wrap:wrap;gap:4px}
+.c-tag{font-size:9px;background:var(--raised);color:var(--muted);border:1px solid var(--line);padding:2px 5px;border-radius:4px}
+.c-swatches{display:flex;height:12px;border-radius:3px;overflow:hidden;border:1px solid var(--line)}
+.c-swatches i{flex:1}
+.c-actions{display:flex;gap:6px;margin-top:2px}
+.c-actions button{flex:1;padding:5px 8px;font-size:9.5px}
+.constellation-sel{max-width:210px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:11px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:70;max-width:calc(100% - 32px);background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
 #drop{position:fixed;inset:12px;z-index:60;display:grid;place-items:center;border:2px dashed var(--accent);border-radius:16px;background:rgba(12,12,16,.88);color:var(--accent);font-size:22px;pointer-events:none}
 @media (max-width:860px){
@@ -90,7 +105,44 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
 <div id="app">
   <header class="pad">
     <div class="mark">SLEEVE<i>+</i>PRESS</div>
+    <select id="constellationSel" class="constellation-sel" title="Active Graphic Design Constellation">
+      <option value="any">🎲 Any Constellation</option>
+      <option value="wild">⚡ Wild / Raw Roll</option>
+      <optgroup label="Modernist & Rational">
+        <option value="swiss-modern">Swiss International Style</option>
+        <option value="bauhaus-destijl">Bauhaus & De Stijl</option>
+        <option value="minimal-techno">Minimal Techno (Berlin)</option>
+      </optgroup>
+      <optgroup label="Jazz & Mid-Century">
+        <option value="blue-note">Blue Note Modern Jazz</option>
+        <option value="folkways-archive">Folkways Field Archive</option>
+        <option value="library-archive">Library Music & Studio</option>
+      </optgroup>
+      <optgroup label="Post-Punk & Ethereal">
+        <option value="factory-postpunk">Factory Records (Saville)</option>
+        <option value="ethereal-4ad">4AD Ethereal (v23)</option>
+        <option value="shoegaze-dreampop">Shoegaze / Dream Pop</option>
+      </optgroup>
+      <optgroup label="Electronic & Cyber">
+        <option value="warp-cyber">Warp IDM & Cyberdelic</option>
+        <option value="krautrock-kosmische">Krautrock & Kosmische</option>
+        <option value="y2k-cyber">Y2K Millennium / Net Art</option>
+      </optgroup>
+      <optgroup label="Underground & Subcultural">
+        <option value="rave-acid">90s Acid Rave Flyer</option>
+        <option value="raygun-grunge">Ray Gun / 90s Grunge</option>
+        <option value="dubplate-soundsystem">Dubplate Sound System</option>
+        <option value="blackmetal-grimoire">Occult Dungeon Grimoire</option>
+      </optgroup>
+      <optgroup label="Japanese & Avant-Garde">
+        <option value="city-pop">Japanese City Pop</option>
+        <option value="constructivist">Soviet Constructivism</option>
+        <option value="ecm-nordic">ECM Nordic Silence</option>
+        <option value="psychedelic-60s">Psychedelic 60s Ballroom</option>
+      </optgroup>
+    </select>
     <button id="random" title="New layout, palette, type and shaders (R)">Randomize</button>
+    <button id="rollConstellation" class="mini" title="Roll variation in current constellation (Shift+R)">Variation</button>
     <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
     <button id="exportBtn" class="primary">Export</button>
   </header>
@@ -345,12 +397,62 @@ const PALETTES = [
   ['Tropical', 'flamingo', '#ffc2d4', '#1b4332', '#ff4d6d', '#1b4332', '#ffc2d4'],
   ['Tropical', 'lagoon teal', '#c6fff1', '#0b3954', '#ff5a5f', '#087e8b', '#ffffff'],
   ['Tropical', 'mango', '#ffd166', '#26213b', '#ef476f', '#118ab2', '#ffffff'],
-  ['Tropical', 'jungle', '#1f3d2b', '#f2e8cf', '#e76f51', '#f2e8cf', '#1f3d2b']
+  ['Tropical', 'jungle', '#1f3d2b', '#f2e8cf', '#e76f51', '#f2e8cf', '#1f3d2b'],
+  ['Modernist', 'muller-red', '#f7f5ee', '#111111', '#e01e1e', '#e01e1e', '#f7f5ee'],
+  ['Modernist', 'crouwel-grid', '#e5e7e4', '#161d24', '#2c5898', '#161d24', '#e5e7e4'],
+  ['Factory', 'fac-73', '#e0ddd5', '#1a1c23', '#494f5c', '#d33333', '#e0ddd5'],
+  ['Factory', 'hacienda-hazard', '#151515', '#fcee21', '#151515', '#fcee21', '#151515'],
+  ['4AD', 'v23-dream', '#e3dcce', '#27221e', '#615446', '#9c383d', '#e3dcce'],
+  ['4AD', 'sepia-mist', '#f1ece1', '#211e1c', '#7c6d58', '#446b5a', '#f1ece1'],
+  ['Blue Note', 'reid-miles-blue', '#f4ede2', '#1b1a18', '#0065a3', '#e85d04', '#f4ede2'],
+  ['Blue Note', 'smoky-amber', '#f5eee4', '#241c18', '#c95a18', '#241c18', '#f5eee4'],
+  ['Acid', 'dayglo-rave', '#09090b', '#efff00', '#ff007f', '#00f5d4', '#09090b'],
+  ['Cosmic', 'kraut-pulsar', '#060913', '#00ffcc', '#ff0055', '#00ffcc', '#060913'],
+  ['Grimoire', 'bone-blood', '#0a0a0c', '#eee8dd', '#881116', '#881116', '#eee8dd'],
+  ['Dubplate', 'king-tubby-kraft', '#c29b63', '#1e1610', '#18633e', '#b8261e', '#f4edd9'],
+  ['Folkways', 'archival-slip', '#23201d', '#f1e8d6', '#b34728', '#f1e8d6', '#23201d'],
+  ['Minimal', 'basic-channel', '#08080a', '#f5f5f7', '#6c7078', '#f5f5f7', '#08080a']
 ].map(([group, id, paper, ink1, ink2, accent, text]) => ({ group, id, paper, ink1, ink2, accent, text }));
 const PALETTE_GROUPS = [...new Set(PALETTES.map(p => p.group))];
-// A random palette: one hue family for paper and inks, a complementary accent, type picked for contrast.
-function generatePalette(r = Math.random) {
+// Harmonized palette generator supporting major graphic design color systems.
+function generatePalette(r = Math.random, mode = 'editorial') {
   const h = r() * 360, dark = r() < .3, hsl = (H, S, L) => { const k = n => (n + H / 30) % 12, a = S * Math.min(L, 1 - L); const f = n => L - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return rgb2hex([f(0), f(8), f(4)]); };
+  if (mode === 'monochrome') {
+    const paper = dark ? hsl(h, .05, .08 + r() * .06) : hsl(h, .05, .90 + r() * .06);
+    const ink1 = dark ? '#f0f0f4' : '#101012';
+    const ink2 = dark ? '#7a7e85' : '#5a5e66';
+    const accent = r() < .5 ? (dark ? '#ff3b30' : '#d02020') : (dark ? '#007aff' : '#0055d4');
+    return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: contrastOn(accent, [paper, ink1, '#ffffff', '#000000']) };
+  }
+  if (mode === 'duotone') {
+    const paper = hsl(h, .2 + r() * .3, .88 + r() * .08);
+    const ink1 = hsl(h + (r() - .5) * 15, .7 + r() * .3, .12 + r() * .1);
+    const ink2 = hsl(h + (r() - .5) * 30, .6 + r() * .3, .45 + r() * .15);
+    const accent = hsl(h + 180 + (r() - .5) * 40, .8, .48);
+    return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: contrastOn(accent, [paper, ink1, '#ffffff', '#000000']) };
+  }
+  if (mode === 'neon') {
+    const paper = '#0c0c10';
+    const ink1 = hsl(h, .95, .55);
+    const ink2 = hsl(h + 60, .9, .6);
+    const accent = hsl(h + 180, 1, .55);
+    return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: paper };
+  }
+  if (mode === 'earth') {
+    const bh = 25 + r() * 25;
+    const paper = hsl(bh, .35 + r() * .2, .82 + r() * .1);
+    const ink1 = hsl(bh, .4, .12 + r() * .08);
+    const ink2 = hsl(bh + (r() < .5 ? 90 : -30), .45, .35);
+    const accent = hsl(12 + r() * 15, .75, .42);
+    return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: contrastOn(accent, [paper, ink1, '#ffffff', '#000000']) };
+  }
+  if (mode === 'pastel') {
+    const paper = hsl(h, .3, .92 + r() * .06);
+    const ink1 = hsl(h + 180, .5, .22 + r() * .1);
+    const ink2 = hsl(h + 40, .6, .65);
+    const accent = hsl(h + 160, .7, .55);
+    return { group: 'Generated', id: 'generated', paper, ink1, ink2, accent, text: contrastOn(accent, [paper, ink1, '#ffffff', '#000000']) };
+  }
   const paper = dark ? hsl(h, .4, .08 + r() * .08) : hsl(h, .3 + r() * .6, .82 + r() * .12);
   const ink1 = dark ? hsl(h + 180 * r(), .8, .65) : hsl(h + 20 * (r() - .5), .5 + r() * .5, .1 + r() * .2);
   const ink2 = hsl(h + 120 + r() * 120, .6 + r() * .4, .45 + r() * .15);
@@ -2499,6 +2601,156 @@ T('tarot-card', 'Arcana card', (W, H, p, t) => {
   };
 }, { group: 'Physical Media & Objects' });
 
+/* ---------- Modernist & Subcultural Movements (Expanded) ---------- */
+T('saville-fac', 'FAC Catalog', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [18 * u, 18 * u, 64 * u, 54 * u],
+    under(c) {
+      BAND(c, 'bg', 'Card stock', 0, 0, W, H, p.paper);
+      BAND(c, 'frameRule', 'Hairline border', 17.6 * u, 17.6 * u, 64.8 * u, 54.8 * u, p.ink2);
+      c.clearRect(18 * u, 18 * u, 64 * u, 54 * u);
+    },
+    over(c) {
+      MATTE(c, 'swatchBar', 'Factory color swatches', 18 * u, 8 * u, 16 * u, 3.5 * u, k => {
+        const sw = [p.ink1, p.ink2, p.accent, p.paper];
+        sw.forEach((col, i) => { k.fillStyle = col; k.fillRect((18 + i * 4) * u, 8 * u, 3.2 * u, 3.2 * u); k.strokeStyle = p.ink1; k.lineWidth = .3 * u; k.strokeRect((18 + i * 4) * u, 8 * u, 3.2 * u, 3.2 * u); });
+      });
+      TX(c, 'catalogue', 'Factory catalog code', 52 * u, 8 * u, 30 * u, 3.5 * u, k => fitText(k, t.catalogue || 'FAC · 73', fam(t.smallFont), 52 * u, 8 * u, 30 * u, 3.5 * u, { color: p.ink1, align: 'right', tracking: 0.2 }));
+      TX(c, 'artist', 'Artist wordmark', 18 * u, 77 * u, 64 * u, 8 * u, k => fitText(k, t.artist.toUpperCase(), fam(t.wordFont), 18 * u, 77 * u, 64 * u, 8 * u, { color: p.ink1, align: 'center', tracking: 0.25 }));
+      TX(c, 'title', 'Title line', 18 * u, 87 * u, 42 * u, 3.2 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 18 * u, 87 * u, 42 * u, 3.2 * u, { color: p.ink2, tracking: 0.15 }));
+      TX(c, 'side', 'Side / series', 18 * u, 91.5 * u, 42 * u, 2.4 * u, k => fitText(k, t.side || 'STEREO · 33⅓ RPM', fam(t.smallFont), 18 * u, 91.5 * u, 42 * u, 2.4 * u, { color: p.ink2 }));
+      G(c, 'strip', 64 * u, 86 * u, 18 * u, 7 * u, p.ink1);
+      G(c, 'corner', 88 * u, 8 * u, 4 * u, 4 * u, p.accent);
+    }
+  };
+}, { group: 'Swiss & Modernist' });
+
+T('vaughan-4ad', 'Ethereal Dream', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [28 * u, 14 * u, 62 * u, 62 * u],
+    under(c) {
+      BAND(c, 'bg', 'Ground', 0, 0, W, H, p.paper);
+      BAND(c, 'borderMat', 'Tonal matte border', 25 * u, 11 * u, 68 * u, 68 * u, p.ink2);
+      c.clearRect(28 * u, 14 * u, 62 * u, 62 * u);
+    },
+    over(c) {
+      G(c, 'emblem', 7 * u, 16 * u, 14 * u, 14 * u, p.accent);
+      TX(c, 'kanaTitle', 'Katakana whisper', 7 * u, 34 * u, 14 * u, 38 * u, k => vertText(k, t.kanaTitle || t.title, fam(t.kanaFont), 7 * u, 34 * u, 14 * u, 38 * u, { color: p.ink2, align: 'center' }));
+      TX(c, 'artist', 'Artist wordmark', 28 * u, 81 * u, 62 * u, 7 * u, k => fitText(k, t.artist, fam(t.wordFont), 28 * u, 81 * u, 62 * u, 7 * u, { color: p.ink1, tracking: 0.3, align: 'left' }));
+      TX(c, 'title', 'Title line', 28 * u, 89.5 * u, 40 * u, 3.5 * u, k => fitText(k, t.title, fam(t.smallFont), 28 * u, 89.5 * u, 40 * u, 3.5 * u, { color: p.accent, tracking: 0.15 }));
+      TX(c, 'tagline', 'Tagline quote', 70 * u, 89.5 * u, 20 * u, 2.5 * u, k => fitText(k, t.catalogue, fam(t.smallFont), 70 * u, 89.5 * u, 20 * u, 2.5 * u, { color: p.ink2, align: 'right' }));
+      G(c, 'corner', 88 * u, 4 * u, 6 * u, 6 * u, p.ink1);
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('fillmore', 'Psychedelic Ballroom', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [12 * u, 24 * u, 76 * u, 54 * u],
+    under(c) {
+      BAND(c, 'bg', 'Sunburst ground', 0, 0, W, H, p.paper);
+      BAND(c, 'topBand', 'Arch header ground', 0, 0, W, 22 * u, p.accent);
+      BAND(c, 'botBand', 'Bottom footer ground', 0, 80 * u, W, 20 * u, p.ink2);
+    },
+    over(c) {
+      TX(c, 'artist', 'Psychedelic masthead', 6 * u, 3 * u, 88 * u, 16 * u, k => wordmark(k, t.artist, 6 * u, 3 * u, 88 * u, 16 * u, { color: p.paper, stretch: true }));
+      G(c, 'emblem', 5 * u, 82 * u, 14 * u, 14 * u, p.accent);
+      TX(c, 'title', 'Title banner', 22 * u, 82 * u, 60 * u, 8 * u, k => wordmark(k, t.title, 22 * u, 82 * u, 60 * u, 8 * u, { color: p.paper, stretch: true }));
+      TX(c, 'tagline', 'Show date / venue', 22 * u, 91 * u, 60 * u, 4 * u, k => fitText(k, t.tagline + ' · ' + t.catalogue, fam(t.smallFont), 22 * u, 91 * u, 60 * u, 4 * u, { color: p.paper, align: 'center' }));
+      G(c, 'corner', 84 * u, 82 * u, 12 * u, 12 * u, p.paper);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('deconstruct', 'Ray Gun Cut-Up', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [14 * u, 18 * u, 74 * u, 60 * u],
+    under(c) {
+      BAND(c, 'bg', 'Xerox ground', 0, 0, W, H, p.paper);
+      BAND(c, 'block1', 'Slab background block', 4 * u, 6 * u, 55 * u, 16 * u, p.ink1);
+      BAND(c, 'block2', 'Angled footer slab', 30 * u, 74 * u, 66 * u, 22 * u, p.accent);
+    },
+    over(c) {
+      TX(c, 'artist', 'Deconstructed wordmark', 6 * u, 7 * u, 52 * u, 14 * u, k => wordmark(k, t.artist, 6 * u, 7 * u, 52 * u, 14 * u, { color: p.paper, stretch: true }));
+      TX(c, 'kanaTitle', 'Katakana collision', 58 * u, 8 * u, 38 * u, 6 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 58 * u, 8 * u, 38 * u, 6 * u, { color: p.ink1, stroke: 0.03 }));
+      G(c, 'feature', 4 * u, 30 * u, 8 * u, 40 * u, p.ink1);
+      TX(c, 'title', 'Footer title stamp', 34 * u, 77 * u, 58 * u, 9 * u, k => wordmark(k, t.title, 34 * u, 77 * u, 58 * u, 9 * u, { color: p.paper, stretch: true }));
+      TX(c, 'tagline', 'Raw catalog line', 34 * u, 88 * u, 36 * u, 3.5 * u, k => fitText(k, t.tagline + ' // ' + t.catalogue, fam(t.smallFont), 34 * u, 88 * u, 36 * u, 3.5 * u, { color: p.paper }));
+      G(c, 'strip', 72 * u, 87 * u, 24 * u, 7 * u, p.paper);
+      G(c, 'corner', 88 * u, 20 * u, 8 * u, 8 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('folkways', 'Field Archive', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [48 * u, 32 * u, 40 * u, 40 * u],
+    under(c) {
+      BAND(c, 'rawBoard', 'Raw outer kraft board', 0, 0, W, H, p.ink1);
+      BAND(c, 'tipOnSlip', 'Tip-on paper slip', 6 * u, 6 * u, 88 * u, 88 * u, p.paper);
+      BAND(c, 'headerBar', 'Archive series bar', 6 * u, 6 * u, 88 * u, 6 * u, p.accent);
+    },
+    over(c) {
+      TX(c, 'catalogue', 'Archive series banner', 10 * u, 7.5 * u, 80 * u, 3.5 * u, k => fitText(k, (t.catalogue + ' · ETHNIC & SCIENTIFIC MONOGRAPH').toUpperCase(), fam(t.smallFont), 10 * u, 7.5 * u, 80 * u, 3.5 * u, { color: p.paper, tracking: 0.15 }));
+      TX(c, 'artist', 'Artist wordmark', 10 * u, 16 * u, 64 * u, 7.5 * u, k => fitText(k, t.artist.toUpperCase(), fam(t.wordFont), 10 * u, 16 * u, 64 * u, 7.5 * u, { color: p.ink1, tracking: 0.12 }));
+      TX(c, 'title', 'Documentary title', 10 * u, 24.5 * u, 64 * u, 4.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 10 * u, 24.5 * u, 64 * u, 4.5 * u, { color: p.ink2, tracking: 0.08 }));
+      G(c, 'emblem', 78 * u, 15 * u, 12 * u, 12 * u, p.accent);
+      const notes = [t.tagline, 'Recorded in the field', 'Descriptive notes inside', t.side || '33⅓ RPM Mono'];
+      TX(c, 'notes', 'Field recording notes', 10 * u, 34 * u, 34 * u, 30 * u, k => lines(k, notes, fam(t.smallFont), 10 * u, 34 * u, 34 * u, 2.6 * u, p.ink1, { lead: 1.6 }));
+      G(c, 'strip', 10 * u, 74 * u, 34 * u, 8 * u, p.ink2);
+      TX(c, 'footer', 'Copyright notice', 10 * u, 88 * u, 80 * u, 2.5 * u, k => fitText(k, 'DISORIENTOR RECORDS AND SERVICE CORP., NEW YORK, N.Y.', fam(t.smallFont), 10 * u, 88 * u, 80 * u, 2.5 * u, { color: p.ink2 }));
+    }
+  };
+}, { group: 'Editorial & Print' });
+
+T('minimal-techno', 'Subterranean Techno', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [25 * u, 25 * u, 50 * u, 50 * u],
+    under(c) {
+      BAND(c, 'bg', 'Matte field', 0, 0, W, H, p.paper);
+      BAND(c, 'ringFrame', 'Circular mask frame', 24 * u, 24 * u, 52 * u, 52 * u, p.ink2);
+      c.clearRect(25 * u, 25 * u, 50 * u, 50 * u);
+    },
+    over(c) {
+      TX(c, 'artist', 'Clinical wordmark', 8 * u, 8 * u, 60 * u, 6 * u, k => fitText(k, t.artist.toUpperCase(), fam(t.wordFont), 8 * u, 8 * u, 60 * u, 6 * u, { color: p.ink1, tracking: 0.2 }));
+      TX(c, 'catalogue', 'Vertical catalog spine', 85 * u, 8 * u, 8 * u, 84 * u, k => vertText(k, t.catalogue || 'BC-08', fam(t.smallFont), 85 * u, 8 * u, 8 * u, 84 * u, { color: p.ink1, rotate: true }));
+      G(c, 'emblem', 8 * u, 18 * u, 12 * u, 12 * u, p.accent);
+      TX(c, 'title', 'Title line', 8 * u, 78 * u, 72 * u, 4.5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 8 * u, 78 * u, 72 * u, 4.5 * u, { color: p.ink1, tracking: 0.15 }));
+      TX(c, 'matrix', 'Track matrix', 8 * u, 85 * u, 72 * u, 3 * u, k => fitText(k, (t.side || 'A1 · ORIGINAL MIX / B1 · RESHAPE') + ' · 45 RPM', fam(t.smallFont), 8 * u, 85 * u, 72 * u, 3 * u, { color: p.ink2 }));
+      G(c, 'strip', 8 * u, 91 * u, 40 * u, 4 * u, p.ink1);
+    }
+  };
+}, { group: 'Club, Zine & Underground' });
+
+T('kosmische', 'Kosmische Pulsar', (W, H, p, t) => {
+  const u = W / 100;
+  return {
+    photo: [25 * u, 25 * u, 50 * u, 50 * u],
+    under(c) {
+      BAND(c, 'bg', 'Cosmic void', 0, 0, W, H, p.paper);
+      MATTE(c, 'orbitRings', 'Concentric orbital rings', 0, 0, W, H, k => {
+        k.strokeStyle = p.ink2; k.lineWidth = .35 * u;
+        for (let r = 1; r <= 6; r++) {
+          k.beginPath(); k.arc(W / 2, H / 2, (18 + r * 6.5) * u, 0, Math.PI * 2); k.stroke();
+        }
+      });
+    },
+    over(c) {
+      TX(c, 'artist', 'German electronic masthead', 10 * u, 8 * u, 80 * u, 8 * u, k => fitText(k, t.artist.toUpperCase(), fam(t.wordFont), 10 * u, 8 * u, 80 * u, 8 * u, { color: p.ink1, align: 'center', tracking: 0.25 }));
+      TX(c, 'kanaTitle', 'Katakana orbit', 10 * u, 17.5 * u, 80 * u, 4 * u, k => fitText(k, t.kanaTitle || t.title, fam(t.kanaFont), 10 * u, 17.5 * u, 80 * u, 4 * u, { color: p.accent, align: 'center' }));
+      G(c, 'corner', 10 * u, 84 * u, 10 * u, 10 * u, p.accent);
+      TX(c, 'title', 'Title frequency', 24 * u, 84 * u, 52 * u, 5 * u, k => fitText(k, t.title.toUpperCase(), fam(t.smallFont), 24 * u, 84 * u, 52 * u, 5 * u, { color: p.ink1, tracking: 0.2 }));
+      TX(c, 'telemetry', 'Telemetry coordinates', 24 * u, 90.5 * u, 52 * u, 3 * u, k => fitText(k, (t.catalogue + ' · ' + t.tagline).toUpperCase(), fam(t.smallFont), 24 * u, 90.5 * u, 52 * u, 3 * u, { color: p.ink2 }));
+      G(c, 'strip', 78 * u, 84 * u, 12 * u, 10 * u, p.ink1);
+    }
+  };
+}, { group: 'Vaporwave & Broadcast' });
 
 /* The tape template is a cassette J-card laid flat: back flap | spine | front, 101.6 mm tall. */
 const JCARD = { flap: 15, spine: 12.7, front: 65, height: 101.6, bleed: 3 };
@@ -2572,7 +2824,7 @@ function layerInfo(id) {
 
 const DEFAULT_GRAPHICS = () => ({ emblem: { id: 'disorientor', ink: 'auto' }, corner: { id: 'disorientor', ink: 'auto' }, feature: { id: 'burst16', ink: 'auto' }, strip: { id: 'barcode', ink: 'auto' } });
 const DEFAULT = () => ({
-  v: 3, seed: 1234, template: 'headline', palette: 'rose',
+  v: 3, seed: 1234, constellation: 'any', template: 'headline', palette: 'rose',
   colors: { ...PALETTES[0] },
   photo: { zoom: 1, x: 0, y: 0, rot: 0, bright: 0, contrast: .25, gamma: 1, invert: false, autoLevels: true, src: 'shader', shader: 'f05_quaternion_julia_4d' },
   images: [
@@ -2612,6 +2864,7 @@ function save() { try { localStorage.setItem('sleeve-press', JSON.stringify(stat
 function load() { try { const s = JSON.parse(localStorage.getItem('sleeve-press')); if (s && s.v === 2) { s.v = 3; s.graphics = DEFAULT_GRAPHICS(); delete s.type.mark; } return s && s.v === 3 ? normalize(s) : null; } catch { return null; } }
 // Older saves have no graphics layer or layout map; graphics then go straight above the type.
 function normalize(s) {
+  s.constellation = s.constellation || 'any';
   s.extras = s.extras || [];
   s.extraTexts = s.extraTexts || [];
   s.images = s.images || [];
@@ -3756,45 +4009,586 @@ function shuffleGraphics(r) {
   };
 }
 
+/* ---------- graphic design constellations ---------- */
+const CONSTELLATIONS = [
+  {
+    id: 'swiss-modern',
+    name: 'Swiss International Style',
+    era: '1955–1968 · Zurich & Basel',
+    designer: 'Müller-Brockmann · Wim Crouwel · Emil Ruder',
+    desc: 'Rigid mathematical grids, asymmetric compositional tension, pure objective grotesque typography, unyielding functional clarity.',
+    tags: ['Grid', 'Grotesque', 'Rationalist', 'Asymmetry'],
+    templates: ['swiss-grid', 'column', 'tabular', 'minimal', 'crosshair', 'monolith', 'cantilever', 'minimal-techno', 'saville-fac'],
+    palettes: ['muller-red', 'crouwel-grid', 'xerox', 'noir', 'signal', 'bone', 'blueprint', 'graphite'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['archivo-black', 'electrolize', 'space-mono'],
+      smalls: ['space-mono', 'departure-mono', 'electrolize'],
+      kanas: ['dela-gothic-one', 'noto-sans-jp'],
+      stretch: false, condense: 1, tracking: 0.05, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'colour', dot: 0.8, angle: 45, threshold: 0.5, softness: 0, misreg: 0, grain: 0.12, spread: 0, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 },
+    graphics: ['plus-grid', 'registration', 'crop-marks', 'ruler', 'swiss-gauge', 'target'],
+    shaders: [],
+    cataloguePrefix: 'CH-',
+    defaultTagline: 'INTERNATIONAL TYPOGRAPHIC SYSTEM'
+  },
+  {
+    id: 'blue-note',
+    name: 'Blue Note Modern Jazz',
+    era: '1956–1967 · New York City',
+    designer: 'Reid Miles · Francis Wolff',
+    desc: 'Oversized dynamic grotesque wood type, dramatic cropped monochrome portraiture with saturated flat ink tints, smoky paper, crisp architectural division.',
+    tags: ['Jazz', 'Wood Type', 'Duotone Crop', 'Reid Miles'],
+    templates: ['blue-bar', 'color-blocks', 'split', 'band', 'headline', 'bullseye', 'sandwich'],
+    palettes: ['reid-miles-blue', 'smoky-amber', 'signal', 'kiln', 'rose', 'stamp red'],
+    paletteMode: 'duotone',
+    fonts: {
+      words: ['archivo-black', 'anton', 'big-shoulders-display'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['dela-gothic-one', 'shippori-mincho-b1'],
+      stretch: true, condense: 1, tracking: 0, outlineRate: 0.1, warp: 0
+    },
+    print: { mode: 'halftone', dot: 1.15, angle: 45, threshold: 0.5, softness: 0.08, misreg: 0.25, grain: 0.4, spread: 0.25, ringwear: 0.35, wear: 0.15, stock: 'laid', coverScreen: 0, stamp: 0.1 },
+    graphics: ['hifi-waves', 'stereo-badge', '45-adapter', 'target', 'reel-spool', 'hifi-mono'],
+    shaders: [],
+    cataloguePrefix: 'BST-',
+    defaultTagline: 'THE FINEST IN JAZZ SINCE 1939'
+  },
+  {
+    id: 'factory-postpunk',
+    name: 'Factory Records & Manchester',
+    era: '1978–1986 · Manchester',
+    designer: 'Peter Saville · 8VO · Ben Kelly',
+    desc: 'Sterile industrial catalog codes (FAC), 4-color process swatch bars, classical fine-art paintings juxtaposed with cold technical engineering.',
+    tags: ['Post-Punk', 'Peter Saville', 'FAC Code', 'Industrial'],
+    templates: ['saville-fac', 'swiss-grid', 'tabular', 'minimal', 'spine', 'hazard-spec', 'border-stack'],
+    palettes: ['fac-73', 'hacienda-hazard', 'steel', 'graphite', 'newsprint', 'noir'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['cinzel', 'electrolize', 'departure-mono', 'bodoni-moda'],
+      smalls: ['space-mono', 'departure-mono', 'electrolize'],
+      kanas: ['kaisei-tokumin', 'zen-maru-gothic'],
+      stretch: false, condense: 1, tracking: 0.2, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'halftone', dot: 0.95, angle: 45, threshold: 0.5, softness: 0.04, misreg: 0.15, grain: 0.2, spread: 0.1, ringwear: 0, wear: 0.05, stock: 'smooth', coverScreen: 0, stamp: 0 },
+    graphics: ['factory-swatch', 'colour-bars', 'hazard-stripes', 'barcode', 'registration', 'heraldic-crest'],
+    shaders: [],
+    cataloguePrefix: 'FAC-',
+    defaultTagline: 'FACTORY COMMUNICATIONS LIMITED'
+  },
+  {
+    id: 'ethereal-4ad',
+    name: '4AD & Ethereal Post-Modernism',
+    era: '1980–1998 · London',
+    designer: 'Vaughan Oliver · v23 · Nigel Grierson',
+    desc: 'Textured dreamscapes, enigmatic floating typography, layered decayed borders, delicate classical serifs, organic mood and tactile mystery.',
+    tags: ['4AD', 'Vaughan Oliver', 'Ethereal', 'Dream Pop'],
+    templates: ['vaughan-4ad', 'echo', 'border-stack', 'ratio-spiral', 'contact-sheet', 'polaroid', 'double-arch'],
+    palettes: ['v23-dream', 'sepia-mist', 'rose', 'flesh', 'clay', 'terracotta'],
+    paletteMode: 'editorial',
+    fonts: {
+      words: ['bodoni-moda', 'libre-caslon-display', 'playfair-display', 'cinzel-decorative'],
+      smalls: ['space-mono', 'playfair-display', 'departure-mono'],
+      kanas: ['shippori-mincho-b1', 'zen-antique', 'klee-one'],
+      stretch: false, condense: 1, tracking: 0.25, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'halftone', dot: 1.25, angle: 45, threshold: 0.5, softness: 0.12, misreg: 0.3, grain: 0.5, spread: 0.25, ringwear: 0.15, wear: 0.25, stock: 'laid', coverScreen: 0, stamp: 0.15 },
+    graphics: ['asterisk', 'tri-crescent', 'trefoil', 'lissajous', 'heraldic-crest', 'moon-phases', 'polar-plot'],
+    shaders: ['10_temporal_feedback'],
+    cataloguePrefix: 'CAD-',
+    defaultTagline: '4AD RECORDINGS'
+  },
+  {
+    id: 'warp-cyber',
+    name: 'Warp IDM & 90s Cyberdelic',
+    era: '1991–2001 · Sheffield & Tokyo',
+    designer: 'The Designers Republic · Me Company · Wipeout',
+    desc: 'Dense clinical data telemetry, biohazard warnings, Japanese kanji/katakana cybernetics, barcode banners, high-voltage chartreuse and slate.',
+    tags: ['Warp', 'tDR', 'IDM', 'Cyberpunk', 'Data Telemetry'],
+    templates: ['hazard-spec', 'mecha-hud', 'dot-matrix-grid', 'brutalist', 'rave-flyer', 'club-12'],
+    palettes: ['toxic', 'acid', 'highlighter', 'laser', 'blueprint', 'safety'],
+    paletteMode: 'neon',
+    fonts: {
+      words: ['electrolize', 'orbitron', 'unbounded', 'space-mono'],
+      smalls: ['space-mono', 'departure-mono', 'silkscreen'],
+      kanas: ['dotgothic16', 'dela-gothic-one', 'rubik-mono-one'],
+      stretch: true, condense: 1, tracking: 0.1, outlineRate: 0.2, warp: 0.15
+    },
+    print: { mode: 'risograph', dot: 1.3, angle: 22.5, threshold: 0.5, softness: 0.1, misreg: 0.35, grain: 0.35, spread: 0.25, ringwear: 0, wear: 0, stock: 'newsprint', coverScreen: 0.1, stamp: 0 },
+    graphics: ['biohazard', 'barcode', 'qr-matrix', 'warning', 'coordinates', 'circuit-pcb', 'reticle'],
+    shaders: ['01_chromatic_aberration', '12_raster_drift'],
+    cataloguePrefix: 'WARP-',
+    defaultTagline: 'ARTIFICIAL INTELLIGENCE SERIES'
+  },
+  {
+    id: 'city-pop',
+    name: 'Japanese City Pop & Resort Wave',
+    era: '1979–1988 · Tokyo',
+    designer: 'Hiroshi Nagai · Eizin Suzuki',
+    desc: 'Crystal turquoise horizons, pastel resort framing, lush horizontal bands, vibrant neon twilight, breezy katakana headers, breezy elegance.',
+    tags: ['City Pop', 'Tokyo 80s', 'Resort', 'Hiroshi Nagai'],
+    templates: ['city-pop', 'obi', 'cap-obi', 'tategaki', 'sunset', 'horizon', 'magazine'],
+    palettes: ['mall', 'pastel sunset', 'aqua marble', 'reef', 'palm pink', 'lagoon'],
+    paletteMode: 'pastel',
+    fonts: {
+      words: ['righteous', 'syne', 'archivo-black', 'mr-dafoe'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['zen-maru-gothic', 'rocknroll-one', 'hachi-maru-pop'],
+      stretch: false, condense: 1, tracking: 0.05, outlineRate: 0.15, warp: 0
+    },
+    print: { mode: 'cmyk', dot: 0.9, angle: 45, threshold: 0.5, softness: 0.04, misreg: 0.15, grain: 0.2, spread: 0.1, ringwear: 0, wear: 0, stock: 'gloss', coverScreen: 0, stamp: 0 },
+    graphics: ['sunrise', 'sunset-bars', 'mod-daisy', 'flower', 'hanko-seal', 'compact-disc'],
+    shaders: ['16_crt_phosphor_bloom'],
+    cataloguePrefix: 'RAL-',
+    defaultTagline: 'AIR RECORDS / RESORT SOUND ARCHIVE'
+  },
+  {
+    id: 'constructivist',
+    name: 'Soviet Constructivism & Avant-Garde',
+    era: '1919–1932 · Moscow & Vkhutemas',
+    designer: 'El Lissitzky · Alexander Rodchenko · Stepanova',
+    desc: 'Dynamic 45-degree diagonal thrusting wedges, high-contrast red/black/cream, bold slab & grotesque serifs, agitprop photomontage hierarchy.',
+    tags: ['Constructivism', 'Avant-Garde', 'Rodchenko', 'Agitprop'],
+    templates: ['construct', 'bauhaus', 'diagonal', 'poster', 'cantilever', 'monolith'],
+    palettes: ['signal', 'muller-red', 'stamp red', 'xerox', 'noir', 'bone'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['anton', 'archivo-black', 'dela-gothic-one'],
+      smalls: ['departure-mono', 'space-mono'],
+      kanas: ['dela-gothic-one', 'reggae-one'],
+      stretch: true, condense: 1, tracking: 0, outlineRate: 0.1, warp: 0
+    },
+    print: { mode: 'woodcut', dot: 1.5, angle: 45, threshold: 0.5, softness: 0.08, misreg: 0.4, grain: 0.5, spread: 0.45, ringwear: 0, wear: 0.2, stock: 'newsprint', coverScreen: 0, stamp: 0.4 },
+    graphics: ['chevrons', 'star-target', 'warning', 'dot-arrows', 'punch-holes', 'triangles'],
+    shaders: [],
+    cataloguePrefix: 'VKH-',
+    defaultTagline: 'CONSTRUCTIVE ART RECONSTRUCTION'
+  },
+  {
+    id: 'ecm-nordic',
+    name: 'ECM & Nordic Spatial Silence',
+    era: '1970–present · Munich & Oslo',
+    designer: 'Manfred Eicher · Barbara Wojirsch · Dieter Rehm',
+    desc: 'Immense negative space, vast quiet landscapes, whisper-thin hairline rules, contemplative serifs, mist and stone duotones.',
+    tags: ['ECM', 'Nordic', 'Minimalist', 'Negative Space'],
+    templates: ['nordic', 'minimal', 'inset', 'monolith', 'triptych', 'sandwich'],
+    palettes: ['glacier', 'steel', 'noir', 'bone', 'graphite'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['libre-caslon-display', 'playfair-display', 'bodoni-moda'],
+      smalls: ['space-mono', 'departure-mono', 'electrolize'],
+      kanas: ['shippori-mincho-b1', 'zen-antique'],
+      stretch: false, condense: 1, tracking: 0.3, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'halftone', dot: 0.85, angle: 45, threshold: 0.5, softness: 0.04, misreg: 0.08, grain: 0.25, spread: 0.08, ringwear: 0, wear: 0, stock: 'laid', coverScreen: 0, stamp: 0 },
+    graphics: ['lissajous', 'wire-sphere', 'topo-rings', 'polar-plot', 'spectrum-ring'],
+    shaders: [],
+    cataloguePrefix: 'ECM-',
+    defaultTagline: 'EDITION OF CONTEMPORARY MUSIC'
+  },
+  {
+    id: 'krautrock-kosmische',
+    name: 'Krautrock & Kosmische Musik',
+    era: '1969–1977 · Cologne & Berlin',
+    designer: 'Faust · Neu! · Tangerine Dream · Conny Plank',
+    desc: 'Concentric hypnotic moiré rings, deep space spectral voids, retro-futuristic telemetry, stark German electronic experimentalism.',
+    tags: ['Krautrock', 'Kosmische', 'Moiré', 'German Electronic'],
+    templates: ['kosmische', 'horizon', 'teletext', 'porthole', 'eclipse', 'ratio-spiral'],
+    palettes: ['kraut-pulsar', 'laser', 'blueprint', 'night print', 'void', 'carbon copy'],
+    paletteMode: 'neon',
+    fonts: {
+      words: ['audiowide', 'michroma', 'electrolize', 'vt323'],
+      smalls: ['departure-mono', 'space-mono'],
+      kanas: ['dotgothic16', 'silkscreen'],
+      stretch: false, condense: 1, tracking: 0.15, outlineRate: 0.1, warp: 0
+    },
+    print: { mode: 'halftone', dot: 1.1, angle: 45, threshold: 0.5, softness: 0.06, misreg: 0.2, grain: 0.35, spread: 0.2, ringwear: 0.25, wear: 0.1, stock: 'newsprint', coverScreen: 0.15, stamp: 0 },
+    graphics: ['cosmic-pulsar', 'moire', 'hypno-spiral', 'atom-orbit', 'target', 'lissajous'],
+    shaders: ['10_temporal_feedback'],
+    cataloguePrefix: 'KOSM-',
+    defaultTagline: 'ELEKTRONISCHE MUSIK ARCHIV'
+  },
+  {
+    id: 'rave-acid',
+    name: '90s Acid Rave & Underground Flyer',
+    era: '1988–1995 · Manchester & London',
+    designer: 'Shoom · Haçienda · Spiral Tribe · Junior Boy\'s Own',
+    desc: 'Day-glo fluorescent gradients, optical spirals, warped curved lettering, warning hazard stripes, underground flyer frenzy.',
+    tags: ['Acid Rave', '90s Flyer', 'Fluorescent', 'Haçienda'],
+    templates: ['rave-flyer', 'club-12', 'hype-sticker', 'echo', 'diamond', 'deconstruct'],
+    palettes: ['dayglo-rave', 'acid', 'ultraviolet', 'toxic', 'highlighter', 'arcade'],
+    paletteMode: 'neon',
+    fonts: {
+      words: ['bungee', 'unbounded', 'faster-one', 'rubik-mono-one', 'potta-one'],
+      smalls: ['space-mono', 'departure-mono', 'silkscreen'],
+      kanas: ['reggae-one', 'rampart-one', 'dotgothic16'],
+      stretch: true, condense: 1, tracking: 0, outlineRate: 0.35, warp: 0.35
+    },
+    print: { mode: 'risograph', dot: 1.45, angle: 22.5, threshold: 0.5, softness: 0.15, misreg: 0.5, grain: 0.45, spread: 0.35, ringwear: 0.1, wear: 0.2, stock: 'newsprint', coverScreen: 0.2, stamp: 0.1 },
+    graphics: ['hazard-stripes', 'hypno-spiral', 'sparkles', '45-adapter', 'triangles', 'soundwave'],
+    shaders: ['01_chromatic_aberration', '14_voltage_fault'],
+    cataloguePrefix: 'ACID-',
+    defaultTagline: 'ALL NIGHT WAREHOUSE REVELATION'
+  },
+  {
+    id: 'raygun-grunge',
+    name: 'Ray Gun & 90s Deconstructed Grunge',
+    era: '1992–1999 · Santa Monica',
+    designer: 'David Carson · Rudy VanderLans · Emigre',
+    desc: 'Sliced displaced words, broken grids, colliding xerox layers, distressed misregistration, tape and registration marks, raw emotion.',
+    tags: ['Ray Gun', 'David Carson', 'Grunge', 'Deconstruction'],
+    templates: ['deconstruct', 'xerox-zine', 'half-split', 'contact-sheet', 'cascade', 'stencil-crate'],
+    palettes: ['newsprint', 'xerox', 'flesh', 'kraft', 'noir', 'rust'],
+    paletteMode: 'editorial',
+    fonts: {
+      words: ['rubik-glitch', 'major-mono-display', 'six-caps', 'space-mono'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['rampart-one', 'dotgothic16'],
+      stretch: true, condense: 0.9, tracking: 0.05, outlineRate: 0.2, warp: 0.55
+    },
+    print: { mode: 'xerox', dot: 1.8, angle: 45, threshold: 0.52, softness: 0.25, misreg: 0.4, grain: 0.6, spread: 0.45, ringwear: 0.2, wear: 0.4, stock: 'newsprint', coverScreen: 0.1, stamp: 0.3 },
+    graphics: ['crop-marks', 'registration', 'dither-square', 'glitch-blocks', 'barcode', 'scribble-circle'],
+    shaders: ['09_vram_stride_dump', '04_macroblock_scramble'],
+    cataloguePrefix: 'RG-',
+    defaultTagline: 'DON\'T MISTAKE LEGIBILITY FOR COMMUNICATION'
+  },
+  {
+    id: 'library-archive',
+    name: 'Library Music & Brutalist Archives',
+    era: '1968–1981 · London & Rome',
+    designer: 'KPM 1000 Series · Bruton Music · Chappell · De Wolfe',
+    desc: 'Austere functional color blocks, forensic series numbers, archive classification badges, tape machine markings, studio precision.',
+    tags: ['Library Music', 'KPM', 'Brutalist', 'Studio Archive'],
+    templates: ['library-lp', 'reel-box', 'dossier', 'tabular', 'crosshair', 'transit-ticket'],
+    palettes: ['olive drab', 'sandstone', 'clay', 'tobacco', 'blueprint', 'newsprint'],
+    paletteMode: 'earth',
+    fonts: {
+      words: ['archivo-black', 'space-mono', 'departure-mono', 'electrolize'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['zen-antique', 'shippori-mincho-b1'],
+      stretch: false, condense: 1, tracking: 0.08, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'halftone', dot: 1.2, angle: 45, threshold: 0.5, softness: 0.08, misreg: 0.25, grain: 0.4, spread: 0.2, ringwear: 0.45, wear: 0.25, stock: 'laid', coverScreen: 0, stamp: 0.2 },
+    graphics: ['vu-meter', 'fader-bank', 'patch-plug', 'slur-gauge', 'cassette-head', 'polar-plot'],
+    shaders: ['17_tape_wow_flutter'],
+    cataloguePrefix: 'KPM-',
+    defaultTagline: 'RECORDED MUSIC FOR FILM, RADIO & TELEVISION'
+  },
+  {
+    id: 'blackmetal-grimoire',
+    name: 'Occult Grimoire & Dungeon Synth',
+    era: '1991–1996 · Bergen & Oslo',
+    designer: 'Northern Heritage · Darkthrone · Burzum',
+    desc: 'Heavy ornate borders, dense Fraktur blackletter, woodcut engravings, bone/blood/charcoal palette, ancient parchment, esoteric seals.',
+    tags: ['Black Metal', 'Dungeon Synth', 'Fraktur', 'Occult'],
+    templates: ['tarot-card', 'arch', 'double-arch', 'monolith', 'border-stack'],
+    palettes: ['bone-blood', 'void', 'bone', 'oxblood mono', 'tobacco'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['unifraktur-maguntia', 'pirata-one', 'cinzel-decorative'],
+      smalls: ['space-mono', 'departure-mono', 'cinzel'],
+      kanas: ['kaisei-tokumin', 'zen-antique'],
+      stretch: false, condense: 1, tracking: 0.02, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'woodcut', dot: 1.5, angle: 45, threshold: 0.5, softness: 0.1, misreg: 0.35, grain: 0.55, spread: 0.45, ringwear: 0.1, wear: 0.35, stock: 'laid', coverScreen: 0, stamp: 0.5 },
+    graphics: ['esoteric-seal', 'trefoil', 'sacred-hex', 'asterisk', 'tri-crescent'],
+    shaders: [],
+    cataloguePrefix: 'DNT-',
+    defaultTagline: 'IN CONSECRATION OF SHADOWS'
+  },
+  {
+    id: 'dubplate-soundsystem',
+    name: 'Jamaican Dubplate & Sound System 7"',
+    era: '1969–1983 · Kingston',
+    designer: 'Studio One · Trojan · Channel One · King Tubby',
+    desc: 'Raw unbleached chipboard, heavy distressed woodcut type, ink starvation, bold primary stamp, center hole & spindle markings.',
+    tags: ['Dubplate', 'Reggae', 'King Tubby', 'Letterpress'],
+    templates: ['dubplate', 'sound-system', 'diecut-45', 'vinyl-label', 'stencil-crate'],
+    palettes: ['king-tubby-kraft', 'kraft', 'terracotta', 'stamp red', 'flesh'],
+    paletteMode: 'earth',
+    fonts: {
+      words: ['anton', 'archivo-black', 'big-shoulders-display'],
+      smalls: ['departure-mono', 'space-mono'],
+      kanas: ['dela-gothic-one', 'reggae-one'],
+      stretch: true, condense: 1, tracking: 0, outlineRate: 0.15, warp: 0
+    },
+    print: { mode: 'woodcut', dot: 1.6, angle: 45, threshold: 0.5, softness: 0.12, misreg: 0.45, grain: 0.6, spread: 0.5, ringwear: 0.4, wear: 0.3, stock: 'kraft', coverScreen: 0, stamp: 0.65 },
+    graphics: ['dub-horn', '45-adapter', 'vinyl-disc', 'care-marks', 'chevrons'],
+    shaders: ['11_magnetic_degauss'],
+    cataloguePrefix: 'DUB-',
+    defaultTagline: 'ORIGINAL DUB CUT · KINGSTON JAMAICA'
+  },
+  {
+    id: 'y2k-cyber',
+    name: 'Y2K Millennium & Net Art Core',
+    era: '1998–2003 · Silicon Alley & Tokyo',
+    designer: 'Future Shock · Wired · Millennium Aesthetics',
+    desc: 'Metallic chrome bevels, orbital ellipses, UI HUDs, icy holographic silver, digital glass, transparent jewel casing, futuristic optimism.',
+    tags: ['Y2K', 'Chrome', 'Net Art', 'Millennium'],
+    templates: ['chrome', 'window', 'mecha-hud', 'minidisc', 'jewel-case', 'pc98'],
+    palettes: ['chrome lilac', 'late night tv', 'aqua marble', 'dial-up', 'glacier'],
+    paletteMode: 'pastel',
+    fonts: {
+      words: ['orbitron', 'audiowide', 'syne', 'michroma'],
+      smalls: ['silkscreen', 'departure-mono', 'space-mono'],
+      kanas: ['dotgothic16', 'zen-maru-gothic'],
+      stretch: false, condense: 1, tracking: 0.12, outlineRate: 0.2, warp: 0
+    },
+    print: { mode: 'colour', dot: 1.0, angle: 45, threshold: 0.5, softness: 0, misreg: 0, grain: 0.1, spread: 0, ringwear: 0, wear: 0, stock: 'gloss', coverScreen: 0, stamp: 0 },
+    graphics: ['y2k-orbit', 'globe-grid', 'wire-cube', 'wire-torus', 'reticle', 'sparkles'],
+    shaders: ['16_crt_phosphor_bloom'],
+    cataloguePrefix: 'NET-',
+    defaultTagline: 'GLOBAL HYPERLINK INFRASTRUCTURE'
+  },
+  {
+    id: 'psychedelic-60s',
+    name: 'Psychedelic 60s Ballroom & Fillmore',
+    era: '1966–1971 · San Francisco',
+    designer: 'Wes Wilson · Victor Moscoso · Rick Griffin',
+    desc: 'Undulating molten type, vibrating optical contrasts, peacock arches, psychedelic sunbursts, kaleidoscopic symmetry and sensory expansion.',
+    tags: ['Psychedelic', 'Fillmore', 'Wes Wilson', 'Op-Art'],
+    templates: ['fillmore', 'sunset', 'echo', 'bullseye', 'ratio-spiral'],
+    palettes: ['ember', 'tangerine', 'marigold', 'acid', 'violet / sunflower', 'green / yellow'],
+    paletteMode: 'editorial',
+    fonts: {
+      words: ['potta-one', 'righteous', 'bungee', 'mr-dafoe'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['rampart-one', 'hachi-maru-pop'],
+      stretch: true, condense: 1, tracking: 0, outlineRate: 0.25, warp: 0.3
+    },
+    print: { mode: 'halftone', dot: 1.3, angle: 45, threshold: 0.5, softness: 0.1, misreg: 0.55, grain: 0.45, spread: 0.4, ringwear: 0.2, wear: 0.15, stock: 'newsprint', coverScreen: 0.1, stamp: 0 },
+    graphics: ['psychedelic-eye', 'moire', 'target', 'flower', 'hypno-spiral', 'mod-daisy'],
+    shaders: [],
+    cataloguePrefix: 'EXP-',
+    defaultTagline: 'TRIP OR FREAK OUT · BALLROOM SOUND'
+  },
+  {
+    id: 'folkways-archive',
+    name: 'Folkways & Mid-Century Field Archive',
+    era: '1948–1968 · New York City',
+    designer: 'Moses Asch · Ronald Clyne',
+    desc: 'Tip-on matte paper slip pasted onto rough kraft board, centered classical Roman title block, documentary notes in two clean columns.',
+    tags: ['Folkways', 'Field Archive', 'Documentary', 'Tip-On Slip'],
+    templates: ['folkways', 'dossier', 'tabular', 'inset', 'spine', 'contact-sheet'],
+    palettes: ['archival-slip', 'kraft', 'newsprint', 'tobacco', 'clay', 'sandstone'],
+    paletteMode: 'earth',
+    fonts: {
+      words: ['libre-caslon-display', 'bodoni-moda', 'playfair-display', 'archivo-black'],
+      smalls: ['space-mono', 'departure-mono'],
+      kanas: ['shippori-mincho-b1', 'zen-antique'],
+      stretch: false, condense: 1, tracking: 0.12, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'woodcut', dot: 1.4, angle: 45, threshold: 0.5, softness: 0.08, misreg: 0.25, grain: 0.5, spread: 0.35, ringwear: 0.3, wear: 0.25, stock: 'kraft', coverScreen: 0, stamp: 0.45 },
+    graphics: ['folkways-seal', 'punch-card', 'registration', 'star-target', 'care-marks'],
+    shaders: [],
+    cataloguePrefix: 'FE-',
+    defaultTagline: 'ETHNIC & CULTURAL MONOGRAPH SERIES'
+  },
+  {
+    id: 'shoegaze-dreampop',
+    name: 'Shoegaze & Dream Pop Ethereal Wash',
+    era: '1989–1996 · London & Bristol',
+    designer: 'Creation Records · 4AD · Slowdive · MBV',
+    desc: 'Luminous bloom, pastel washout, hairline crosshairs, floating whispered microtype, vast sea of chromatic light and reverb.',
+    tags: ['Shoegaze', 'Dream Pop', 'Creation', 'Luminous Wash'],
+    templates: ['bleed', 'lowerthird', 'minimal', 'triptych', 'border-stack', 'vaughan-4ad'],
+    palettes: ['powder', 'sakura', 'lavender', 'lilac / lemon', 'sky', 'peach'],
+    paletteMode: 'pastel',
+    fonts: {
+      words: ['six-caps', 'electrolize', 'space-mono', 'playfair-display'],
+      smalls: ['space-mono', 'departure-mono', 'electrolize'],
+      kanas: ['klee-one', 'zen-maru-gothic'],
+      stretch: false, condense: 1, tracking: 0.35, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'cmyk', dot: 0.8, angle: 45, threshold: 0.5, softness: 0.06, misreg: 0.15, grain: 0.25, spread: 0.15, ringwear: 0, wear: 0, stock: 'smooth', coverScreen: 0, stamp: 0 },
+    graphics: ['sparkles', 'moon-phases', 'reticle', 'soundwave', 'dotted-ring'],
+    shaders: ['16_crt_phosphor_bloom', '10_temporal_feedback'],
+    cataloguePrefix: 'CRE-',
+    defaultTagline: 'CREATION SOUND REVERBERATIONS'
+  },
+  {
+    id: 'minimal-techno',
+    name: 'Minimal Techno & Berlin Monochrome',
+    era: '1993–present · Berlin & Detroit',
+    designer: 'Basic Channel · Chain Reaction · Tresor · Ostgut',
+    desc: 'Stark pure minimal layout, raw center stamping, oversized stark mono catalog code, track time matrix, pure black and industrial silver aesthetic.',
+    tags: ['Minimal Techno', 'Basic Channel', 'Berlin', 'Industrial Mono'],
+    templates: ['minimal-techno', 'minimal', 'transit-ticket', 'floppy-disk', 'monolith', 'crosshair'],
+    palettes: ['basic-channel', 'noir', 'negative', 'graphite', 'ink', 'bone'],
+    paletteMode: 'monochrome',
+    fonts: {
+      words: ['departure-mono', 'space-mono', 'archivo-black'],
+      smalls: ['departure-mono', 'space-mono'],
+      kanas: ['dotgothic16', 'dela-gothic-one'],
+      stretch: false, condense: 1, tracking: 0.15, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'risograph', dot: 1.1, angle: 45, threshold: 0.5, softness: 0.08, misreg: 0.2, grain: 0.35, spread: 0.2, ringwear: 0.15, wear: 0.1, stock: 'laid', coverScreen: 0, stamp: 0.3 },
+    graphics: ['barcode', 'coordinates', 'plus-grid', 'dither-square', 'registration', 'reticle'],
+    shaders: [],
+    cataloguePrefix: 'BC-',
+    defaultTagline: 'STEREO CLUB RESHAPE · 45 RPM'
+  },
+  {
+    id: 'bauhaus-destijl',
+    name: 'Bauhaus & De Stijl Elementary',
+    era: '1923–1933 · Dessau & Weimar',
+    designer: 'Herbert Bayer · Jan Tschichold · Piet Zwart',
+    desc: 'Elementary red, yellow, blue, black; solid circular nodes, horizontal/vertical asymmetric bars, geometric purity and balanced functionalism.',
+    tags: ['Bauhaus', 'De Stijl', 'Primary Colors', 'Tschichold'],
+    templates: ['bauhaus', 'construct', 'half-split', 'color-blocks', 'cantilever', 'swiss-grid'],
+    palettes: ['signal', 'blueprint', 'highlighter', 'stamp red', 'xerox', 'noir'],
+    paletteMode: 'editorial',
+    fonts: {
+      words: ['archivo-black', 'anton', 'big-shoulders-display', 'electrolize'],
+      smalls: ['departure-mono', 'space-mono'],
+      kanas: ['dela-gothic-one', 'noto-sans-jp'],
+      stretch: false, condense: 1, tracking: 0.06, outlineRate: 0, warp: 0
+    },
+    print: { mode: 'woodcut', dot: 1.2, angle: 45, threshold: 0.5, softness: 0.05, misreg: 0.25, grain: 0.3, spread: 0.2, ringwear: 0, wear: 0.1, stock: 'laid', coverScreen: 0, stamp: 0.25 },
+    graphics: ['plus-grid', 'target', 'triangles', 'chevrons', 'swiss-gauge'],
+    shaders: [],
+    cataloguePrefix: 'BAU-',
+    defaultTagline: 'STAATLICHES BAUHAUS DESSAU'
+  }
+];
+
+const CONSTELLATION_BY = Object.fromEntries(CONSTELLATIONS.map(c => [c.id, c]));
+
+function syncConstellationSel() {
+  const sel = $('constellationSel');
+  if (sel && state) sel.value = state.constellation || 'any';
+}
+
+function applyConstellation(cId, opts = {}) {
+  const C = CONSTELLATION_BY[cId];
+  if (!C) return;
+  state.constellation = cId;
+  const r = rng(opts.seed || (Date.now() & 0xffffff));
+
+  // Pick template
+  state.template = opts.randomize ? pick(r, C.templates) : C.templates[0];
+
+  // Pick palette
+  if (opts.randomize && r() < 0.25) {
+    const gen = generatePalette(r, C.paletteMode || 'editorial');
+    state.palette = gen.id;
+    state.colors = gen;
+  } else {
+    const palId = pick(r, C.palettes);
+    const pal = PALETTES.find(p => p.id === palId) || PALETTES[0];
+    state.palette = pal.id;
+    state.colors = { ...pal };
+  }
+
+  // Apply Print & Paper wear
+  state.print.mode = C.print.mode;
+  state.print.stock = C.print.stock;
+  state.print.dot = +(C.print.dot * (opts.randomize ? (0.85 + r() * 0.3) : 1)).toFixed(2);
+  state.print.angle = C.print.angle;
+  state.print.threshold = C.print.threshold;
+  state.print.softness = C.print.softness;
+  state.print.misreg = +(C.print.misreg * (opts.randomize ? (0.7 + r() * 0.6) : 1)).toFixed(2);
+  state.print.grain = +(C.print.grain * (opts.randomize ? (0.7 + r() * 0.6) : 1)).toFixed(2);
+  state.print.spread = +(C.print.spread * (opts.randomize ? (0.7 + r() * 0.6) : 1)).toFixed(2);
+  state.print.ringwear = +(C.print.ringwear * (opts.randomize ? (0.6 + r() * 0.8) : 1)).toFixed(2);
+  state.print.wear = +(C.print.wear * (opts.randomize ? (0.6 + r() * 0.8) : 1)).toFixed(2);
+  state.print.stamp = +(C.print.stamp * (opts.randomize ? (0.6 + r() * 0.8) : 1)).toFixed(2);
+  state.print.coverScreen = C.print.coverScreen || 0;
+
+  // Typography
+  state.type.wordFont = pick(r, C.fonts.words);
+  state.type.smallFont = pick(r, C.fonts.smalls);
+  state.type.kanaFont = pick(r, C.fonts.kanas);
+  state.type.fonts = {};
+  state.type.stretch = C.fonts.stretch;
+  state.type.condense = C.fonts.condense;
+  state.type.tracking = +(C.fonts.tracking + (opts.randomize ? (r() - 0.5) * 0.05 : 0)).toFixed(2);
+  state.type.outline = opts.randomize ? (r() < C.fonts.outlineRate) : (C.fonts.outlineRate > 0.2);
+  state.type.warp = opts.randomize ? (C.fonts.warp ? +(C.fonts.warp * (0.6 + r() * 0.8)).toFixed(2) : 0) : C.fonts.warp;
+
+  // Micrographics
+  const availGfx = C.graphics;
+  state.graphics = {
+    emblem: { id: pick(r, availGfx), ink: 'auto' },
+    corner: { id: pick(r, availGfx), ink: 'auto' },
+    feature: { id: pick(r, availGfx), ink: 'auto' },
+    strip: { id: pick(r, availGfx), ink: 'auto' }
+  };
+
+  // Shaders
+  const keep = state.layers.filter(l => l.fixed);
+  const fx = [];
+  if (C.shaders && C.shaders.length) {
+    const sId = pick(r, C.shaders);
+    if (SHADER_BY[sId]) {
+      const lay = mkLayer(sId, { mask: r() < 0.5 ? 'photo' : 'all', opacity: +(0.4 + r() * 0.4).toFixed(2) });
+      fx.push(lay);
+    }
+  }
+  const top = [keep.find(l => l.id === 'TYPE'), keep.find(l => l.id === 'GRAPHICS')];
+  state.layers = [keep.find(l => l.id === 'BACKGROUND'), keep.find(l => l.id === 'PHOTO'), ...fx, ...top].filter(Boolean);
+
+  // Metadata hints if randomized
+  if (opts.randomize) {
+    state.type.catalogue = `${C.cataloguePrefix}${Math.floor(100 + r() * 899)}`;
+    if (C.defaultTagline && (!state.type.tagline || state.type.tagline === 'DISORIENTOR ENVIRONMENTS')) {
+      state.type.tagline = C.defaultTagline;
+    }
+  }
+  syncConstellationSel();
+}
+
 /* ---------- randomize ---------- */
 function randomize() {
   commit(() => {
     const r = rng(Date.now() & 0xffffff);
     state.seed = Math.floor(r() * 99999);
-    const tids = Object.keys(TEMPLATES).filter(t => t !== 'tape' || state.template === 'tape');
-    state.template = state.template === 'tape' ? 'tape' : pick(r, tids);
-    const pal = pick(r, PALETTES); state.palette = pal.id; state.colors = { ...pal };
-    state.print.mode = pick(r, PRINT_MODES.map(m => m[0]));
-    state.print.dot = +(0.6 + r() * 1.4).toFixed(2); state.print.angle = pick(r, [15, 45, 75, 22.5]);
-    state.print.misreg = +(r() * .6).toFixed(2); state.print.grain = +(.15 + r() * .5).toFixed(2);
-    state.print.stock = r() < .3 ? pick(r, ['laid', 'linen', 'newsprint', 'kraft', 'gloss']) : 'smooth';
-    state.print.ringwear = r() < .2 ? +(r() * .8).toFixed(2) : 0;
-    state.print.wear = r() < .2 ? +(r() * .5).toFixed(2) : 0;
-    state.print.stamp = r() < .15 ? +(r() * .4).toFixed(2) : 0;
-    const display = FONTS.filter(f => f.group === 'display' || f.group === 'serif'), jp = FONTS.filter(f => f.group === 'japanese');
-    state.type.wordFont = pick(r, display).id; state.type.kanaFont = pick(r, jp).id; state.type.smallFont = pick(r, FONTS.filter(f => f.group === 'mono')).id;
-    state.type.fonts = {};
-    shuffleGraphics(r);
-    state.type.warp = r() < .3 ? +(r() * .6).toFixed(2) : 0; state.type.outline = r() < .15;
-    const glitch = SHADERS.filter(s => s.group === 'glitch' && s.id !== 'master_glitch_pipeline');
-    const keep = state.layers.filter(l => l.fixed);
-    const fx = [];
-    if (r() < .3) fx.push(mkLayer(pick(r, SHADERS.filter(s => s.group === 'backgrounds')).id, { mask: 'outside', opacity: .85 }));
-    const n = 1 + Math.floor(r() * 3);
-    for (let i = 0; i < n; i++) {
-      const s = pick(r, glitch), lay = mkLayer(s.id, { mask: r() < .5 ? 'photo' : 'all', opacity: +(0.6 + r() * .4).toFixed(2) });
-      for (const u of s.uniforms) if (!u.role && u.min !== undefined && u.t === 'float' && r() < .5) lay.values[u.n] = [+(u.min + (u.max - u.min) * (0.15 + r() * .6)).toFixed(3)];
-      fx.push(lay);
+    if (state.constellation && state.constellation !== 'any' && state.constellation !== 'wild') {
+      applyConstellation(state.constellation, { randomize: true, seed: Date.now() & 0xffffff });
+      toast(`Variation: ${CONSTELLATION_BY[state.constellation]?.name || state.constellation}`);
+    } else if (state.constellation === 'any' || !state.constellation) {
+      const chosen = pick(r, CONSTELLATIONS);
+      state.constellation = chosen.id;
+      applyConstellation(chosen.id, { randomize: true, seed: Date.now() & 0xffffff });
+      toast(`Constellation: ${chosen.name}`);
+    } else {
+      const tids = Object.keys(TEMPLATES).filter(t => t !== 'tape' || state.template === 'tape');
+      state.template = state.template === 'tape' ? 'tape' : pick(r, tids);
+      const pal = pick(r, PALETTES); state.palette = pal.id; state.colors = { ...pal };
+      state.print.mode = pick(r, PRINT_MODES.map(m => m[0]));
+      state.print.dot = +(0.6 + r() * 1.4).toFixed(2); state.print.angle = pick(r, [15, 45, 75, 22.5]);
+      state.print.misreg = +(r() * .6).toFixed(2); state.print.grain = +(.15 + r() * .5).toFixed(2);
+      state.print.stock = r() < .3 ? pick(r, ['laid', 'linen', 'newsprint', 'kraft', 'gloss']) : 'smooth';
+      state.print.ringwear = r() < .2 ? +(r() * .8).toFixed(2) : 0;
+      state.print.wear = r() < .2 ? +(r() * .5).toFixed(2) : 0;
+      state.print.stamp = r() < .15 ? +(r() * .4).toFixed(2) : 0;
+      const display = FONTS.filter(f => f.group === 'display' || f.group === 'serif'), jp = FONTS.filter(f => f.group === 'japanese');
+      state.type.wordFont = pick(r, display).id; state.type.kanaFont = pick(r, jp).id; state.type.smallFont = pick(r, FONTS.filter(f => f.group === 'mono')).id;
+      state.type.fonts = {};
+      shuffleGraphics(r);
+      state.type.warp = r() < .3 ? +(r() * .6).toFixed(2) : 0; state.type.outline = r() < .15;
+      const glitch = SHADERS.filter(s => s.group === 'glitch' && s.id !== 'master_glitch_pipeline');
+      const keep = state.layers.filter(l => l.fixed);
+      const fx = [];
+      if (r() < .3) fx.push(mkLayer(pick(r, SHADERS.filter(s => s.group === 'backgrounds')).id, { mask: 'outside', opacity: .85 }));
+      const n = 1 + Math.floor(r() * 3);
+      for (let i = 0; i < n; i++) {
+        const s = pick(r, glitch), lay = mkLayer(s.id, { mask: r() < .5 ? 'photo' : 'all', opacity: +(0.6 + r() * .4).toFixed(2) });
+        for (const u of s.uniforms) if (!u.role && u.min !== undefined && u.t === 'float' && r() < .5) lay.values[u.n] = [+(u.min + (u.max - u.min) * (0.15 + r() * .6)).toFixed(3)];
+        fx.push(lay);
+      }
+      const top = r() < .5 ? [keep.find(l => l.id === 'TYPE'), keep.find(l => l.id === 'GRAPHICS')] : [keep.find(l => l.id === 'GRAPHICS'), keep.find(l => l.id === 'TYPE')];
+      state.layers = [keep.find(l => l.id === 'BACKGROUND'), ...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [...top, ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), ...top])];
+      toast('Wild Roll');
     }
-    const top = r() < .5 ? [keep.find(l => l.id === 'TYPE'), keep.find(l => l.id === 'GRAPHICS')] : [keep.find(l => l.id === 'GRAPHICS'), keep.find(l => l.id === 'TYPE')];
-    state.layers = [keep.find(l => l.id === 'BACKGROUND'), ...fx.filter(l => isGenerator(l.id)), keep.find(l => l.id === 'PHOTO'), ...(r() < .5 ? [...top, ...fx.filter(l => !isGenerator(l.id))] : [...fx.filter(l => !isGenerator(l.id)), ...top])];
   });
   renderPanel();
 }
 
 /* ---------- controls ---------- */
-const TABS = [['template', 'Template'], ['arrange', 'Arrange'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
-let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'add';
+const TABS = [['constellations', 'Constellations'], ['template', 'Template'], ['arrange', 'Arrange'], ['image', 'Image'], ['print', 'Print'], ['type', 'Type'], ['graphics', 'Graphics'], ['shaders', 'Shaders'], ['export', 'Export']];
+let activeTab = 'template', selected = null, browserQuery = '', activeSlot = 'add', constellationFilter = '';
 function renderTabs() {
   $('tabs').replaceChildren(...TABS.map(([id, label]) => el('button', { className: activeTab === id ? 'on' : '', role: 'tab', 'aria-selected': activeTab === id, onclick: () => { activeTab = id; renderTabs(); renderPanel(); } }, label)));
 }
@@ -3878,7 +4672,93 @@ function renderPanel() {
   const P = $('panel');
   const S = state;
   const kids = [];
-  if (activeTab === 'template') {
+  syncConstellationSel();
+  if (activeTab === 'constellations') {
+    kids.push(
+      el('h3', {}, `Graphic Design Constellations (${CONSTELLATIONS.length})`),
+      el('div', { className: 'row' },
+        el('button', {
+          className: 'primary',
+          onclick: () => {
+            const chosen = pick(Math.random, CONSTELLATIONS);
+            commit(() => {
+              state.seed = Math.floor(Math.random() * 99999);
+              applyConstellation(chosen.id, { randomize: true });
+            });
+            toast(`Constellation: ${chosen.name}`);
+            renderPanel();
+          }
+        }, '🎲 Roll Random Constellation'),
+        el('button', {
+          onclick: () => {
+            commit(() => {
+              state.constellation = 'wild';
+              randomize();
+            });
+          }
+        }, '⚡ Wild Roll')
+      ),
+      el('div', { className: 'note' }, 'Tap directly into major 20th and 21st century graphic design traditions, orchestrating layout, typography, authentic palettes, print wear and period micrographics.')
+    );
+    const fInp = el('input', {
+      type: 'text',
+      placeholder: 'Filter constellations (e.g. Swiss, 90s, Jazz, Cyber, Post-Punk)…',
+      value: constellationFilter || ''
+    });
+    fInp.addEventListener('input', () => {
+      constellationFilter = fInp.value.toLowerCase();
+      renderPanel();
+    });
+    kids.push(fInp);
+    const filtered = CONSTELLATIONS.filter(c => {
+      if (!constellationFilter) return true;
+      const q = constellationFilter;
+      return c.name.toLowerCase().includes(q) ||
+             c.era.toLowerCase().includes(q) ||
+             c.designer.toLowerCase().includes(q) ||
+             c.desc.toLowerCase().includes(q) ||
+             c.tags.some(t => t.toLowerCase().includes(q));
+    });
+    kids.push(...filtered.map(c => {
+      const isCur = state.constellation === c.id;
+      const samplePals = c.palettes.slice(0, 4).map(pid => PALETTES.find(p => p.id === pid) || PALETTES[0]);
+      return el('div', { className: 'c-card' + (isCur ? ' on' : '') },
+        el('div', { className: 'c-head' },
+          el('div', { className: 'c-title' }, c.name),
+          el('div', { className: 'c-era' }, c.era)
+        ),
+        el('div', { className: 'c-sub' }, c.designer),
+        el('div', { className: 'c-desc' }, c.desc),
+        el('div', { className: 'c-tags' }, ...c.tags.map(t => el('span', { className: 'c-tag' }, '#' + t))),
+        el('div', { className: 'c-swatches', title: 'Curated color palettes' },
+          ...samplePals.map(p => el('i', { style: `background:${p.accent || p.ink1}` })),
+          ...samplePals.map(p => el('i', { style: `background:${p.paper}` })),
+          ...samplePals.map(p => el('i', { style: `background:${p.ink1}` }))
+        ),
+        el('div', { className: 'c-actions' },
+          el('button', {
+            className: isCur ? 'primary' : '',
+            onclick: e => {
+              e.stopPropagation();
+              commit(() => applyConstellation(c.id, { randomize: false }));
+              renderPanel();
+            }
+          }, isCur ? 'Active' : 'Apply Constellation'),
+          el('button', {
+            onclick: e => {
+              e.stopPropagation();
+              commit(() => {
+                state.seed = Math.floor(Math.random() * 99999);
+                applyConstellation(c.id, { randomize: true });
+              });
+              toast(`Variation: ${c.name}`);
+              renderPanel();
+            }
+          }, '🎲 Roll Variation')
+        )
+      );
+    }));
+  } else if (activeTab === 'template') {
     const allTemplates = Object.values(TEMPLATES);
     const PREF_GROUPS = ['Editorial & Print', 'Swiss & Modernist', 'Jazz, Classical & Hi-Fi', 'Japanese & Obi', 'Vaporwave & Broadcast', 'Club, Zine & Underground', 'Physical Media'];
     const groups = [...new Set(allTemplates.map(tp => tp.group || 'Editorial & Print'))].sort((a, b) => (PREF_GROUPS.indexOf(a) + 1 || 99) - (PREF_GROUPS.indexOf(b) + 1 || 99));
@@ -3891,7 +4771,7 @@ function renderPanel() {
         el('div', { className: 'grid' }, ...allTemplates.filter(tp => (tp.group || 'Editorial & Print') === g).map(tp => el('button', { className: 'tpl' + (S.template === tp.id ? ' on' : ''), onclick: () => { commit(() => S.template = tp.id); renderPanel(); } }, templateThumb(tp.id), el('span', {}, tp.name))))
       ]),
       el('h3', {}, 'Palette'),
-      el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => { const g = generatePalette(); S.palette = g.id; S.colors = g; }); renderPanel(); } }, 'Generate palette'),
+      el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => { const g = generatePalette(Math.random, pick(Math.random, ['editorial', 'monochrome', 'duotone', 'neon', 'earth', 'pastel'])); S.palette = g.id; S.colors = g; }); renderPanel(); } }, 'Generate palette'),
         el('button', { onclick: () => { commit(() => { const g = pick(Math.random, PALETTES); S.palette = g.id; S.colors = { ...g }; }); renderPanel(); } }, 'Random from library'), el('span', { className: 'note' }, `${PALETTES.length} palettes`)),
       ...PALETTE_GROUPS.flatMap(g => [el('h3', {}, g), el('div', { className: 'grid', style: 'grid-template-columns:repeat(auto-fill,minmax(70px,1fr))' }, ...PALETTES.filter(p => p.group === g).map(p => el('button', { className: 'pal' + (S.palette === p.id ? ' on' : ''), title: p.id, 'aria-label': 'Palette ' + p.id, onclick: () => { commit(() => { S.palette = p.id; S.colors = { ...p }; }); renderPanel(); } }, ...[p.paper, p.ink1, p.ink2, p.accent].map(c => el('i', { style: `background:${c}` })))))]),
       el('h3', {}, 'Colours'),
@@ -4712,11 +5592,31 @@ cv.addEventListener('wheel', e => {
 function undo() { const s = undoStack.pop(); if (!s) return toast('Nothing to undo.'); state = JSON.parse(s); save(); renderPanel(); scheduleRender(); }
 $('undo').onclick = undo;
 $('random').onclick = randomize;
+$('rollConstellation').onclick = () => {
+  commit(() => {
+    const cur = state.constellation && state.constellation !== 'wild' ? state.constellation : 'any';
+    const cId = cur === 'any' ? pick(Math.random, CONSTELLATIONS).id : cur;
+    state.seed = Math.floor(Math.random() * 99999);
+    applyConstellation(cId, { randomize: true });
+    toast(`Variation: ${CONSTELLATION_BY[cId]?.name || cId}`);
+  });
+  renderPanel();
+};
+$('constellationSel').onchange = () => {
+  const val = $('constellationSel').value;
+  state.constellation = val;
+  if (val !== 'any' && val !== 'wild') {
+    commit(() => applyConstellation(val, { randomize: false }));
+    renderPanel();
+  }
+};
 $('exportBtn').onclick = () => { activeTab = 'export'; renderTabs(); renderPanel(); };
 addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select')) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-  else if (e.key === 'r' && !e.metaKey && !e.ctrlKey) randomize();
+  else if (e.key === 'r' && !e.metaKey && !e.ctrlKey) {
+    if (e.shiftKey) { $('rollConstellation').click(); } else { randomize(); }
+  }
   else if (e.key === 'v') setMode('move');
   else if (e.key === 'p') setMode('pan');
   else if (e.key === 'Escape') selectItem(null);
