@@ -39,7 +39,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 420px;
 #cv{display:block;background:#000;box-shadow:0 10px 40px rgba(0,0,0,.6);touch-action:none;cursor:grab}
 #busy{position:absolute;right:8px;top:8px;color:var(--muted)}
 #side{min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-#tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--line);scrollbar-width:none;flex:none}
+#tabs{display:flex;flex-wrap:wrap;border-bottom:1px solid var(--line);scrollbar-width:none;flex:none}
 #tabs::-webkit-scrollbar{display:none}
 #tabs button{flex:1 0 auto;border:0;border-radius:0;background:transparent;color:var(--muted);padding:12px 10px}
 #tabs button.on{color:var(--fg);box-shadow:inset 0 -2px 0 var(--accent)}
@@ -61,6 +61,7 @@ h3{margin:6px 0 0;font-size:11px;font-weight:normal;color:var(--muted);text-tran
 .layer.sel{border-color:var(--accent)}
 .layer.fixed .lh{color:var(--muted)}
 .lh{display:flex;align-items:center;gap:4px;padding:6px 6px 6px 10px;cursor:pointer}
+.lh .car{color:var(--muted);width:1em;flex:none}
 .lh b{flex:1;font-weight:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lh button.on.m{background:var(--warn);border-color:var(--warn)}
 .lh button.on.s{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -3887,7 +3888,8 @@ function renderPanel() {
       color('Ink 2', () => S.colors.ink2, v => S.colors.ink2 = v),
       color('Accent / band', () => S.colors.accent, v => S.colors.accent = v),
       color('Type on band', () => S.colors.text, v => S.colors.text = v),
-      el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed'), el('span', { className: 'note' }, 'Seed moves barcodes, QR blocks, warp slices and grain.')));
+      slider('Seed', () => S.seed, v => S.seed = Math.round(v), 0, 99999, 1, 'Moves barcodes, QR blocks, warp slices, grain and misregistration direction.'),
+      el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); renderPanel(); } }, 'New seed')));
   } else if (activeTab === 'image') {
     kids.push(...imagePanel());
   } else if (activeTab === 'print') {
@@ -4365,7 +4367,7 @@ function graphicsPanel() {
   }
   // Template slots.
   if (slots.length) out.push(el('h3', {}, 'This layout\'s slots'), el('div', { className: 'row' }, ...slots.map(sl => el('button', { className: activeSlot === sl ? 'on' : '', onclick: () => { activeSlot = sl; renderPanel(); } }, SLOTS[sl]))));
-  out.push(el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => shuffleGraphics(Math.random)); renderPanel(); } }, 'Shuffle slots'), el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); } }, 'New seed')));
+  out.push(el('div', { className: 'row' }, el('button', { onclick: () => { commit(() => shuffleGraphics(Math.random)); renderPanel(); } }, 'Shuffle slots'), el('button', { onclick: () => { commit(() => S.seed = Math.floor(Math.random() * 99999)); renderPanel(); } }, 'New seed')), slider('Seed', () => S.seed, v => S.seed = Math.round(v), 0, 99999, 1));
   // What a tile click does.
   out.push(el('h3', {}, activeSlot === 'add' ? 'Click to add — as many as you like' : ex ? `Swap ${MICRO_BY[ex.id] ? MICRO_BY[ex.id].name : ''} #${S.extras.indexOf(ex) + 1}` : `Fill the ${SLOTS[slot]} slot`));
   if (cur) out.push(select('Ink', INKS, () => cur.ink || 'auto', v => cur.ink = v));
@@ -4387,6 +4389,7 @@ function graphicsPanel() {
 function shaderPanel() {
   const S = state, out = [];
   out.push(el('h3', {}, 'Stack — top of the list draws first'));
+  if (S.layers.some(l => !l.fixed)) out.push(el('div', { className: 'note' }, 'Click a shader (▸) to edit everything about it: opacity, blend, what it runs on, time and every dial. × removes it.'));
   if (lastError) out.push(el('div', { className: 'warn' }, lastError));
   const list = el('div', { style: 'display:flex;flex-direction:column;gap:6px' });
   S.layers.forEach((layer, i) => {
@@ -4394,7 +4397,8 @@ function shaderPanel() {
     const name = layer.fixed ? { BACKGROUND: 'BACKGROUND (paper & bands)', PHOTO: 'PHOTO (print treatment)', TYPE: 'TYPE', GRAPHICS: 'GRAPHICS (micrographics)' }[layer.id] : (info ? info.name : layer.id) + (targetOf(layer) !== 'cover' ? `  → ${targetLabel(targetOf(layer))}` : '');
     const move = d => commit(() => { const j = i + d; if (j < 0 || j >= S.layers.length) return; [S.layers[i], S.layers[j]] = [S.layers[j], S.layers[i]]; });
     const head = el('div', { className: 'lh', onclick: e => { if (e.target.closest('button')) return; selected = selected === (layer.uid || layer.id) ? null : (layer.uid || layer.id); renderPanel(); } },
-      el('b', { title: name }, name),
+      layer.fixed ? null : el('span', { className: 'car', 'aria-hidden': 'true' }, selected === layer.uid ? '▾' : '▸'),
+      el('b', { title: layer.fixed ? name : name + ' — click to edit its dials' }, name),
       el('button', { className: 'mini', title: 'Move up', 'aria-label': 'Move up', onclick: () => { move(-1); renderPanel(); } }, '↑'),
       el('button', { className: 'mini', title: 'Move down', 'aria-label': 'Move down', onclick: () => { move(1); renderPanel(); } }, '↓'),
       el('button', { className: 'mini m' + (layer.mute ? ' on' : ''), title: 'Mute', onclick: () => { commit(() => layer.mute = !layer.mute); renderPanel(); } }, 'M'),
