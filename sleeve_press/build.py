@@ -18,7 +18,7 @@ if out.exists() and '--force' not in sys.argv:
 
 ported = shaders.build()
 expected = sum(len(list(shaders.APP.glob(p))) for _, p in shaders.GROUPS)
-if len(ported) != expected or len(ported) < 141:
+if len(ported) != expected or len(ported) < 150:
     sys.exit(f'Only {len(ported)} of {expected} Haecceity shaders were ported.')
 data = json.dumps(ported, separators=(',', ':'))
 assert '</script' not in data
