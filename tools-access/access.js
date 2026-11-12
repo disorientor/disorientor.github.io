@@ -12,7 +12,7 @@
   };
   const allowed = ['strung_along/chord-grid.html', 'reelcut/', 'reelcut/index.html',
     'sleeve-press/', 'sleeve-press/index.html', 'Reel Cut/reel-cut.html',
-    'Reel Cut/reel-cut-offline.html'];
+    'Reel Cut/reel-cut-offline.html', 'cut-studio/', 'cut-studio/index.html'];
   const destination = value => {
     try {
       const url = new URL(value || 'tools-access/', root);
