@@ -194,6 +194,81 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
     vowelAlt: da.vowel >= 0 ? da.vowel : (pa.vowelAlt ?? 7),
   };
 
+  // Coarse FX Rack roll: Artifact, Glitch, Chop & Screw, Psychoacoustics
+  // Each can be active from scene roll OR emerge smoothly during XY traversal
+  const pGenre = primaryProject.genre;
+  const isAtmospheric = pGenre === 'DARK_AMBIENT' || pGenre === 'ILLBIENT' || pGenre === 'LOWERCASE' || pGenre === 'MICROSOUND' || pGenre === 'DEATH_INDUSTRIAL';
+  const isGlitchy = pGenre === 'FLASHCORE' || pGenre === 'BREAKCORE' || pGenre === 'DIGITAL_HARDCORE' || pGenre === 'MICROSOUND' || pGenre === 'DECONSTRUCTION' || pGenre === 'CROSSBREED';
+  const isSlumpy = pGenre === 'DECONSTRUCTION' || pGenre === 'ILLBIENT' || pGenre === 'DARK_AMBIENT' || pGenre === 'BREAKCORE' || pGenre === 'POWER_ELECTRONICS';
+
+  const fxRack = {
+    artifact: {
+      rollActive: rng.nextFloat() < (isAtmospheric ? 0.58 : 0.34),
+      xyReveal: rng.nextFloat() < 0.62,
+      model: rng.int(0, 3), // 0: Objects, 1: Chatter, 2: Suspended, 3: Worn
+      baseWet: rng.range(0.38, 0.85),
+      scale: rng.range(0.18, 0.88),
+      motion: rng.range(0.18, 0.82),
+      wander: rng.range(0.08, 0.72),
+      targetX: rng.range(0.15, 0.85),
+      targetY: rng.range(0.15, 0.85),
+    },
+    glitch: {
+      rollActive: rng.nextFloat() < (isGlitchy ? 0.56 : 0.28),
+      xyReveal: rng.nextFloat() < 0.64,
+      model: rng.int(0, 5), // 0: Shuffle, 1: Retrigger, 2: CD Skip, 3: Bit Desync, 4: Spectral/Comb, 5: Chaos Matrix
+      baseWet: rng.range(0.38, 0.88),
+      density: rng.range(0.32, 0.86),
+      division: rng.range(0.20, 0.85),
+      crush: rng.range(0.15, 0.78),
+      comb: rng.range(0.15, 0.82),
+      split: rng.range(0.20, 0.80),
+      seedDial: rng.nextFloat(),
+      targetX: rng.range(0.25, 0.90),
+      targetY: rng.range(0.25, 0.90),
+    },
+    chopScrew: {
+      rollActive: rng.nextFloat() < (isSlumpy ? 0.36 : 0.22),
+      xyReveal: rng.nextFloat() < 0.58,
+      baseWet: rng.range(0.55, 0.96),
+      speedBias: rng.nextFloat() < 0.72 ? rng.range(0.20, 0.44) : rng.range(0.56, 0.72), // screwed slow or rotor up
+      chopFreq: rng.range(0.30, 0.86),
+      division: rng.range(0.25, 0.85),
+      wow: rng.range(0.15, 0.68),
+      flutter: rng.range(0.12, 0.55),
+      hiss: rng.range(0.08, 0.35),
+      crackle: rng.range(0.08, 0.36),
+      grit: rng.range(0.15, 0.62),
+      targetX: rng.range(0.15, 0.85),
+      targetY: rng.range(0.10, 0.75),
+    },
+    psychoacoustics: {
+      rollActive: rng.nextFloat() < 0.56,
+      xyReveal: rng.nextFloat() < 0.55,
+      model: rng.int(0, 4), // 0: Phantom Bass, 1: Air, 2: Width, 3: Loudness, 4: 3D Pan
+      baseWet: rng.range(0.45, 0.92),
+      amount: rng.range(0.45, 0.92),
+      alt: rng.nextFloat() < 0.25 ? 1 : 0,
+      p0: rng.range(0.25, 0.80),
+      p1: rng.range(0.35, 0.85),
+      p2: rng.range(0.20, 0.75),
+      p3: rng.range(0.10, 0.45),
+      p4: rng.range(0.25, 0.75),
+      p5: rng.range(0.25, 0.80),
+      p6: rng.range(0.25, 0.75),
+      p7: rng.range(0.20, 0.75),
+      p8: rng.range(0.35, 0.85),
+      p9: rng.range(0.20, 0.70),
+      p10: rng.range(0.25, 0.70),
+      p11: rng.range(0.35, 0.85),
+      p12: rng.nextFloat(),
+      p13: rng.range(0.20, 0.80),
+      p14: rng.range(0.12, 0.55),
+      targetX: rng.range(0.15, 0.85),
+      targetY: rng.range(0.15, 0.85),
+    },
+  };
+
   return {
     seed16: s16,
     hex: formatHex16(s16),
@@ -202,6 +277,7 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
     primaryProject,
     donorProject,
     coarseCrossAmt,
+    fxRack,
     ambientPreset,
     bgOrder,
     fgBase,
@@ -453,6 +529,102 @@ export function allocateFromXY(scene, rawX, rawY) {
     carrierRing: clamp((b(5) - 0.45) * 1.5, 0, 0.75),
   };
 
+  // Artifact, Glitch, Chop & Screw, Psychoacoustics — coarse scene roll + XY traversal presence
+  const fx = scene.fxRack || {};
+  const proximityWet = (cfg, bIdx) => {
+    if (!cfg) return 0;
+    const dist = Math.hypot(x - (cfg.targetX ?? 0.5), y - (cfg.targetY ?? 0.5));
+    const zone = clamp(1 - dist * 1.45, 0, 1);
+    const wave = b(bIdx);
+    if (cfg.rollActive) {
+      return clamp((cfg.baseWet || 0.65) * (0.45 + 0.55 * zone + 0.25 * wave), 0.12, 0.96);
+    }
+    if (cfg.xyReveal && (zone > 0.32 || wave > 0.68)) {
+      const surge = Math.max((zone - 0.32) / 0.68, (wave - 0.68) / 0.32);
+      return clamp((cfg.baseWet || 0.65) * surge, 0, 0.92);
+    }
+    return 0;
+  };
+
+  const artCfg = fx.artifact || {};
+  const artWet = proximityWet(artCfg, 20);
+  const artifact = {
+    model: artCfg.model ?? 0,
+    wet: artWet,
+    amount: clamp(0.42 + 0.55 * y, 0, 1),
+    p0: clamp(0.45 + 0.50 * x, 0, 1),
+    p1: clamp((artCfg.scale ?? 0.45) * 0.5 + x * 0.5, 0, 1),
+    p2: clamp((artCfg.motion ?? 0.35) * 0.5 + y * 0.5, 0, 1),
+    p3: clamp((artCfg.wander ?? 0.25) + 0.45 * fineCross, 0, 1),
+  };
+
+  const glCfg = fx.glitch || {};
+  const glWet = proximityWet(glCfg, 21);
+  const glitch = {
+    model: glCfg.model ?? 5,
+    wet: glWet,
+    amount: clamp(0.35 + 0.65 * Math.max(x, y), 0, 1),
+    x: x * 2 - 1,
+    y: y * 2 - 1,
+    motion: clamp(0.20 + 0.65 * y, 0, 1),
+    alt: (x > 0.72 || y > 0.78) ? 1 : 0,
+    p0: clamp((glCfg.density ?? 0.5) * 0.55 + 0.45 * x, 0, 1),
+    p1: clamp((glCfg.division ?? 0.5) * 0.5 + 0.5 * y, 0, 1),
+    p2: 1.0,
+    p3: clamp(0.25 + 0.65 * b(12), 0, 1),
+    p4: clamp(0.25 + 0.55 * y, 0, 1),
+    p5: clamp(0.20 + 0.65 * x, 0, 1),
+    p6: clamp((glCfg.crush ?? 0.35) * 0.5 + 0.5 * x, 0, 1),
+    p7: clamp((glCfg.comb ?? 0.35) * 0.5 + 0.5 * y, 0, 1),
+    p8: clamp(0.15 + 0.55 * b(13), 0, 1),
+    p9: clamp(glCfg.split ?? 0.4, 0, 1),
+    p10: 0.35,
+    p11: glCfg.seedDial ?? 0.25,
+  };
+
+  const csCfg = fx.chopScrew || {};
+  const csWet = proximityWet(csCfg, 22);
+  const chopScrew = {
+    wet: csWet,
+    amount: clamp(0.35 + 0.65 * (1 - y * 0.5), 0, 1),
+    alt: (x > 0.78 && y < 0.28) ? 1 : 0,
+    p0: csWet > 0.01 ? clamp(lerp(csCfg.speedBias ?? 0.34, 0.5 + (y - 0.5) * 0.38, 0.45), 0.16, 0.78) : 0.5,
+    p1: clamp((csCfg.chopFreq ?? 0.45) * 0.5 + 0.5 * x, 0, 1),
+    p2: clamp(csCfg.division ?? 0.5, 0, 1),
+    p3: clamp(0.45 + 0.45 * y, 0, 1),
+    p4: clamp((csCfg.wow ?? 0.25) + 0.35 * (1 - y), 0, 1),
+    p5: clamp((csCfg.flutter ?? 0.20) + 0.30 * x, 0, 1),
+    p6: clamp(csCfg.hiss ?? 0.15, 0, 1),
+    p7: clamp(csCfg.crackle ?? 0.12, 0, 1),
+    p8: clamp((csCfg.grit ?? 0.25) + 0.35 * (1 - y * 0.5), 0, 1),
+  };
+
+  const psyCfg = fx.psychoacoustics || {};
+  const psyWet = proximityWet(psyCfg, 23);
+  const psychoacoustics = {
+    model: psyCfg.model ?? 0,
+    wet: psyWet,
+    amount: clamp((psyCfg.amount ?? 0.65) * 0.5 + 0.5 * Math.max(x, y), 0, 1),
+    x: x * 2 - 1,
+    y: y * 2 - 1,
+    alt: psyCfg.alt ?? 0,
+    p0: psyCfg.p0 ?? 0.45,
+    p1: psyCfg.p1 ?? 0.55,
+    p2: psyCfg.p2 ?? 0.35,
+    p3: psyCfg.p3 ?? 0.20,
+    p4: psyCfg.p4 ?? 0.45,
+    p5: psyCfg.p5 ?? 0.45,
+    p6: psyCfg.p6 ?? 0.40,
+    p7: psyCfg.p7 ?? 0.35,
+    p8: psyCfg.p8 ?? 0.55,
+    p9: psyCfg.p9 ?? 0.35,
+    p10: psyCfg.p10 ?? 0.45,
+    p11: psyCfg.p11 ?? 0.55,
+    p12: clamp(0.15 + 0.70 * x, 0, 1),
+    p13: clamp(0.15 + 0.70 * y, 0, 1),
+    p14: psyCfg.p14 ?? 0.25,
+  };
+
   // Visual Scene + X/Y Uniform Allocation across ALL 51 Backgrounds, 13 Foregrounds, 40 Glitch Shaders
   const backgroundIndex = scene.bgSwapOnDrag
     ? scene.bgOrder[quad % scene.bgOrder.length]
@@ -506,6 +678,10 @@ export function allocateFromXY(scene, rawX, rawY) {
     unstableDsp,
     unstableParams,
     mumble,
+    artifact,
+    glitch,
+    chopScrew,
+    psychoacoustics,
     visual,
     routingName: DSP_ROUTINGS[routingIndex],
     tempoArchetype: scene.tempoArchetype,

@@ -96,16 +96,19 @@ class StereoHistory {
     this.l = new Float32Array(maxSamples);
     this.r = new Float32Array(maxSamples);
     this.cursor = 0;
+    this.written = 0;
   }
   clear() {
     this.l.fill(0);
     this.r.fill(0);
     this.cursor = 0;
+    this.written = 0;
   }
   write(left, right) {
     this.l[this.cursor] = left;
     this.r[this.cursor] = right;
     this.cursor = (this.cursor + 1) % this.size;
+    if (this.written < this.size) this.written++;
   }
   read(delaySamples) {
     const d = clamp(delaySamples, 0, this.size - 2);
@@ -118,6 +121,1400 @@ class StereoHistory {
       this.l[i0] + (this.l[i1] - this.l[i0]) * frac,
       this.r[i0] + (this.r[i1] - this.r[i0]) * frac,
     ];
+  }
+  readCubic(delaySamples) {
+    const d = clamp(delaySamples, 0, this.size - 4);
+    let pos = this.cursor - 1 - d;
+    while (pos < 0) pos += this.size;
+    const i = Math.floor(pos);
+    const f = pos - i;
+    const s = this.size;
+    const im1 = (i - 1 + s) % s;
+    const i0 = i % s;
+    const i1 = (i + 1) % s;
+    const i2 = (i + 2) % s;
+    const aL = this.l[im1], bL = this.l[i0], cL = this.l[i1], dL = this.l[i2];
+    const aR = this.r[im1], bR = this.r[i0], cR = this.r[i1], dR = this.r[i2];
+    return [
+      bL + 0.5 * f * (cL - aL + f * (2 * aL - 5 * bL + 4 * cL - dL + f * (3 * (bL - cL) + dL - aL))),
+      bR + 0.5 * f * (cR - aR + f * (2 * aR - 5 * bR + 4 * cR - dR + f * (3 * (bR - cR) + dR - aR))),
+    ];
+  }
+}
+
+class FxFilter {
+  constructor() {
+    this.ic1 = 0;
+    this.ic2 = 0;
+  }
+  reset() {
+    this.ic1 = 0;
+    this.ic2 = 0;
+  }
+  process(x, hz, resonance, sr) {
+    if (!Number.isFinite(x)) return { low: 0, mid: 0, high: 0 };
+    const fc = clamp(Number.isFinite(hz) ? hz : 1000, 20, sr * 0.40);
+    const g = Math.tan(Math.PI * fc / sr);
+    const k = 2 - 1.94 * clamp(Number.isFinite(resonance) ? resonance : 0.302, 0, 0.96);
+    const a1 = 1 / (1 + g * (g + k));
+    const v1 = a1 * (this.ic1 + g * (x - this.ic2));
+    const v2 = this.ic2 + g * v1;
+    this.ic1 = 2 * v1 - this.ic1;
+    this.ic2 = 2 * v2 - this.ic2;
+    if (!Number.isFinite(this.ic1) || !Number.isFinite(this.ic2)) {
+      this.ic1 = 0;
+      this.ic2 = 0;
+      return { low: 0, mid: 0, high: 0 };
+    }
+    return { low: v2, mid: v1, high: x - k * v1 - v2 };
+  }
+}
+
+class LR4 {
+  constructor() {
+    this.a = new FxFilter();
+    this.b = new FxFilter();
+    this.c = new FxFilter();
+    this.d = new FxFilter();
+  }
+  reset() {
+    this.a.reset();
+    this.b.reset();
+    this.c.reset();
+    this.d.reset();
+  }
+  split(x, hz, sr) {
+    const low = this.b.process(this.a.process(x, hz, 0.302, sr).low, hz, 0.302, sr).low;
+    const high = this.d.process(this.c.process(x, hz, 0.302, sr).high, hz, 0.302, sr).high;
+    return [low, high];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PSYCHOACOUSTICS UNIT (Phantom Bass, Air Exciter, Haas Width, Loudness, 3D Pan)
+// ---------------------------------------------------------------------------
+class PsychoUnit {
+  constructor(sr) {
+    this.sr = sr;
+    this.xo = [new LR4(), new LR4()];
+    this.harmHp = new LR4();
+    this.midXo = new LR4();
+    this.sideXo = new LR4();
+    this.airIn = [new LR4(), new LR4()];
+    this.airOut = [new LR4(), new LR4()];
+    this.harmLp = new FxFilter();
+    this.airLp = [new FxFilter(), new FxFilter()];
+    this.shelfLo = [new FxFilter(), new FxFilter()];
+    this.shelfHi = [new FxFilter(), new FxFilter()];
+    this.haas = new StereoHistory(Math.max(256, Math.ceil(sr * 0.1)));
+    this.ears = new StereoHistory(Math.max(128, Math.ceil(sr * 0.01)));
+    this.env = 0;
+    this.airEnv = [0, 0];
+    this.cutLp = [0, 0];
+    this.shadowX = [0, 0];
+    this.shadowY = [0, 0];
+    this.pinna = [new FxFilter(), new FxFilter()];
+    this.frontBand = [new FxFilter(), new FxFilter()];
+    this.rearBand = [new FxFilter(), new FxFilter()];
+    this.upBand = [new FxFilter(), new FxFilter()];
+    this.rearShade = [new FxFilter(), new FxFilter()];
+    this.airLoss = [new FxFilter(), new FxFilter()];
+
+    this.model = 0;
+    this.params = {
+      wet: 0.0,
+      amount: 0.7,
+      x: 0.0,
+      y: 0.0,
+      alt: 0.0,
+      p0: 0.45, p1: 0.55, p2: 0.35, p3: 0.20,
+      p4: 0.45, p5: 0.45, p6: 0.40,
+      p7: 0.35, p8: 0.55, p9: 0.35,
+      p10: 0.45, p11: 0.55,
+      p12: 0.50, p13: 0.45, p14: 0.25,
+    };
+  }
+
+  applyParams(obj) {
+    if (!obj) return;
+    if (typeof obj.model === 'number') this.model = clamp(Math.round(obj.model), 0, 4);
+    for (const k of Object.keys(obj)) {
+      if (k !== 'model' && k in this.params && typeof obj[k] === 'number') {
+        this.params[k] = obj[k];
+      }
+    }
+  }
+
+  process(inL, inR) {
+    const p = this.params;
+    const wet = clamp(p.wet, 0, 1);
+    if (wet <= 0.005) return [inL, inR];
+
+    const sr = this.sr;
+    const a = clamp(p.amount, 0, 1);
+    const inten = (0.35 + 0.65 * a) * Math.pow(2, 0.5 * clamp(p.x, -1, 1));
+    const tilt = Math.pow(2, 0.5 * clamp(p.y, -1, 1));
+    const right = p.alt > 0.5;
+    let outL = inL;
+    let outR = inR;
+
+    if (this.model === 0) {
+      // Phantom bass: missing-fundamental Chebyshev harmonics 2-5
+      const hz = clamp(40 * Math.pow(4, clamp(p.p0, 0, 1)) * tilt, 30, 250);
+      const [lowL] = this.xo[0].split(inL, hz, sr);
+      const [lowR] = this.xo[1].split(inR, hz, sr);
+      const m = 0.5 * (lowL + lowR);
+      const r = Math.abs(m);
+      this.env += (r - this.env) * (1 - Math.exp(-1 / (sr * (r > this.env ? 0.002 : 0.05))));
+      const scale = this.env * 0.95 + 1e-5;
+      const u = clamp(m / scale, -1, 1);
+      const u2 = u * u;
+      const t2 = 2 * u2 - 1;
+      const t3 = -(u * (4 * u2 - 3));
+      const t4 = -(8 * u2 * u2 - 8 * u2 + 1);
+      const t5 = u * (16 * u2 * u2 - 20 * u2 + 5);
+      const odd = clamp(p.p2, 0, 1);
+      let h = ((1 - odd) * (0.7 * t2 + 0.3 * t4) + odd * (0.7 * t3 + 0.3 * t5)) * scale;
+      const [, hi] = this.harmHp.split(h, hz, sr);
+      h = this.harmLp.process(hi, hz * 8, 0.25, sr).low;
+      const gain = 2.8 * clamp(p.p1, 0, 1) * inten * (right ? 1.35 : 1);
+      const cut = clamp(clamp(p.p3, 0, 1) + (right ? a : 0), 0, 1);
+      const c1 = 1 - Math.exp(-TAU * clamp(hz * 1.25, 30, sr * 0.25) / sr);
+      this.cutLp[0] += (inL - this.cutLp[0]) * c1;
+      this.cutLp[1] += (inR - this.cutLp[1]) * c1;
+      outL = (inL - cut * this.cutLp[0]) + gain * h;
+      outR = (inR - cut * this.cutLp[1]) + gain * h;
+    } else if (this.model === 1) {
+      // Air exciter
+      const hz = clamp(2000 * Math.pow(5, clamp(p.p4, 0, 1)) * tilt, 1000, Math.min(16000, sr * 0.42));
+      const drive = clamp(clamp(p.p5, 0, 1) * (0.6 + 0.4 * inten), 0, 1);
+      const mix = 5.5 * clamp(p.p6, 0, 1) * inten;
+      const inHp = Math.max(300, hz * 0.32);
+      const inLp = Math.min(hz * 3.2, sr * 0.23);
+      const kr = 1 - Math.exp(-1 / (sr * 0.002));
+      const kf = 1 - Math.exp(-1 / (sr * 0.04));
+      const ins = [inL, inR];
+      const outs = [inL, inR];
+      for (let c = 0; c < 2; c++) {
+        let [, band] = this.airIn[c].split(ins[c], inHp, sr);
+        band = this.airLp[c].process(band, inLp, 0.2, sr).low;
+        const r2 = band * band;
+        this.airEnv[c] += (r2 - this.airEnv[c]) * (r2 > this.airEnv[c] ? kr : kf);
+        const scale = Math.sqrt(this.airEnv[c]) * 1.15 + 1e-5;
+        const u = clamp(band / scale, -1, 1);
+        const u2 = u * u;
+        const t2 = 2 * u2 - 1;
+        const t4 = -(8 * u2 * u2 - 8 * u2 + 1);
+        const t3 = -(u * (4 * u2 - 3));
+        const t5 = u * (16 * u2 * u2 - 20 * u2 + 5);
+        const h = right ? (1 - drive) * t3 + drive * t5 : (1 - drive) * t2 + drive * t4;
+        const [, hi] = this.airOut[c].split(h * scale, hz, sr);
+        outs[c] = ins[c] + mix * hi;
+      }
+      outL = outs[0];
+      outR = outs[1];
+    } else if (this.model === 2) {
+      // Mono-safe Haas width
+      const mid = 0.5 * (inL + inR);
+      const side = 0.5 * (inL - inR);
+      const monoHz = 60 * Math.pow(5, clamp(p.p9, 0, 1));
+      const lag = sr * 0.001 * clamp((1 + 29 * clamp(p.p7, 0, 1)) * tilt, 0.5, 60);
+      const [, mh] = this.midXo.split(mid, monoHz, sr);
+      const [, sh] = this.sideXo.split(side, monoHz, sr);
+      this.haas.write(mh, 0);
+      const ghost = this.haas.readCubic(lag)[0];
+      const w = clamp(clamp(p.p8, 0, 1) * inten, 0, 2);
+      const s = right ? sh * (1 - clamp(a + 0.5 * clamp(p.p8, 0, 1), 0, 1)) : sh * (1 + 0.8 * w) + 1.4 * w * ghost;
+      outL = mid + s;
+      outR = mid - s;
+    } else if (this.model === 4) {
+      // 3D binaural pan: Woodworth ITD, Brown-Duda head shadow, rising pinna notch, Blauert bands
+      const rad = Math.PI / 180;
+      const head = 0.0875;
+      const sound = 343;
+      let az = (-180 + 360 * clamp(p.p12, 0, 1)) + 90 * clamp(p.x, -1, 1);
+      if (right) az = 180 - az;
+      az = ((az + 180) % 360 + 360) % 360 - 180;
+      const el = clamp(-45 + 135 * clamp(p.p13, 0, 1) + 45 * clamp(p.y, -1, 1), -45, 90);
+      const dist = 0.3 * Math.pow(40, clamp(p.p14, 0, 1));
+      const cue = 0.35 + 0.65 * a;
+      const ca = Math.cos(az * rad), sa = Math.sin(az * rad);
+      const ce = Math.cos(el * rad), se = Math.sin(el * rad);
+      const lateral = clamp(sa * ce, -1, 1);
+      const lat = Math.asin(lateral);
+      const itd = head / sound * (lat + Math.sin(lat)) * sr;
+      const mono = 0.5 * (inL + inR);
+      this.ears.write(mono, 0);
+      const front = Math.max(0, ca) * ce;
+      const behind = Math.max(0, -ca) * ce;
+      const above = Math.max(0, se);
+      const gain = clamp(1 / dist, 0.08, 1.25);
+      const airHz = clamp(20000 / (1 + 0.3 * dist), 3000, Math.min(20000, sr * 0.42));
+      const notchHz = 6000 + 4000 * (el + 45) / 135;
+      const notch = cue * (0.35 + 0.45 * (1 - (el + 45) / 135));
+      const outs = [0, 0];
+      for (let c = 0; c < 2; c++) {
+        const lag = c === 0 ? Math.max(0, itd) : Math.max(0, -itd);
+        let v = this.ears.readCubic(lag)[0];
+        const incidence = Math.acos(clamp(c === 0 ? -lateral : lateral, -1, 1)) / rad;
+        let alpha = 1.05 + 0.95 * Math.cos(Math.min(incidence, 180) / 150 * Math.PI);
+        alpha = 1 + (alpha - 1) * cue;
+        const tk = sr / (sound / head);
+        const b0 = 1 + alpha * tk, b1 = 1 - alpha * tk, a0 = 1 + tk, a1 = 1 - tk;
+        const y = (b0 * v + b1 * this.shadowX[c] - a1 * this.shadowY[c]) / a0;
+        this.shadowX[c] = v;
+        this.shadowY[c] = Math.abs(y) < 1e-15 ? 0 : y;
+        v = y;
+        v -= notch * (2 - 1.94 * 0.6) * this.pinna[c].process(v, notchHz, 0.6, sr).mid;
+        const kDir = 2 - 1.94 * 0.4;
+        const fb = this.frontBand[c].process(v, 4000, 0.4, sr).mid;
+        const rb = this.rearBand[c].process(v, 1100, 0.4, sr).mid;
+        const ub = this.upBand[c].process(v, 8000, 0.4, sr).mid;
+        v += kDir * (0.4 * cue * front * fb + 0.4 * cue * behind * rb + 0.6 * cue * above * ub);
+        const dull = this.rearShade[c].process(v, 6000, 0, sr).low;
+        v += 0.5 * cue * behind * (dull - v);
+        v = this.airLoss[c].process(v, airHz, 0, sr).low;
+        outs[c] = v * gain;
+      }
+      outL = outs[0];
+      outR = outs[1];
+    } else {
+      // Equal-loudness contour shelves
+      const drop = (1 - clamp(p.p10, 0, 1)) * 42 * clamp(clamp(p.p11, 0, 1) * inten * (right ? 1.6 : 1), 0, 2);
+      const loDb = Math.min(12, 0.45 * drop);
+      const hiDb = Math.min(8, 0.22 * drop);
+      const gl = Math.pow(10, loDb / 20) - 1;
+      const gh = Math.pow(10, hiDb / 20) - 1;
+      const loHz = clamp(130 * tilt, 40, 320);
+      const hiHz = clamp(5500 * tilt, 2500, 14000);
+      outL = inL + gl * this.shelfLo[0].process(inL, loHz, 0.25, sr).low + gh * this.shelfHi[0].process(inL, hiHz, 0.25, sr).high;
+      outR = inR + gl * this.shelfLo[1].process(inR, loHz, 0.25, sr).low + gh * this.shelfHi[1].process(inR, hiHz, 0.25, sr).high;
+    }
+
+    return [inL + (outL - inL) * wet, inR + (outR - inR) * wet];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CHOP AND SCREW UNIT (Two-deck variable speed, rotor, bar chops, wow/grit)
+// ---------------------------------------------------------------------------
+function chopSpeedFromDial(dial) {
+  const d = clamp(dial, 0, 1);
+  return Math.abs(d - 0.5) < 0.012 ? 1.0 : Math.pow(2, 2 * d - 1);
+}
+
+function chopWindowForBar(bar, amount) {
+  const bars = bar + 1;
+  const section = bars % 8 === 0;
+  const phrase = bars % 4 === 0;
+  const half = bars % 2 === 0;
+  const nudge = idmUnit(idmHash(bar >>> 0, 0x9e3779b1, 0x2c1b3c6d, 1)) - 0.5;
+  const threshold = (section ? 0.05 : phrase ? 0.25 : half ? 0.5 : 0.78) + nudge * 0.16;
+  if (amount <= 0.001 || amount < threshold) return 0;
+  return section ? (amount > 0.75 ? 4 : 2) : phrase ? 2 : 1;
+}
+
+class ChopScrewUnit {
+  constructor(sr) {
+    this.sr = sr;
+    this.history = new StereoHistory(Math.ceil(sr * 12));
+    this.rng = 0x51ed270b;
+    this.params = {
+      wet: 0.0,
+      amount: 0.0,
+      alt: 0.0,
+      p0: 0.42, // Speed (0.5 = 1x)
+      p1: 0.45, // Chop frequency
+      p2: 0.50, // Division (2, 1, .5, .25, .125)
+      p3: 0.82, // Gate duty
+      p4: 0.25, // Wow
+      p5: 0.20, // Flutter
+      p6: 0.15, // Hiss
+      p7: 0.12, // Crackle
+      p8: 0.25, // Tape grit
+    };
+    this.clear();
+  }
+
+  clear() {
+    this.history.clear();
+    this.speed = 1;
+    this.lag = 0;
+    this.oldLag = 0;
+    this.fade = 1;
+    this.fadeStep = 0;
+    this.lastTape = 0;
+    this.wow = 0;
+    this.flutter = 0;
+    this.flutterTarget = 0;
+    this.flutterClock = 0;
+    this.rotor = 0;
+    this.rotorMix = 0;
+    this.chopping = false;
+    this.fired = false;
+    this.planned = -1e9;
+    this.chopHit = -1;
+    this.window = 0;
+    this.chopStart = 0;
+    this.chopEnd = 0;
+    this.chopSize = 1;
+    this.chopLag = 0;
+    this.chopOld = 0;
+    this.chopFade = 1;
+    this.deck = 0;
+    this.gate = 1;
+    this.env = 0;
+    this.pop = 0;
+    this.popEnv = 0;
+    this.popPan = 0.5;
+    this.hissLow = [0, 0];
+    this.tone = [0, 0];
+    this.blockX = [0, 0];
+    this.blockY = [0, 0];
+  }
+
+  applyParams(obj) {
+    if (!obj) return;
+    for (const k of Object.keys(obj)) {
+      if (k in this.params && typeof obj[k] === 'number') this.params[k] = obj[k];
+    }
+  }
+
+  nextNoise() {
+    this.rng = (Math.imul(this.rng, 1664525) + 1013904223) >>> 0;
+    return (this.rng / 2147483648.0) - 1.0;
+  }
+
+  jump(to, ms) {
+    this.oldLag = this.lag;
+    this.lag = to;
+    this.fade = 0;
+    this.fadeStep = 1 / Math.max(1, ms * this.sr * 0.001);
+    this.chopping = false;
+    this.planned = -1e9;
+  }
+
+  process(inL, inR, beat, tempo) {
+    const p = this.params;
+    const wet = clamp(p.wet, 0, 1);
+    if (wet <= 0.005) {
+      if (this.lag > 0) this.clear();
+      return [inL, inR];
+    }
+
+    const sr = this.sr;
+    this.history.write(inL, inR);
+    const tTempo = clamp(tempo, 30, 240);
+    const frames = sr * 60 / tTempo;
+    const limit = this.history.size - 8;
+
+    const target = chopSpeedFromDial(p.p0) * (p.alt > 0.5 ? Math.pow(2, -clamp(p.amount, 0, 1)) : 1.0);
+    this.speed += (target - this.speed) * (1 - Math.exp(-1 / (sr * 0.35)));
+    this.lag += 1 - this.speed;
+    this.oldLag += 1 - this.speed;
+
+    const rotating = this.speed > 1.001 && this.lag <= 1;
+    this.rotorMix += ((rotating ? 1 : 0) - this.rotorMix) * (1 - Math.exp(-1 / (sr * 0.03)));
+    if (this.lag < 0) this.lag = 0;
+    if (this.oldLag < 0) this.oldLag = 0;
+    if (this.fade >= 1 && this.lag >= limit) this.jump(0, 200);
+
+    let tape = beat - this.lag / frames;
+    let bar = Math.floor(tape / 4);
+    if (this.fade >= 1 && Math.abs(target - 1) < 0.002 && this.lag > 1 && !this.chopping && bar !== Math.floor(this.lastTape / 4)) {
+      this.jump(0, 60);
+      tape = beat;
+      bar = Math.floor(tape / 4);
+    }
+    if (tape < this.lastTape - 1) this.chopping = false;
+    this.lastTape = tape;
+
+    const divs = [2, 1, 0.5, 0.25, 0.125];
+    const division = divs[clamp(Math.round(clamp(p.p2, 0, 1) * 4), 0, 4)];
+    if (bar !== this.planned) {
+      this.planned = bar;
+      this.fired = false;
+      this.window = chopWindowForBar(bar, clamp(p.p1, 0, 1));
+    }
+
+    if (!this.chopping && this.window > 0 && !this.fired) {
+      const w = Math.max(division, Math.round(this.window / division) * division);
+      const end = (bar + 1) * 4;
+      if (tape >= end - w && this.lag + division * frames < Math.min(this.history.written, limit)) {
+        this.fired = true;
+        this.chopping = true;
+        this.chopStart = end - w;
+        this.chopEnd = end;
+        this.chopSize = division;
+        this.chopHit = -1;
+        this.chopFade = 1;
+      }
+    }
+    if (this.chopping && tape >= this.chopEnd) this.chopping = false;
+
+    this.chopLag += 1 - this.speed;
+    this.chopOld += 1 - this.speed;
+    const duty = 0.25 + 0.75 * clamp(p.p3, 0, 1);
+    let open = 1;
+    if (this.chopping) {
+      const hit = Math.floor((tape - this.chopStart) / this.chopSize);
+      if (hit !== this.chopHit) {
+        const to = this.lag + (hit + 1) * this.chopSize * frames;
+        if (to >= Math.min(this.history.written, limit)) {
+          this.chopping = false;
+        } else {
+          this.chopHit = hit;
+          this.chopOld = this.chopLag;
+          this.chopLag = to;
+          this.chopFade = hit > 0 ? 0 : 1;
+        }
+      }
+      const along = (tape - this.chopStart) / this.chopSize - hit;
+      open = along < duty ? 1 : 0;
+    }
+
+    this.deck += ((this.chopping ? 1 : 0) - this.deck) * (1 - Math.exp(-1 / (sr * 0.003)));
+    this.gate += ((this.chopping ? open : 1) - this.gate) * (1 - Math.exp(-1 / (sr * 0.002)));
+
+    this.wow = (this.wow + TAU * (0.45 + 0.2 * Math.sin(this.flutterClock * 0.37)) / sr) % TAU;
+    this.flutterClock += 11 / sr;
+    if (this.flutterClock >= 1) {
+      this.flutterClock -= 1;
+      this.flutterTarget = this.nextNoise();
+    }
+    this.flutter += (this.flutterTarget - this.flutter) * 0.002;
+    const wobble = sr * (0.004 * clamp(p.p4, 0, 1) * (1 + Math.sin(this.wow)) + 0.00025 * clamp(p.p5, 0, 1) * (1 + this.flutter));
+
+    let [mainL, mainR] = this.history.readCubic(this.lag + wobble);
+    if (this.rotorMix > 0.0005) {
+      const span = sr * 0.07;
+      this.rotor += (this.speed - 1) / span;
+      this.rotor -= Math.floor(this.rotor);
+      const second = this.rotor + 0.5 - Math.floor(this.rotor + 0.5);
+      const [aL, aR] = this.history.readCubic(this.lag + wobble + span * (1 - this.rotor));
+      const [bL, bR] = this.history.readCubic(this.lag + wobble + span * (1 - second));
+      let ga = Math.sin(Math.PI * this.rotor);
+      let gb = Math.sin(Math.PI * second);
+      ga *= ga;
+      gb *= gb;
+      mainL = mainL * (1 - this.rotorMix) + (aL * ga + bL * gb) * this.rotorMix;
+      mainR = mainR * (1 - this.rotorMix) + (aR * ga + bR * gb) * this.rotorMix;
+    }
+
+    if (this.fade < 1) {
+      const [befL, befR] = this.history.readCubic(this.oldLag + wobble);
+      const g = Math.sin(this.fade * Math.PI * 0.5);
+      const h = Math.cos(this.fade * Math.PI * 0.5);
+      this.fade = Math.min(1, this.fade + this.fadeStep);
+      mainL = mainL * g + befL * h;
+      mainR = mainR * g + befR * h;
+    }
+
+    let yL = mainL;
+    let yR = mainR;
+    if (this.deck > 0.0005) {
+      let [secL, secR] = this.history.readCubic(this.chopLag + wobble);
+      if (this.chopFade < 1) {
+        const [cbL, cbR] = this.history.readCubic(this.chopOld + wobble);
+        const g = Math.sin(this.chopFade * Math.PI * 0.5);
+        const h = Math.cos(this.chopFade * Math.PI * 0.5);
+        this.chopFade = Math.min(1, this.chopFade + 1 / (sr * 0.004));
+        secL = secL * g + cbL * h;
+        secR = secR * g + cbR * h;
+      }
+      yL = mainL * (1 - this.deck) + secL * this.deck;
+      yR = mainR * (1 - this.deck) + secR * this.deck;
+    }
+    yL *= this.gate;
+    yR *= this.gate;
+
+    const grit = clamp(p.p8, 0, 1);
+    if (grit > 0.0005) {
+      const drive = 1 + 3 * grit;
+      const bias = 0.12 * grit;
+      const k = 1 - Math.exp(-TAU * 20000 * Math.pow(0.3, grit) / sr);
+      const vs = [yL, yR];
+      for (let c = 0; c < 2; c++) {
+        const s = (Math.tanh(vs[c] * drive + bias) - Math.tanh(bias)) / drive;
+        this.tone[c] += (s - this.tone[c]) * k;
+        const b = this.tone[c] - this.blockX[c] + 0.9995 * this.blockY[c];
+        this.blockX[c] = this.tone[c];
+        this.blockY[c] = b;
+        vs[c] = b;
+      }
+      yL = vs[0];
+      yR = vs[1];
+    }
+
+    const level = Math.max(Math.abs(yL), Math.abs(yR));
+    this.env = level > this.env ? this.env + (level - this.env) * 0.01 : this.env * (1 - 1 / (sr * 1.5));
+    const surface = 0.08 + 0.92 * clamp(this.env * 4, 0, 1);
+    const hiss = clamp(p.p6, 0, 1);
+    if (hiss > 0.0005) {
+      const amt = hiss * hiss * 0.05 * surface;
+      const w0 = this.nextNoise(), w1 = this.nextNoise();
+      this.hissLow[0] += (w0 - this.hissLow[0]) * 0.12;
+      this.hissLow[1] += (w1 - this.hissLow[1]) * 0.12;
+      yL += (w0 - this.hissLow[0]) * amt;
+      yR += (w1 - this.hissLow[1]) * amt;
+    }
+    const crackle = clamp(p.p7, 0, 1);
+    if (crackle > 0.0005) {
+      if (this.nextNoise() * 0.5 + 0.5 < crackle * crackle * 22 / sr) {
+        const a = this.nextNoise() * 0.5 + 0.5;
+        this.pop = a * a * a;
+        this.popEnv = 1;
+        this.popPan = this.nextNoise() * 0.5 + 0.5;
+      }
+      if (this.popEnv > 0.0005) {
+        this.popEnv *= Math.exp(-1 / (sr * 0.0007));
+        const v = this.nextNoise() * this.pop * this.popEnv * 0.5 * surface;
+        yL += v * Math.sqrt(1 - this.popPan);
+        yR += v * Math.sqrt(this.popPan);
+      }
+    }
+
+    return [inL + (yL - inL) * wet, inR + (yR - inR) * wet];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GLITCH UNIT (Shuffle, Retrigger, CD Skip, Bit/Clock Desync, Spectral/Comb, Chaos)
+// ---------------------------------------------------------------------------
+function runRadix2Fft(re, im, n, inverse) {
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      const tr = re[i]; re[i] = re[j]; re[j] = tr;
+      const ti = im[i]; im[i] = im[j]; im[j] = ti;
+    }
+  }
+  const sign = inverse ? 1 : -1;
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = sign * TAU / len;
+    const wStepRe = Math.cos(ang);
+    const wStepIm = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let wRe = 1, wIm = 0;
+      const half = len >> 1;
+      for (let j = 0; j < half; j++) {
+        const idx1 = i + j;
+        const idx2 = idx1 + half;
+        const uRe = re[idx1], uIm = im[idx1];
+        const vRe = re[idx2] * wRe - im[idx2] * wIm;
+        const vIm = re[idx2] * wIm + im[idx2] * wRe;
+        re[idx1] = uRe + vRe;
+        im[idx1] = uIm + vIm;
+        re[idx2] = uRe - vRe;
+        im[idx2] = uIm - vIm;
+        const nwRe = wRe * wStepRe - wIm * wStepIm;
+        wIm = wRe * wStepIm + wIm * wStepRe;
+        wRe = nwRe;
+      }
+    }
+  }
+  if (inverse) {
+    for (let i = 0; i < n; i++) {
+      re[i] /= n;
+      im[i] /= n;
+    }
+  }
+}
+
+class GlitchUnit {
+  constructor(sr) {
+    this.sr = sr;
+    this.history = new StereoHistory(Math.max(4096, Math.ceil(sr * 3.0)));
+    this.combSize = 4096;
+    this.comb = [new Float32Array(this.combSize), new Float32Array(this.combSize)];
+    this.combCursor = 0;
+
+    this.fftN = 256;
+    this.fftH = 64;
+    this.fftIn = [new Float32Array(this.fftN), new Float32Array(this.fftN)];
+    this.fftOut = [new Float32Array(this.fftN), new Float32Array(this.fftN)];
+    this.fftWin = new Float32Array(this.fftN);
+    for (let i = 0; i < this.fftN; i++) this.fftWin[i] = 0.5 - 0.5 * Math.cos(TAU * i / this.fftN);
+    this.fftRe = new Float64Array(this.fftN);
+    this.fftIm = new Float64Array(this.fftN);
+    this.fftCur = 0;
+    this.fftHop = 0;
+    this.fftFilled = 0;
+
+    this.ch = [this.makeChan(), this.makeChan()];
+    this.lastStep = -1;
+    this.freePhase = 0;
+    this.freeStep = 0;
+    this.stepSamples = 6000;
+    this.fastEnv = 0;
+    this.slowEnv = 0;
+    this.ka = 1 - Math.exp(-1 / (sr * 0.0005));
+    this.kr = 1 - Math.exp(-1 / (sr * 0.012));
+    this.ks = 1 - Math.exp(-1 / (sr * 0.08));
+    this.refractory = 0;
+    this.lastOnsetLag = 0;
+
+    this.model = 5;
+    this.params = {
+      wet: 0.0,
+      amount: 0.55,
+      x: 0.0,
+      y: 0.0,
+      motion: 0.25,
+      alt: 0.0,
+      p0: 0.55,  // Density
+      p1: 0.50,  // Division
+      p2: 1.0,   // Synced
+      p3: 0.45,  // Slice length
+      p4: 0.50,  // Pitch/speed ramp
+      p5: 0.35,  // Reverse prob
+      p6: 0.30,  // Crush
+      p7: 0.35,  // Comb/ring
+      p8: 0.20,  // Gate
+      p9: 0.35,  // Stereo split
+      p10: 0.35, // Smooth splice
+      p11: 0.25, // Seed
+    };
+  }
+
+  makeChan() {
+    return {
+      event: 0,
+      readLag: 0,
+      rate: 1,
+      rateMult: 1,
+      sliceLen: 512,
+      age: 0,
+      stepLen: 2048,
+      gateDuty: 1,
+      reverse: false,
+      holdClock: 0,
+      heldSample: 0,
+      slipLag: 0,
+      ringPhase: 0,
+      ringHz: 220,
+      combPeriod: 128,
+      combFb: 0,
+      combMix: 0,
+      prevOut: 0,
+      fade: 1,
+      fadeStep: 1,
+      lastDryOrWet: 0,
+      dcX: 0,
+      dcY: 0,
+    };
+  }
+
+  applyParams(obj) {
+    if (!obj) return;
+    if (typeof obj.model === 'number') this.model = clamp(Math.round(obj.model), 0, 5);
+    for (const k of Object.keys(obj)) {
+      if (k !== 'model' && k in this.params && typeof obj[k] === 'number') {
+        this.params[k] = obj[k];
+      }
+    }
+  }
+
+  resetTransport() {
+    for (const c of this.ch) {
+      c.event = 0;
+      c.readLag = 0;
+      c.rate = 1;
+      c.rateMult = 1;
+      c.age = 0;
+      c.holdClock = 0;
+      c.heldSample = 0;
+      c.slipLag = 0;
+      c.fade = 1;
+    }
+    this.lastStep = -1;
+    this.freePhase = 0;
+    this.freeStep = 0;
+  }
+
+  planChannel(cIdx, step, effDensity, stepSamps) {
+    const p = this.params;
+    const seed = Math.round(clamp(p.p11, 0, 1) * 999);
+    const bar = Math.floor(Math.max(0, step) / 16);
+    const st = Math.max(0, step) >>> 0;
+    const split = clamp(p.p9, 0, 1);
+    const chanSalt = (cIdx === 1 && split > 0.01) ? 0x91e10da5 : 0;
+    const u = (salt) => idmUnit(idmHash(seed, bar >>> 0, st, (salt ^ chanSalt) >>> 0));
+
+    const cs = this.ch[cIdx];
+    cs.prevOut = cs.lastDryOrWet;
+    const fadeMs = clamp(p.p10, 0, 1) * 4.0;
+    cs.fade = fadeMs <= 0.02 ? 1.0 : 0.0;
+    cs.fadeStep = fadeMs <= 0.02 ? 1.0 : 1.0 / Math.max(1.0, this.sr * fadeMs * 0.001);
+    cs.age = 0;
+    cs.stepLen = Math.max(64.0, stepSamps);
+
+    const alt = p.alt > 0.5;
+    const sliceP = clamp(p.p3, 0, 1);
+    const rampP = clamp(p.p4 + clamp(p.y, -1, 1) * 0.45, 0, 1);
+    const revP = clamp(p.p5 + (alt ? 0.35 : 0), 0, 1);
+    const crushP = clamp(p.p6 + (alt ? 0.25 : 0), 0, 1);
+    const combP = clamp(p.p7, 0, 1);
+    const gateP = clamp(p.p8, 0, 1);
+
+    if (effDensity <= 1e-6 || u(1) >= effDensity) {
+      const prev = cs.event;
+      cs.event = 0;
+      cs.readLag = 0;
+      cs.rate = 1;
+      cs.rateMult = 1;
+      cs.reverse = false;
+      cs.gateDuty = 1;
+      cs.slipLag = 0;
+      cs.combMix = 0;
+      if (prev === 0) cs.fade = 1.0;
+      return;
+    }
+
+    // Events: 1 shuffle, 2 retrigger, 3 reverse, 4 tape stop, 5 cd skip, 6 bit desync, 7 comb ring, 8 spectral, 9 gate
+    let ev = 1;
+    switch (clamp(this.model, 0, 5)) {
+      case 0: ev = u(2) < revP ? 3 : 1; break;
+      case 1: ev = (rampP < 0.22 && u(2) < 0.45) ? 4 : 2; break;
+      case 2: ev = 5; break;
+      case 3: ev = 6; break;
+      case 4: ev = u(2) < 0.48 + 0.3 * crushP ? 8 : 7; break;
+      case 5: {
+        const wRetrig = 0.28;
+        const wRev = 0.14 + 0.35 * revP;
+        const wStop = 0.10 + 0.25 * (1 - Math.min(1, rampP * 2)) + (alt ? 0.15 : 0);
+        const wCrush = 0.14 + 0.4 * crushP + (alt ? 0.15 : 0);
+        const wComb = 0.10 + 0.35 * combP;
+        const wSpec = 0.08 + 0.25 * combP;
+        const wCd = 0.12;
+        const wGate = 0.06 + 0.28 * gateP;
+        const total = wRetrig + wRev + wStop + wCrush + wComb + wSpec + wCd + wGate;
+        let r = u(3) * total;
+        if ((r -= wRetrig) < 0) ev = 2;
+        else if ((r -= wRev) < 0) ev = 3;
+        else if ((r -= wStop) < 0) ev = 4;
+        else if ((r -= wCrush) < 0) ev = 6;
+        else if ((r -= wComb) < 0) ev = 7;
+        else if ((r -= wSpec) < 0) ev = 8;
+        else if ((r -= wCd) < 0) ev = 5;
+        else ev = 9;
+        break;
+      }
+    }
+    cs.event = ev;
+
+    const semitones = (rampP - 0.5) * 24.0;
+    const baseRate = Math.abs(rampP - 0.5) < 0.03 ? 1.0 : Math.pow(2, semitones / 12);
+    cs.reverse = (ev === 3) || (ev !== 4 && ev !== 6 && u(4) < revP * 0.75);
+    cs.gateDuty = 1.0 - gateP * 0.75 * (u(5) < 0.35 + 0.65 * gateP ? 1.0 : 0.0);
+    cs.slipLag = split > 0.01 ? (cIdx === 1 ? 1 : -1) * split * (u(6) * this.sr * 0.022) : 0;
+    cs.holdClock = 0;
+    cs.combMix = 0;
+    cs.rateMult = 1.0;
+
+    const maxLag = this.history.size - 16;
+    if (ev === 1) {
+      const jumps = [1, 2, 3, 4, 6, 8];
+      const j = jumps[Math.min(5, Math.floor(u(7) * (2 + 4 * sliceP)))];
+      let targetLag = j * cs.stepLen;
+      if (cs.reverse) targetLag = Math.max(cs.stepLen, targetLag);
+      cs.readLag = clamp(targetLag, 0, maxLag);
+      cs.sliceLen = cs.stepLen * (0.25 + 0.75 * sliceP);
+      cs.rate = baseRate;
+    } else if (ev === 2) {
+      const reps = 2 + Math.round((1 - sliceP) * 10 + u(8) * 4);
+      cs.sliceLen = Math.max(this.sr * 0.004, cs.stepLen / Math.max(1, reps));
+      const startLag = (this.lastOnsetLag > 8 && this.lastOnsetLag < cs.stepLen * 2) ? this.lastOnsetLag : cs.sliceLen;
+      cs.readLag = clamp(startLag, 4, maxLag);
+      cs.rate = baseRate;
+      const rampAmt = (rampP - 0.5) * 2.0;
+      cs.rateMult = Math.pow(2, rampAmt * 1.2 / Math.max(1, cs.stepLen));
+    } else if (ev === 3) {
+      cs.sliceLen = Math.max(this.sr * 0.01, cs.stepLen * (0.35 + 0.65 * sliceP));
+      cs.readLag = clamp(cs.sliceLen * 0.25, 4, maxLag);
+      cs.rate = baseRate;
+      cs.reverse = true;
+    } else if (ev === 4) {
+      cs.readLag = 0;
+      cs.rate = 1.0;
+      cs.reverse = false;
+      const targetEnd = 0.04 + 0.25 * rampP;
+      cs.rateMult = Math.pow(targetEnd, 1.0 / Math.max(1, cs.stepLen * (0.4 + 0.6 * sliceP)));
+    } else if (ev === 5) {
+      cs.sliceLen = this.sr * (0.004 + 0.041 * sliceP * (0.3 + 0.7 * u(9)));
+      cs.readLag = clamp(cs.sliceLen * (1 + 3 * u(10)), 4, maxLag);
+      cs.rate = 1.0;
+      cs.reverse = u(11) < revP * 0.4;
+    } else if (ev === 6) {
+      cs.readLag = clamp(cs.slipLag < 0 ? 0 : cs.slipLag, 0, maxLag);
+      cs.rate = 1.0;
+    } else if (ev === 7) {
+      const hz = clamp(220 * Math.pow(2, (rampP - 0.5) * 2 + (u(12) - 0.5) * 0.8), 45, this.sr * 0.25);
+      cs.combPeriod = clamp(Math.round(this.sr / hz), 4, this.combSize - 4);
+      cs.combFb = 0.76 + 0.20 * Math.max(combP, 0.4);
+      cs.combMix = 0.45 + 0.45 * combP;
+      cs.ringHz = hz * (1 + 1.5 * u(13));
+      cs.readLag = 0;
+    } else if (ev === 8) {
+      cs.readLag = 0;
+      cs.rate = baseRate;
+    } else {
+      cs.gateDuty = 0.15 + 0.35 * (1 - gateP);
+      cs.readLag = 0;
+    }
+  }
+
+  process(inL, inR, beat, tempo) {
+    const p = this.params;
+    const wetAmt = clamp(p.wet, 0, 1);
+    const amount = clamp(p.amount, 0, 1);
+    if (wetAmt <= 0.005 || amount <= 0.005) return [inL, inR];
+
+    const sr = this.sr;
+    this.history.write(inL, inR);
+    const tTempo = clamp(tempo, 30, 240);
+
+    const peak = Math.max(Math.abs(inL), Math.abs(inR));
+    this.fastEnv += (peak - this.fastEnv) * (peak > this.fastEnv ? this.ka : this.kr);
+    this.slowEnv += (peak - this.slowEnv) * this.ks;
+    this.lastOnsetLag = Math.min(this.history.size - 16, this.lastOnsetLag + 1);
+    if (this.refractory > 0) this.refractory--;
+    else if (this.fastEnv > this.slowEnv * 1.7 + 0.0004 && this.fastEnv > 0.0012) {
+      this.refractory = Math.floor(sr * 0.022);
+      this.lastOnsetLag = sr * 0.001;
+    }
+
+    const effDensity = clamp(clamp(p.p0, 0, 1) * amount + clamp(p.motion, 0, 1) * 0.25, 0, 1);
+    const divBeats = [2.0, 1.0, 0.5, 1 / 3, 0.25, 1 / 6, 0.125, 0.0625];
+    const divPos = clamp(p.p1 + clamp(p.x, -1, 1) * 0.45, 0, 1);
+    const divIdx = clamp(Math.round(divPos * 7), 0, 7);
+    const synced = p.p2 >= 0.5;
+
+    let step = 0;
+    if (synced) {
+      const stepBeats = divBeats[divIdx];
+      this.stepSamples = sr * 60 / tTempo * stepBeats;
+      step = Math.max(0, Math.floor(beat / stepBeats + 1e-9));
+      if (step < this.lastStep) this.resetTransport();
+    } else {
+      const hz = Math.pow(32, divPos);
+      this.stepSamples = sr / hz;
+      this.freePhase += hz / sr;
+      if (this.freePhase >= 1) {
+        this.freePhase -= Math.floor(this.freePhase);
+        this.freeStep++;
+      }
+      step = this.freeStep;
+    }
+
+    if (step !== this.lastStep) {
+      this.lastStep = step;
+      this.planChannel(0, step, effDensity, this.stepSamples);
+      if (p.p9 > 0.01) this.planChannel(1, step, effDensity, this.stepSamples);
+      else this.ch[1] = { ...this.ch[0] };
+    }
+
+    // 256-pt STFT scratch for Spectral Tear
+    this.fftIn[0][this.fftCur] = inL;
+    this.fftIn[1][this.fftCur] = inR;
+    const specOutL = this.fftOut[0][this.fftCur];
+    const specOutR = this.fftOut[1][this.fftCur];
+    this.fftOut[0][this.fftCur] = 0;
+    this.fftOut[1][this.fftCur] = 0;
+    this.fftCur = (this.fftCur + 1) % this.fftN;
+    this.fftFilled = Math.min(this.fftN, this.fftFilled + 1);
+
+    const crushP = clamp(p.p6 + (p.alt > 0.5 ? 0.25 : 0), 0, 1);
+    const combP = clamp(p.p7, 0, 1);
+    if (++this.fftHop >= this.fftH) {
+      this.fftHop = 0;
+      if (this.fftFilled === this.fftN && (this.ch[0].event === 8 || this.ch[1].event === 8)) {
+        const binStep = Math.max(1, 1 + Math.round(crushP * 6));
+        const magFloor = 0.05 + 0.35 * combP;
+        const qLevels = 2 + 14 * (1 - crushP);
+        for (let c = 0; c < 2; c++) {
+          for (let i = 0; i < this.fftN; i++) {
+            this.fftRe[i] = this.fftIn[c][(this.fftCur + i) % this.fftN] * this.fftWin[i];
+            this.fftIm[i] = 0;
+          }
+          runRadix2Fft(this.fftRe, this.fftIm, this.fftN, false);
+          let peakMag = 1e-9;
+          for (let k = 0; k <= this.fftN / 2; k++) {
+            const m = Math.hypot(this.fftRe[k], this.fftIm[k]);
+            if (m > peakMag) peakMag = m;
+          }
+          for (let k = 0; k <= this.fftN / 2; k++) {
+            const qk = Math.floor(k / binStep) * binStep;
+            let mag = Math.hypot(this.fftRe[qk], this.fftIm[qk]);
+            if (mag < peakMag * magFloor * 0.25) mag = 0;
+            let ph = Math.atan2(this.fftIm[qk], this.fftRe[qk]);
+            ph = Math.round(ph * qLevels / TAU) * TAU / qLevels;
+            const rVal = mag * Math.cos(ph);
+            const iVal = mag * Math.sin(ph);
+            if (k === 0 || k === this.fftN / 2) {
+              this.fftRe[k] = rVal;
+              this.fftIm[k] = 0;
+            } else {
+              this.fftRe[k] = rVal;
+              this.fftIm[k] = iVal;
+              this.fftRe[this.fftN - k] = rVal;
+              this.fftIm[this.fftN - k] = -iVal;
+            }
+          }
+          runRadix2Fft(this.fftRe, this.fftIm, this.fftN, true);
+          for (let i = 0; i < this.fftN; i++) {
+            this.fftOut[c][(this.fftCur + i) % this.fftN] += this.fftRe[i] * this.fftWin[i] / 1.5;
+          }
+        }
+      }
+    }
+
+    const split = clamp(p.p9, 0, 1);
+    const smooth = clamp(p.p10, 0, 1);
+    const dry = [inL, inR];
+    const outs = [inL, inR];
+    const maxLag = this.history.size - 16;
+
+    for (let c = 0; c < 2; c++) {
+      const cs = this.ch[c];
+      let y = dry[c];
+      const ev = cs.event;
+
+      if (ev >= 1 && ev <= 5) {
+        const srate = cs.reverse ? -cs.rate : cs.rate;
+        cs.readLag += 1 - srate;
+        if (ev === 2) {
+          const sl = Math.max(8, cs.sliceLen);
+          if ((cs.age % sl) < 1 && cs.age >= 1) {
+            cs.readLag = clamp(cs.sliceLen, 4, maxLag);
+            if (smooth > 0.01) {
+              cs.prevOut = cs.lastDryOrWet;
+              cs.fade = 0;
+            }
+          }
+          cs.rate = clamp(cs.rate * cs.rateMult, 0.125, 4);
+        } else if (ev === 4) {
+          cs.rate = Math.max(0.02, cs.rate * cs.rateMult);
+        } else if (ev === 5) {
+          const sl = Math.max(16, cs.sliceLen);
+          if ((cs.age % sl) < 1 && cs.age >= 1) {
+            const u = idmUnit(idmHash(this.lastStep >>> 0, cs.age >>> 0, c, 0xcd51));
+            cs.readLag = u < 0.35
+              ? clamp(cs.readLag + cs.sliceLen * (0.5 + u), 4, maxLag)
+              : clamp(cs.sliceLen * (0.8 + 1.5 * u), 4, maxLag);
+            if (smooth > 0.01) {
+              cs.prevOut = cs.lastDryOrWet;
+              cs.fade = 0;
+            }
+          }
+        }
+        cs.readLag = clamp(cs.readLag, 0, maxLag);
+        const lag = clamp(cs.readLag + (c === 1 ? Math.abs(cs.slipLag) : 0), 0, maxLag);
+        y = this.history.readCubic(lag)[c];
+        if (split > 0.05 && (ev === 1 || ev === 2)) {
+          const subIdx = Math.floor(cs.age / Math.max(8, cs.sliceLen));
+          const odd = (subIdx & 1) === 1;
+          const duck = 1 - split * 0.65 * ((c === 0) === odd ? 1 : 0);
+          y *= duck;
+        }
+      } else if (ev === 6) {
+        y = this.history.readCubic(clamp(cs.readLag, 0, maxLag))[c];
+      } else if (ev === 8) {
+        y = c === 0 ? specOutL : specOutR;
+      }
+
+      if (ev !== 0 && (ev === 6 || crushP > 0.05)) {
+        const cAmt = ev === 6 ? Math.max(0.45, crushP) : crushP * 0.85;
+        const decimate = 1 + Math.pow(cAmt, 1.6) * 38;
+        if (++cs.holdClock >= decimate) {
+          cs.holdClock -= decimate;
+          const bits = Math.max(2.5, 14 - cAmt * 11);
+          const steps = Math.pow(2, bits);
+          let q = Math.round(clamp(y, -1.5, 1.5) * steps) / steps;
+          if (ev === 6 && cAmt > 0.55) {
+            let iv = Math.round(clamp(q, -1, 1) * 127);
+            const mask = Math.round((cAmt - 0.55) * 2.2 * 24) & 0x1f;
+            iv ^= mask;
+            q = q * 0.65 + (iv / 127) * 0.35;
+          }
+          cs.heldSample = q;
+        }
+        y = y * (1 - cAmt) + cs.heldSample * cAmt;
+      }
+
+      if (ev !== 0 && (ev === 7 || combP > 0.05)) {
+        const cmix = ev === 7 ? cs.combMix : combP * 0.45;
+        const period = ev === 7 ? cs.combPeriod : clamp(Math.round(sr / 440), 8, this.combSize - 4);
+        const fb = ev === 7 ? cs.combFb : 0.65 + 0.25 * combP;
+        const at = (this.combCursor - period + this.combSize) % this.combSize;
+        const cy = this.comb[c][at];
+        this.comb[c][this.combCursor] = fastTanh(y * 0.6 + cy * fb);
+        if (ev === 7) {
+          cs.ringPhase = (cs.ringPhase + TAU * cs.ringHz / sr) % TAU;
+          const ring = y * Math.sin(cs.ringPhase);
+          y = y * (1 - cmix * 0.65) + cy * cmix + ring * cmix * 0.35;
+        } else {
+          y = y * (1 - cmix * 0.35) + cy * cmix;
+        }
+      } else {
+        this.comb[c][this.combCursor] *= 0.95;
+      }
+
+      if (ev !== 0 && cs.gateDuty < 0.999) {
+        const period = ev === 2 ? Math.max(8, cs.sliceLen) : cs.stepLen;
+        const pos = cs.age % period;
+        let g = (pos / period) <= cs.gateDuty ? 1 : 0;
+        if (smooth > 0.02) {
+          const ramp = Math.min(period * 0.15, sr * smooth * 0.003);
+          if (ramp > 1) {
+            const edge = cs.gateDuty * period;
+            if (pos > edge - ramp && pos < edge + ramp) g = clamp(1 - (pos - (edge - ramp)) / (2 * ramp), 0, 1);
+          }
+        }
+        y *= g;
+      }
+
+      if (cs.fade < 1) {
+        const g = 0.5 - 0.5 * Math.cos(Math.PI * cs.fade);
+        y = cs.prevOut * (1 - g) + y * g;
+        cs.fade = Math.min(1, cs.fade + cs.fadeStep);
+      }
+
+      if (ev !== 0) {
+        const dc = y - cs.dcX + 0.9985 * cs.dcY;
+        cs.dcX = y;
+        cs.dcY = Math.abs(dc) < 1e-15 ? 0 : dc;
+        y = fastTanh(dc * 0.85) / 0.85;
+      }
+      if (!Number.isFinite(y)) y = 0;
+      cs.lastDryOrWet = y;
+      cs.age += 1;
+      outs[c] = y;
+    }
+    this.combCursor = (this.combCursor + 1) % this.combSize;
+
+    return [inL + (outs[0] - inL) * wetAmt, inR + (outs[1] - inR) * wetAmt];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ARTIFACT UNIT (Objects 8-mode resonator, Chatter grains, Suspended diffuse/freeze, Worn)
+// ---------------------------------------------------------------------------
+class ArtifactUnit {
+  constructor(sr) {
+    this.sr = sr;
+    this.rng = 0x41f37acd;
+
+    // 0: Objects (8 modal resonators per channel)
+    this.objN = 8;
+    this.objRe = [new Float64Array(8), new Float64Array(8)];
+    this.objIm = [new Float64Array(8), new Float64Array(8)];
+    this.objCos = [new Float64Array(8), new Float64Array(8)];
+    this.objSin = [new Float64Array(8), new Float64Array(8)];
+    this.objRad = [new Float64Array(8), new Float64Array(8)];
+    this.objW = [new Float64Array(8), new Float64Array(8)];
+    this.objFast = 0; this.objSlow = 0; this.objPrev = [0, 0]; this.objStrike = [0, 0];
+    this.objPhase = 0; this.objRefractory = 0; this.objPulse = 0; this.objTick = 0;
+    this.objAtk = 1 - Math.exp(-1 / (sr * 0.0004));
+    this.objRel = 1 - Math.exp(-1 / (sr * 0.008));
+    this.objFol = 1 - Math.exp(-1 / (sr * 0.045));
+
+    // 1: Chatter (dual transient-scanning grains)
+    this.chatHist = new StereoHistory(Math.max(1024, Math.ceil(sr * 2.0)));
+    this.chatGrains = [{ start: 0, age: 0, length: 1, rate: 1, active: false }, { start: 0, age: 0, length: 1, rate: 1, active: false }];
+    this.chatFrames = 0; this.chatAnchor = 0; this.chatAge = 0; this.chatSpan = 1;
+    this.chatFast = 0; this.chatSlow = 0; this.chatClock = 0; this.chatPhase = 0;
+    this.chatCaptured = false; this.chatRefractory = 0;
+    this.chatAtk = 1 - Math.exp(-1 / (sr * 0.0005));
+    this.chatRel = 1 - Math.exp(-1 / (sr * 0.012));
+    this.chatFol = 1 - Math.exp(-1 / (sr * 0.08));
+
+    // 2: Suspended (4-line Hadamard diffuse space + breathing beat gate + slow LFO shift)
+    this.susLines = [
+      new StereoHistory(Math.ceil(sr * 0.22)),
+      new StereoHistory(Math.ceil(sr * 0.22)),
+      new StereoHistory(Math.ceil(sr * 0.22)),
+      new StereoHistory(Math.ceil(sr * 0.22)),
+    ];
+    this.susDampL = new Float64Array(4);
+    this.susDampR = new Float64Array(4);
+    this.susTone = [new FxFilter(), new FxFilter()];
+    this.susPhase = 0; this.susGate = 0; this.susMotionPhase = 0;
+
+    // 3: Worn (dual-mono tape drift, bandwidth, sampler wear, asymmetric drive)
+    this.wornHist = new StereoHistory(Math.max(256, Math.ceil(sr * 0.12)));
+    this.wornHp = [new FxFilter(), new FxFilter()];
+    this.wornLp = [new FxFilter(), new FxFilter()];
+    this.wornPhase = 0; this.wornHold = 0; this.wornHeld = [0, 0];
+
+    // Character wander mixer
+    this.weight = new Float64Array(4);
+    this.wanderPhase = 0;
+    this.primed = false;
+    this.smooth = 1 - Math.exp(-1 / (sr * 0.06));
+
+    this.model = 0;
+    this.params = {
+      wet: 0.0,
+      amount: 0.7,
+      p0: 0.65, // Mix / intensity
+      p1: 0.45, // Scale
+      p2: 0.35, // Motion
+      p3: 0.25, // Wander
+    };
+  }
+
+  applyParams(obj) {
+    if (!obj) return;
+    if (typeof obj.model === 'number') this.model = clamp(Math.round(obj.model), 0, 3);
+    for (const k of Object.keys(obj)) {
+      if (k !== 'model' && k in this.params && typeof obj[k] === 'number') {
+        this.params[k] = obj[k];
+      }
+    }
+  }
+
+  nextNoise() {
+    this.rng = (Math.imul(this.rng, 1664525) + 1013904223) >>> 0;
+    return (this.rng / 2147483648.0) - 1.0;
+  }
+
+  tuneObjects(scale, motion) {
+    const sr = this.sr;
+    const glass = [1, 2.32, 4.25, 6.63, 9.38, 12.4, 15.8, 19.5];
+    const wood  = [1, 2.76, 5.40, 8.93, 13.3, 18.6, 24.8, 31.9];
+    const metal = [1, 1.47, 2.09, 2.56, 3.30, 4.08, 5.43, 6.79];
+    const woodMix = 1 - Math.abs(2 * scale - 1);
+    const metalMix = Math.max(0, 2 * scale - 1);
+    const base = 1900 * Math.pow(0.065, scale);
+    const decay = (0.025 + 0.6 * scale * scale) * (1 - 0.68 * woodMix);
+    for (let c = 0; c < 2; c++) {
+      for (let k = 0; k < this.objN; k++) {
+        const ratio = glass[k] + (wood[k] - glass[k]) * woodMix + (metal[k] - glass[k]) * metalMix;
+        const drift = motion * (0.018 * Math.sin(this.objPhase * (1 + k * 0.071) + k * 1.7 + c * 0.8));
+        const hz = base * ratio * Math.pow(2, drift + (c ? 1 : -1) * motion * 0.002);
+        const audible = clamp((sr * 0.44 - hz) / (sr * 0.08), 0, 1);
+        const angle = TAU * clamp(hz, 30, sr * 0.44) / sr;
+        this.objCos[c][k] = Math.cos(angle);
+        this.objSin[c][k] = Math.sin(angle);
+        this.objRad[c][k] = Math.exp(-1 / (sr * decay / (1 + k * 0.32)));
+        this.objW[c][k] = audible / (1 + k * 0.65);
+      }
+    }
+  }
+
+  processObjects(inL, inR, a, scale, motion) {
+    const sr = this.sr;
+    if (this.objTick === 0) this.tuneObjects(scale, motion);
+    this.objTick = (this.objTick + 1) % 32;
+    this.objPhase = (this.objPhase + TAU * 0.13 / sr) % (TAU * 1000);
+    const v = [inL, inR];
+    const peak = Math.max(Math.abs(inL), Math.abs(inR));
+    this.objFast += (peak - this.objFast) * (peak > this.objFast ? this.objAtk : this.objRel);
+    this.objSlow += (peak - this.objSlow) * this.objFol;
+    if (this.objRefractory > 0) this.objRefractory--;
+    else if (this.objFast > this.objSlow * 1.6 + 0.0002 && this.objFast > 0.0005) {
+      this.objRefractory = Math.floor(sr * 0.018);
+      this.objPulse = Math.max(1, Math.floor(sr * 0.001));
+      const norm = Math.max(peak, 1e-6);
+      this.objStrike[0] = (v[0] / norm) * Math.min(1, this.objFast * 2.5);
+      this.objStrike[1] = (v[1] / norm) * Math.min(1, this.objFast * 2.5);
+    }
+    const noise = this.objPulse > 0 ? this.nextNoise() : 0;
+    const outs = [0, 0];
+    const normPulse = Math.sqrt(Math.max(1, sr * 0.001));
+    for (let c = 0; c < 2; c++) {
+      const diff = v[c] - this.objPrev[c];
+      this.objPrev[c] = v[c];
+      const excite = 0.045 * fastTanh(diff * 2) + this.objStrike[c] * noise * (this.objPulse > 0 ? 0.32 : 0) / normPulse;
+      let acc = 0;
+      for (let k = 0; k < this.objN; k++) {
+        const r = this.objRad[c][k];
+        const re = this.objRe[c][k];
+        const im = this.objIm[c][k];
+        const nRe = r * (this.objCos[c][k] * re - this.objSin[c][k] * im) + excite * this.objW[c][k];
+        const nIm = r * (this.objSin[c][k] * re + this.objCos[c][k] * im);
+        if (Math.abs(nRe) + Math.abs(nIm) < 1e-15) {
+          this.objRe[c][k] = 0;
+          this.objIm[c][k] = 0;
+        } else {
+          this.objRe[c][k] = nRe;
+          this.objIm[c][k] = nIm;
+        }
+        acc += this.objIm[c][k];
+      }
+      outs[c] = v[c] * (1 - 0.85 * a) + fastTanh(acc * 2.8 / (1 + 2 * scale)) * a;
+    }
+    if (this.objPulse > 0) this.objPulse--;
+    return outs;
+  }
+
+  processChatter(inL, inR, a, scale, motion) {
+    const sr = this.sr;
+    this.chatHist.write(inL, inR);
+    const peak = Math.max(Math.abs(inL), Math.abs(inR));
+    this.chatFast += (peak - this.chatFast) * (peak > this.chatFast ? this.chatAtk : this.chatRel);
+    this.chatSlow += (peak - this.chatSlow) * this.chatFol;
+    if (this.chatRefractory > 0) this.chatRefractory--;
+    if ((!this.chatCaptured || this.chatAge > this.chatSpan * (4 + 4 * scale)) && this.chatFast > 0.001) {
+      this.chatCaptured = true;
+      this.chatAnchor = Math.max(0, this.chatFrames - sr * 0.002);
+      this.chatAge = 0;
+      this.chatSpan = sr * (0.025 + 0.15 * scale);
+      this.chatClock = 0;
+    } else if (this.chatFast > this.chatSlow * 1.9 + 0.0005 && this.chatFast > 0.002 && this.chatRefractory === 0 && this.chatAge > sr * 0.08) {
+      this.chatAnchor = Math.max(0, this.chatFrames - sr * 0.002);
+      this.chatAge = 0;
+      this.chatSpan = sr * (0.025 + 0.15 * scale);
+      this.chatRefractory = Math.floor(sr * (0.12 + 0.18 * scale));
+    }
+    const length = sr * (0.005 + 0.025 * scale);
+    const stretch = 4 + 4 * scale;
+    if (this.chatCaptured && --this.chatClock <= 0) {
+      this.chatClock = length * 0.5;
+      for (const g of this.chatGrains) {
+        if (!g.active) {
+          g.active = true;
+          g.age = 0;
+          g.length = length;
+          const travel = clamp(this.chatAge / (this.chatSpan * stretch), 0, 1);
+          const semitones = motion * (24 * travel - 12 + 6 * Math.sin(this.chatPhase));
+          g.rate = Math.pow(2, semitones / 12);
+          g.start = this.chatAnchor + Math.min(this.chatSpan * 0.85, this.chatAge / stretch);
+          break;
+        }
+      }
+    }
+    let yL = 0, yR = 0;
+    for (const g of this.chatGrains) {
+      if (!g.active) continue;
+      const pos = g.start + g.age * g.rate;
+      const z = this.chatHist.readCubic(clamp(this.chatFrames - pos, 0, this.chatHist.size - 4));
+      const w = 0.5 - 0.5 * Math.cos(TAU * g.age / g.length);
+      yL += z[0] * w;
+      yR += z[1] * w;
+      if (++g.age >= g.length) g.active = false;
+    }
+    if (this.chatCaptured) this.chatAge++;
+    this.chatFrames++;
+    this.chatPhase = (this.chatPhase + TAU * 0.19 / sr) % TAU;
+    const tail = Math.exp(-Math.max(0, this.chatAge - this.chatSpan * stretch) / (sr * 0.08));
+    yL = fastTanh(yL * 1.4) * tail;
+    yR = fastTanh(yR * 1.4) * tail;
+    return [inL + (yL - inL) * a, inR + (yR - inR) * a];
+  }
+
+  processSuspended(inL, inR, a, scale, motion, tempo) {
+    const sr = this.sr;
+    const times = [0.0311, 0.0437, 0.0593, 0.0719];
+    let spL = 0, spR = 0;
+    const d = 0.16 + 0.3 * (1 - scale);
+    for (let k = 0; k < 4; k++) {
+      const z = this.susLines[k].readCubic(sr * times[k] * (0.7 + 1.8 * scale));
+      this.susDampL[k] += (z[0] - this.susDampL[k]) * d;
+      this.susDampR[k] += (z[1] - this.susDampR[k]) * d;
+      spL += this.susDampL[k] * 0.48;
+      spR += this.susDampR[k] * 0.48;
+    }
+    const fb = 0.68 + 0.14 * scale;
+    for (let k = 0; k < 4; k++) {
+      let l = 0, r = 0;
+      for (let j = 0; j < 4; j++) {
+        const sign = ((k & j) === 1 || (k & j) === 2) ? -1 : 1;
+        l += this.susDampL[j] * sign * 0.5;
+        r += this.susDampR[j] * sign * 0.5;
+      }
+      const leftGain = 0.19 + 0.025 * k;
+      const rightGain = 0.265 - 0.025 * k;
+      this.susLines[k].write(fastTanh(inL * leftGain + r * fb), fastTanh(inR * rightGain + l * fb));
+    }
+
+    this.susMotionPhase = (this.susMotionPhase + TAU * 0.11 / sr) % TAU;
+    const cycles = Math.pow(2, 3 * (1 - scale)) * (1 + 0.08 * motion * Math.sin(this.susMotionPhase * 0.7));
+    this.susPhase = (this.susPhase + clamp(tempo, 30, 240) / 60 * cycles / sr) % 1;
+    const duty = 0.3 + 0.35 * scale + 0.08 * motion * Math.sin(this.susMotionPhase);
+    const floor = 0.04 + 0.34 * scale;
+    const pulse = this.susPhase < duty ? Math.pow(Math.max(0, Math.sin(Math.PI * this.susPhase / duty)), 0.65) : 0;
+    this.susGate += ((floor + (1 - floor) * pulse) - this.susGate) * (1 - Math.exp(-1 / (sr * (0.0015 + 0.006 * scale))));
+
+    const toneCut = 9000 * Math.pow(0.5, scale);
+    const lOut = fastTanh(this.susTone[0].process(spL, toneCut, 0.1, sr).low * 2.4) * this.susGate;
+    const rOut = fastTanh(this.susTone[1].process(spR, toneCut, 0.1, sr).low * 2.4) * this.susGate;
+    return [inL + (lOut - inL) * a, inR + (rOut - inR) * a];
+  }
+
+  processWorn(inL, inR, a, scale, motion) {
+    const sr = this.sr;
+    this.wornHist.write(inL, inR);
+    this.wornPhase = (this.wornPhase + TAU / sr) % (TAU * 100);
+    const v = [0, 0];
+    for (let c = 0; c < 2; c++) {
+      const drift = motion * (
+        0.00045 * Math.sin(this.wornPhase * 0.18 + c * 0.8) +
+        0.00033 * Math.sin(this.wornPhase * 0.29 + c * 1.3) +
+        0.000025 * Math.sin(this.wornPhase * 7.13 + c * 0.6)
+      );
+      let n = this.wornHist.readCubic(sr * (0.018 + drift))[c];
+      n = this.wornHp[c].process(n, 70 + 180 * scale, 0.1, sr).high;
+      v[c] = this.wornLp[c].process(n, 8200 * Math.pow(0.28, scale), 0.1, sr).low;
+    }
+    this.wornHold += Math.min(sr, 22000 * Math.pow(0.22, scale)) / sr;
+    if (this.wornHold >= 1) {
+      this.wornHold -= Math.floor(this.wornHold);
+      const steps = Math.pow(2, 14 - 7 * scale);
+      this.wornHeld[0] = Math.round(v[0] * steps) / steps;
+      this.wornHeld[1] = Math.round(v[1] * steps) / steps;
+    }
+    const drive = 1 + 2.3 * scale;
+    const bias = 0.04 + 0.13 * scale;
+    const biasT = Math.tanh(bias);
+    const wL = (fastTanh(this.wornHeld[0] * drive + bias) - biasT) / drive * 1.25;
+    const wR = (fastTanh(this.wornHeld[1] * drive + bias) - biasT) / drive * 1.25;
+    return [inL + (wL - inL) * a, inR + (wR - inR) * a];
+  }
+
+  process(inL, inR, tempo) {
+    const p = this.params;
+    const wet = clamp(p.wet, 0, 1);
+    const effA = clamp(p.p0 * p.amount, 0, 1);
+    if (wet * effA <= 0.005) return [inL, inR];
+
+    const model = clamp(Math.round(this.model), 0, 3);
+    const wander = clamp(p.p3, 0, 1);
+    if (!this.primed) {
+      this.weight.fill(0);
+      this.weight[model] = 1;
+      this.primed = true;
+    }
+    if (wander > 0) this.wanderPhase = (this.wanderPhase + TAU * (0.008 + 0.027 * wander) / this.sr) % (TAU * 1000);
+
+    let pos = model + 1.5 * wander * (1 - Math.cos(this.wanderPhase));
+    pos -= 4 * Math.floor(pos / 4);
+    const first = Math.floor(pos) % 4;
+    const second = (first + 1) % 4;
+    const frac = pos - Math.floor(pos);
+
+    const a = clamp(effA * (1 + 0.2 * wander * Math.sin(this.wanderPhase * 1.13)), 0, 1) * wet;
+    const scale = clamp(p.p1 + 0.24 * wander * Math.sin(this.wanderPhase * 0.73), 0, 1);
+    const motion = clamp(p.p2 + 0.3 * wander * Math.sin(this.wanderPhase * 0.91), 0, 1);
+
+    let outL = 0, outR = 0;
+    for (let k = 0; k < 4; k++) {
+      const target = (k === first ? 1 - frac : 0) + (k === second ? frac : 0);
+      this.weight[k] += (target - this.weight[k]) * this.smooth;
+      if (Math.abs(this.weight[k] - target) < 1e-12) this.weight[k] = target;
+      if (this.weight[k] > 0.001 || target > 0.001) {
+        const y = k === 0 ? this.processObjects(inL, inR, a, scale, motion)
+          : k === 1 ? this.processChatter(inL, inR, a, scale, motion)
+          : k === 2 ? this.processSuspended(inL, inR, a, scale, motion, tempo)
+          : this.processWorn(inL, inR, a, scale, motion);
+        outL += y[0] * this.weight[k];
+        outR += y[1] * this.weight[k];
+      }
+    }
+    return [outL, outR];
   }
 }
 
@@ -1820,6 +3217,10 @@ class HaecceityProcessor extends AudioWorkletProcessor {
     this.idm = new IdmUnit(this.sr);
     this.unstable = new UnstablePath(this.sr);
     this.mumble = new MumbleVoice(this.sr);
+    this.artifact = new ArtifactUnit(this.sr);
+    this.glitch = new GlitchUnit(this.sr);
+    this.chopScrew = new ChopScrewUnit(this.sr);
+    this.psycho = new PsychoUnit(this.sr);
 
     this.voices = Array.from({ length: 16 }, () => new DrumVoice(this.sr));
     this.voiceCursor = 0;
@@ -1892,6 +3293,10 @@ class HaecceityProcessor extends AudioWorkletProcessor {
         if (f.unstableDsp) this.unstable.applyChaos(f.unstableDsp);
         if (f.unstableParams) this.unstable.applyParams(f.unstableParams);
         if (f.mumble) this.mumble.applyParams(f.mumble);
+        if (f.artifact) this.artifact.applyParams(f.artifact);
+        if (f.glitch) this.glitch.applyParams(f.glitch);
+        if (f.chopScrew) this.chopScrew.applyParams(f.chopScrew);
+        if (f.psychoacoustics) this.psycho.applyParams(f.psychoacoustics);
         break;
       }
       case 'chaos':
@@ -2007,8 +3412,16 @@ class HaecceityProcessor extends AudioWorkletProcessor {
       const unL = uL * this.unstableGain;
       const unR = uR * this.unstableGain;
 
-      const mL = fastTanh((kSig + dL * 0.65 + iL * 1.05 + unL + mSig * 0.9) * this.masterGain);
-      const mR = fastTanh((kSig + dR * 0.65 + iR * 1.05 + unR + mSig * 0.9) * this.masterGain);
+      let mixL = kSig + dL * 0.65 + iL * 1.05 + unL + mSig * 0.9;
+      let mixR = kSig + dR * 0.65 + iR * 1.05 + unR + mSig * 0.9;
+
+      [mixL, mixR] = this.artifact.process(mixL, mixR, this.bpm);
+      [mixL, mixR] = this.glitch.process(mixL, mixR, this.beat, this.bpm);
+      [mixL, mixR] = this.chopScrew.process(mixL, mixR, this.beat, this.bpm);
+      [mixL, mixR] = this.psycho.process(mixL, mixR);
+
+      const mL = fastTanh(mixL * this.masterGain);
+      const mR = fastTanh(mixR * this.masterGain);
 
       outL[i] = mL;
       outR[i] = mR;

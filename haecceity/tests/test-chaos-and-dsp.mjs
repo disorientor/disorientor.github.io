@@ -212,6 +212,46 @@ for (const g of ['DARK_AMBIENT', 'DIGITAL_HARDCORE', 'MICROSOUND', 'LOWERCASE', 
 }
 console.log(`   PASS: 12 kits loud & finite, Dark Ambient XY variation verified, genres=[${[...seenGenres].join(', ')}].`);
 
+console.log('4d. Testing Psychoacoustics, Chop & Screw, Glitch, and Artifact DSP & XY Presence...');
+// Verify random roll + XY traversal engages all 4 FX across scenes
+let sawArt = 0, sawGl = 0, sawCs = 0, sawPsy = 0;
+for (let i = 0; i < 60; i++) {
+  const sc = createScene((i * 1237) & 0xffff);
+  for (const [tx, ty] of [[0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]]) {
+    const fr = allocateFromXY(sc, tx, ty);
+    if (fr.artifact.wet > 0.05) sawArt++;
+    if (fr.glitch.wet > 0.05) sawGl++;
+    if (fr.chopScrew.wet > 0.05) sawCs++;
+    if (fr.psychoacoustics.wet > 0.05) sawPsy++;
+  }
+}
+assert.ok(sawArt > 20 && sawGl > 20 && sawCs > 10 && sawPsy > 20, `Expected all 4 FX to engage across rolls/XY: art=${sawArt} gl=${sawGl} cs=${sawCs} psy=${sawPsy}`);
+
+// Exercise every model of Psychoacoustics (0..4), Glitch (0..5), Artifact (0..3), and Chop&Screw in the AudioWorklet
+for (let m = 0; m < 6; m++) {
+  const fxProc = new RegisteredProcessor();
+  const fxFrame = {
+    ...f11,
+    artifact: { model: m % 4, wet: 0.85, amount: 0.9, p0: 0.85, p1: 0.5, p2: 0.6, p3: 0.45 },
+    glitch: { model: m, wet: 0.85, amount: 0.9, x: 0.4, y: 0.3, motion: 0.5, alt: m % 2, p0: 0.85, p1: 0.65, p2: 1.0, p3: 0.5, p4: 0.6, p5: 0.5, p6: 0.5, p7: 0.6, p8: 0.3, p9: 0.5, p10: 0.35, p11: 0.4 },
+    chopScrew: { wet: 0.85, amount: 0.9, alt: 0, p0: m % 2 === 0 ? 0.32 : 0.64, p1: 0.85, p2: 0.5, p3: 0.8, p4: 0.4, p5: 0.3, p6: 0.2, p7: 0.2, p8: 0.4 },
+    psychoacoustics: { model: m % 5, wet: 0.85, amount: 0.9, x: 0.3, y: -0.2, alt: 0, p0: 0.5, p1: 0.6, p2: 0.4, p3: 0.2, p4: 0.5, p5: 0.5, p6: 0.5, p7: 0.4, p8: 0.6, p9: 0.4, p10: 0.5, p11: 0.6, p12: 0.7, p13: 0.5, p14: 0.3 },
+  };
+  fxProc.handleMessage({ type: 'xyFrame', frame: fxFrame });
+  fxProc.handleMessage({ type: 'transport', playing: true, bpm: 150 });
+  let fxPeak = 0;
+  for (let b = 0; b < 140; b++) {
+    assert.equal(fxProc.process([], [[outL, outR]]), true);
+    for (let i = 0; i < 128; i++) {
+      assert.ok(Number.isFinite(outL[i]) && Number.isFinite(outR[i]), `FX model ${m} non-finite sample`);
+      assert.ok(Math.abs(outL[i]) <= 1.0001 && Math.abs(outR[i]) <= 1.0001, `FX model ${m} limiter exceeded`);
+      fxPeak = Math.max(fxPeak, Math.abs(outL[i]), Math.abs(outR[i]));
+    }
+  }
+  assert.ok(fxPeak > 0.15, `FX model ${m} produced weak/silent output: ${fxPeak}`);
+}
+console.log(`   PASS: All 4 FX engines & models finite and active across rolls/XY (art=${sawArt}, gl=${sawGl}, cs=${sawCs}, psy=${sawPsy}).`);
+
 console.log('5. Checking minimal UI & HTML invariants...');
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
 const appSrc = fs.readFileSync(path.join(rootDir, 'src/ui/app.js'), 'utf8');
