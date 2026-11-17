@@ -1043,12 +1043,13 @@ class UnstablePath {
       const readOff = isReverse ? (sliceSamples - this.manglePhase) : this.manglePhase;
       const bufRead = this.mangleBuf.read(readOff + 32);
 
-      const effBits = clamp(Math.round(bits - padX * 4), 2, 16);
+      const effBits = clamp(Math.round(bits - padX * 3), 3, 16);
       const levels = Math.pow(2, effBits - 1);
-      const qL = Math.round(clamp(bufRead[0], -1, 1) * levels) / levels;
-      const qR = Math.round(clamp(bufRead[1], -1, 1) * levels) / levels;
+      const preGain = 2.5;
+      const qL = Math.round(clamp(bufRead[0] * preGain, -1, 1) * levels) / (levels * preGain);
+      const qR = Math.round(clamp(bufRead[1] * preGain, -1, 1) * levels) / (levels * preGain);
 
-      const mix = clamp(this.params.mangleMix * (0.35 + padX * 0.85), 0, 1);
+      const mix = clamp(this.params.mangleMix * (0.35 + padX * 0.85), 0, 0.88);
       this.heldL = inL + (qL - inL) * mix;
       this.heldR = inR + (qR - inR) * mix;
     }
@@ -1071,11 +1072,12 @@ class UnstablePath {
       this.lastStep = stepIdx;
       const lfsrVal = this.stepLfsr();
       if (euclidHit(stepIdx, c.pulseEuclidK, c.pulseEuclidN)) {
-        this.pulseEnv = 0.55 + lfsrVal * 0.45;
-        this.pulseHz = c.droneBaseHz * [2, 3, 4, 5, 6, 8][Math.floor(lfsrVal * 6)];
+        this.pulseEnv = 0.60 + lfsrVal * 0.40;
+        this.pulseHz = c.droneBaseHz * [2, 3, 4, 5, 6, 8, 9, 12][Math.floor(lfsrVal * 8)];
       }
     }
-    this.pulseEnv *= Math.exp(-1 / (this.sr * 0.055));
+    const pulseDecaySec = (c.textureMode | 0) === 1 ? 0.175 : (c.textureMode | 0) === 2 ? 0.38 : 0.115;
+    this.pulseEnv *= Math.exp(-1 / (this.sr * pulseDecaySec));
 
     const fbCrossMod = c.routingIndex === 2 ? this.fbPrevL * 0.9 : 0;
     const lfsrPitchDrift = 1.0 + ((this.lfsr & 0x0f) / 15.0 - 0.5) * 0.025;
@@ -1102,51 +1104,59 @@ class UnstablePath {
     const fbReadR = this.fbBufR[(this.fbCursor - dR + fbLen) % fbLen];
 
     if (texMode === 1) {
-      // DEATH INDUSTRIAL: tectonic sub-rumble + scraped iron resonance + dark machinery pulse
+      // DEATH INDUSTRIAL: tectonic sub-rumble + bowed inharmonic iron + scraped resonance + machinery pulse
       this.lfo1Phase = (this.lfo1Phase + (0.07 + p.padX * 0.35) / this.sr) % 1;
       const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
-      this.car2Phase = (this.car2Phase + (baseHz * 1.013) / this.sr) % 1;
+      this.car2Phase = (this.car2Phase + (baseHz * 1.4142) / this.sr) % 1;
+      this.car3Phase = (this.car3Phase + (baseHz * 2.732) / this.sr) % 1;
       const nL = this.nextNoise();
       const nR = this.nextNoise();
-      this.brownL = clamp(this.brownL * 0.992 + nL * 0.08, -1, 1);
-      this.brownR = clamp(this.brownR * 0.992 + nR * 0.08, -1, 1);
+      this.brownL = clamp(this.brownL * 0.992 + nL * 0.09, -1, 1);
+      this.brownR = clamp(this.brownR * 0.992 + nR * 0.09, -1, 1);
 
-      const subCrush = Math.sin(TAU * this.carPhase + modOut * (0.4 + p.fmIndex * 2.1)) * 0.55 +
-                       Math.sin(TAU * this.car2Phase) * 0.35 +
-                       Math.sin(TAU * this.subPhase) * 0.45;
-      const rumble = this.svfA.process(this.brownL * 1.6 + subCrush * 0.65, 70 + p.padY * 340 + lfo1 * 90, 2.6 + p.padY * 2.4, this.sr).low;
-      const scrapeSrc = subCrush * modOut + nR * 0.55 + fbReadR * 0.35;
-      const scrape = this.svfB.process(scrapeSrc, 220 + p.padX * 1850 + lfo1 * 380, 4.2 + p.padY * 4.5, this.sr).band * 1.35;
-      const clang = (this.pulsePhase < 0.25 ? 1 : -1) * this.pulseEnv * p.pulseLevel * 0.65;
+      const subCrush = Math.sin(TAU * this.carPhase + modOut * (0.55 + p.fmIndex * 2.4)) * 0.55 +
+                       Math.sin(TAU * this.car2Phase + modOut * 0.8) * 0.35 +
+                       Math.sin(TAU * this.car3Phase) * 0.24 +
+                       Math.sin(TAU * this.subPhase) * 0.42;
+      const rumble = this.svfA.process(this.brownL * 1.7 + subCrush * 0.85, 110 + p.padY * 480 + lfo1 * 140, 2.8 + p.padY * 2.8, this.sr).low;
+      const scrapeSrc = subCrush * (0.5 + modOut) + nR * 0.65 + fbReadR * 0.42;
+      const scrape = this.svfB.process(scrapeSrc, 280 + p.padX * 2100 + lfo1 * 480, 4.5 + p.padY * 4.5, this.sr).band * 1.55;
+      const clang = (this.pulsePhase < 0.28 ? 1 : -1) * this.pulseEnv * p.pulseLevel * 0.85;
 
-      genL = (rumble * 0.95 + scrape * 0.72 + clang) * p.droneLevel;
-      genR = (rumble * 0.90 - scrape * 0.68 + this.brownR * 0.35 - clang * 0.7) * p.droneLevel;
+      genL = (rumble * 0.92 + scrape * 0.82 + clang) * p.droneLevel;
+      genR = (rumble * 0.88 - scrape * 0.78 + this.brownR * 0.45 - clang * 0.75) * p.droneLevel;
     } else if (texMode === 2) {
-      // DARK AMBIENT: slowly beating sub/tritone/fifth drones + cavernous LFO wind + 4-tap wash
+      // DARK AMBIENT: rich harmonic/tritone/fifth ambient pad + octave shimmer + glacial wind + 4-tap wash
       this.lfo1Phase = (this.lfo1Phase + (0.035 + p.padX * 0.09) / this.sr) % 1;
       this.lfo2Phase = (this.lfo2Phase + (0.023 + p.padY * 0.07) / this.sr) % 1;
       const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
       const lfo2 = 0.5 + 0.5 * Math.sin(TAU * this.lfo2Phase);
 
-      this.car2Phase = (this.car2Phase + (baseHz * (1.004 + p.padX * 0.011)) / this.sr) % 1;
+      this.car2Phase = (this.car2Phase + (baseHz * (1.005 + p.padX * 0.012)) / this.sr) % 1;
       this.car3Phase = (this.car3Phase + (baseHz * (c.darkInterval || 1.4983)) / this.sr) % 1;
 
-      const d1 = Math.sin(TAU * this.carPhase + modOut * (0.18 + lfo1 * 0.45));
-      const d2 = Math.sin(TAU * this.car2Phase);
-      const d3 = Math.sin(TAU * this.car3Phase) * (0.35 + 0.35 * lfo2);
-      const dSub = Math.sin(TAU * this.subPhase) * 0.55;
+      const p1 = TAU * this.carPhase;
+      const p2 = TAU * this.car2Phase;
+      const p3 = TAU * this.car3Phase;
+      const d1 = Math.sin(p1 + modOut * (0.24 + lfo1 * 0.55)) + 0.36 * Math.sin(p1 * 2.0) + 0.18 * Math.sin(p1 * 3.0);
+      const d2 = Math.sin(p2) + 0.32 * Math.sin(p2 * 2.0) + 0.14 * Math.sin(p2 * 4.0);
+      const d3 = (Math.sin(p3) + 0.28 * Math.sin(p3 * 2.0)) * (0.42 + 0.40 * lfo2);
+      const dSub = Math.sin(TAU * this.subPhase) * 0.45;
 
       const nL = this.nextNoise();
       const nR = this.nextNoise();
-      this.brownL = clamp(this.brownL * 0.994 + nL * 0.06, -1, 1);
-      this.brownR = clamp(this.brownR * 0.994 + nR * 0.06, -1, 1);
+      this.brownL = clamp(this.brownL * 0.994 + nL * 0.07, -1, 1);
+      this.brownR = clamp(this.brownR * 0.994 + nR * 0.07, -1, 1);
 
-      const windL = this.svfA.process(this.brownL * 1.8 + nL * 0.25, 95 + lfo1 * (240 + p.padY * 620), 3.6 + p.padY * 3.2, this.sr).band * 1.45;
-      const windR = this.svfB.process(this.brownR * 1.8 + nR * 0.25, 160 + lfo2 * (320 + p.padX * 780), 3.8 + p.padX * 3.0, this.sr).band * 1.45;
-      const chime = Math.sin(TAU * this.pulsePhase) * this.pulseEnv * p.pulseLevel * 0.45;
+      const windL = this.svfA.process(this.brownL * 1.9 + nL * 0.35, 190 + lfo1 * (360 + p.padY * 950), 3.4 + p.padY * 3.2, this.sr).band * 1.65;
+      const windR = this.svfB.process(this.brownR * 1.9 + nR * 0.35, 260 + lfo2 * (440 + p.padX * 1150), 3.6 + p.padX * 3.0, this.sr).band * 1.65;
+      const chime = (Math.sin(TAU * this.pulsePhase) + 0.35 * Math.sin(TAU * this.pulsePhase * 2.0)) * this.pulseEnv * p.pulseLevel * 0.55;
 
-      genL = ((d1 * 0.48 + d2 * 0.42 + d3 * 0.35 + dSub) * 0.65 + windL + chime) * p.droneLevel;
-      genR = ((d1 * 0.44 + d2 * 0.46 - d3 * 0.32 + dSub) * 0.65 + windR - chime * 0.8) * p.droneLevel;
+      const padBodyL = this.svfC.process((d1 * 0.44 + d2 * 0.40 + d3 * 0.38 + dSub) * 0.62, 420 + lfo1 * 1200 + p.padY * 900, 1.2, this.sr).low;
+      const padBodyR = (d1 * 0.38 + d2 * 0.44 - d3 * 0.34 + dSub) * 0.55;
+
+      genL = (padBodyL + windL + chime) * p.droneLevel;
+      genR = (padBodyR + windR - chime * 0.8) * p.droneLevel;
     } else if (texMode === 3) {
       // POWER ELECTRONICS: cross-coupled self-oscillating feedback shriek + diode wall + sub weight
       const gateRate = 0.6 + p.padX * 14.0;
@@ -1158,27 +1168,38 @@ class UnstablePath {
       const nL = this.nextNoise();
       const nR = this.nextNoise();
       const ringN = nL * modOut;
-      const f1Hz = clamp(320 + p.padX * 3600 + lfo1 * 720 + fbReadR * 950, 90, 6800);
-      const f2Hz = clamp(210 + p.padY * 2900 - lfo1 * 540 + fbReadL * 820, 80, 6200);
+      const f1Hz = clamp(340 + p.padX * 3600 + lfo1 * 780 + fbReadR * 950, 110, 6800);
+      const f2Hz = clamp(240 + p.padY * 2900 - lfo1 * 580 + fbReadL * 820, 95, 6200);
 
-      const s1 = this.svfA.process(nL * 0.6 + ringN * 0.5 + fbReadL * 0.72, f1Hz, 6.0 + p.padY * 7.0, this.sr);
-      const s2 = this.svfB.process(nR * 0.6 + s1.band * 0.55 + fbReadR * 0.72, f2Hz, 5.5 + p.padX * 6.5, this.sr);
-      const subPush = Math.sin(TAU * this.subPhase) * 0.55 + Math.sin(TAU * this.carPhase + modOut * 2.4) * 0.45;
+      const s1 = this.svfA.process(nL * 0.72 + ringN * 0.62 + fbReadL * 0.78, f1Hz, 6.5 + p.padY * 7.0, this.sr);
+      const s2 = this.svfB.process(nR * 0.72 + s1.band * 0.65 + fbReadR * 0.78, f2Hz, 6.0 + p.padX * 6.5, this.sr);
+      const subPush = Math.sin(TAU * this.subPhase) * 0.60 + Math.sin(TAU * this.carPhase + modOut * 2.8) * 0.52;
 
       const chopThresh = -0.75 + p.padX * 1.15 - p.padY * 0.55;
-      const targetGate = lfo2 > chopThresh ? 1.0 : (0.18 + p.padY * 0.55);
-      this.gateEnv += (targetGate - this.gateEnv) * 0.012;
+      const targetGate = lfo2 > chopThresh ? 1.0 : (0.22 + p.padY * 0.55);
+      this.gateEnv += (targetGate - this.gateEnv) * 0.014;
 
-      const rawPeL = (s1.band * 0.85 + s2.high * 0.42 + subPush * 0.75 + ringN * 0.45) * this.gateEnv;
-      const rawPeR = (s2.band * 0.85 + s1.high * 0.42 + subPush * 0.70 - ringN * 0.45) * this.gateEnv;
+      const rawPeL = (s1.band * 1.05 + s2.high * 0.48 + subPush * 0.85 + ringN * 0.52) * this.gateEnv;
+      const rawPeR = (s2.band * 1.05 + s1.high * 0.48 + subPush * 0.80 - ringN * 0.52) * this.gateEnv;
       genL = rawPeL * p.droneLevel;
       genR = rawPeR * p.droneLevel;
     } else {
-      const drone = (Math.sin(TAU * this.carPhase + modOut * fmAmt) * 0.65 +
-                     Math.sin(TAU * this.subPhase) * 0.35) * p.droneLevel;
-      const pulse = (this.pulsePhase < (0.2 + p.padX * 0.3) ? 1 : -1) * this.pulseEnv * p.pulseLevel;
-      genL = drone + pulse * 0.85;
-      genR = drone * 0.94 - pulse * 0.85;
+      // ALGORITHMIC PULSE / DRONE + HARMONICS + SUBTLE AMBIENT MIST
+      this.lfo1Phase = (this.lfo1Phase + 0.09 / this.sr) % 1;
+      const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
+      this.car2Phase = (this.car2Phase + (baseHz * 2.003) / this.sr) % 1;
+      const nL = this.nextNoise();
+      const fmSig = Math.sin(TAU * this.carPhase + modOut * fmAmt);
+      const octHarm = Math.sin(TAU * this.car2Phase + modOut * (fmAmt * 0.45)) * 0.42;
+      const subSig = Math.sin(TAU * this.subPhase) * 0.35;
+      const mist = this.svfA.process(nL * 0.35, 320 + lfo1 * 1100 + p.padY * 800, 2.8, this.sr).band * 0.42;
+
+      const drone = (fmSig * 0.62 + octHarm + subSig + mist) * p.droneLevel;
+      const pulseWave = (this.pulsePhase < (0.22 + p.padX * 0.32) ? 1 : -1) * 0.65 +
+                        Math.sin(TAU * this.pulsePhase) * 0.35;
+      const pulse = pulseWave * this.pulseEnv * p.pulseLevel;
+      genL = drone + pulse * 0.92;
+      genR = drone * 0.92 - pulse * 0.88;
     }
 
     const scGain = p.scMode === 2
@@ -1249,13 +1270,13 @@ class UnstablePath {
     this.fbPrevL = nextFbL;
     this.fbPrevR = nextFbR;
 
-    let outL = (preFbL * 0.52 + nextFbL * 0.58) * boost;
-    let outR = (preFbR * 0.52 + nextFbR * 0.58) * boost;
+    let outL = (preFbL * 0.55 + nextFbL * 0.62) * boost;
+    let outR = (preFbR * 0.55 + nextFbR * 0.62) * boost;
     if (p.scMode !== 1) {
       outL *= scGain;
       outR *= scGain;
     }
-    return [fastTanh(outL * 0.75), fastTanh(outR * 0.75)];
+    return [fastTanh(outL * 0.95), fastTanh(outR * 0.95)];
   }
 }
 
@@ -1480,15 +1501,15 @@ class HaecceityProcessor extends AudioWorkletProcessor {
       [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1,  0, 0, 0, 0],
     ];
 
-    this.kickGain = 0.62;
-    this.drumGain = 0.72;
-    this.idmGain = 0.92;
-    this.unstableGain = 0.65;
+    this.kickGain = 0.56;
+    this.drumGain = 0.58;
+    this.idmGain = 0.72;
+    this.unstableGain = 0.92;
     this.mumbleGain = 0.82;
     this.masterGain = 0.88;
 
     this.kickEnv = 0;
-    this.scReleaseMs = 165;
+    this.scReleaseMs = 95;
 
     this.telemetryCounter = 0;
     this.peakKick = 0;
@@ -1648,8 +1669,8 @@ class HaecceityProcessor extends AudioWorkletProcessor {
       const unL = uL * this.unstableGain;
       const unR = uR * this.unstableGain;
 
-      const mL = fastTanh((kSig + dL * 0.55 + iL + unL + mSig * 0.9) * this.masterGain);
-      const mR = fastTanh((kSig + dR * 0.55 + iR + unR + mSig * 0.9) * this.masterGain);
+      const mL = fastTanh((kSig + dL * 0.45 + iL * 0.82 + unL + mSig * 0.9) * this.masterGain);
+      const mR = fastTanh((kSig + dR * 0.45 + iR * 0.82 + unR + mSig * 0.9) * this.masterGain);
 
       outL[i] = mL;
       outR[i] = mR;

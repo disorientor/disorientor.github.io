@@ -126,14 +126,12 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
       });
     }
     if (tempoArchetype === 4) {
-      // Dark ambient: beatless or ultra-sparse distant sub-bloom
-      const hitStep = rng.int(0, 15);
-      return Array.from({ length: 16 }, (__, i) => (q === 3 && i === hitStep ? 1 : 0));
+      // Dark ambient: beatless
+      return Array.from({ length: 16 }, () => 0);
     }
     if (tempoArchetype === 5) {
-      // Power electronics: mostly absent or erratic blown-out sub thuds
-      const dens = [0.0, 0.06, 0.04, 0.12][q];
-      return Array.from({ length: 16 }, () => (rng.nextFloat() < dens ? 2 : 0));
+      // Power electronics: beatless (pure feedback/noise/sub synth)
+      return Array.from({ length: 16 }, () => 0);
     }
     const dens = [0.22, 0.48, 0.34, 0.64][q];
     return Array.from({ length: 16 }, (__, i) => {
@@ -152,17 +150,17 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
         );
       }
       if (tempoArchetype === 4) {
-        // Dark ambient: ultra-sparse ghostly wire/metal resonances
-        const ambDens = [0.02, 0.03, 0.03, 0.0, 0.0, 0.02, 0.02, 0.06][slot] * (0.5 + q * 0.25);
+        // Dark ambient: ultra-sparse distant metallic/wire resonances (max 1-2 subtle ghosts)
+        const ambDens = [0.0, 0.0, 0.015, 0.0, 0.0, 0.015, 0.0, 0.04][slot] * (0.5 + q * 0.2);
         return Array.from({ length: 16 }, () =>
-          rng.nextFloat() < ambDens ? Number(rng.range(0.28, 0.58).toFixed(2)) : 0
+          rng.nextFloat() < ambDens ? Number(rng.range(0.22, 0.42).toFixed(2)) : 0
         );
       }
       if (tempoArchetype === 5) {
-        // Power electronics: rare harsh metallic static bursts
-        const peDens = [0.03, 0.06, 0.05, 0.04, 0.02, 0.05, 0.04, 0.08][slot] * (0.5 + q * 0.3);
+        // Power electronics: rare harsh static/metal blasts, no conventional beat
+        const peDens = [0.0, 0.03, 0.02, 0.02, 0.0, 0.02, 0.0, 0.04][slot] * (0.5 + q * 0.25);
         return Array.from({ length: 16 }, () =>
-          rng.nextFloat() < peDens ? Number(rng.range(0.65, 1.0).toFixed(2)) : 0
+          rng.nextFloat() < peDens ? Number(rng.range(0.55, 0.90).toFixed(2)) : 0
         );
       }
       const baseDens = [0.24, 0.28, 0.22, 0.58, 0.20, 0.28, 0.25, 0.22][slot] * (0.65 + q * 0.3);
@@ -173,8 +171,8 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
   );
 
   const droneRootsPool = tempoArchetype >= 3
-    ? [24.50, 27.50, 30.87, 32.70, 36.71, 41.20, 46.25, 49.00, 55.00, 61.74]
-    : [32.70, 36.71, 41.20, 49.00, 55.00, 61.74, 73.42, 82.41, 98.00];
+    ? [46.25, 55.00, 61.74, 73.42, 82.41, 98.00, 110.00, 130.81]
+    : [55.00, 61.74, 73.42, 82.41, 98.00, 110.00, 130.81, 146.83];
 
   const fmRatiosPool = tempoArchetype >= 3
     ? [0.5, 0.7071, 1.0, 1.0595, 1.4142, 1.4983, 2.31, 3.1415, 4.71]
@@ -411,30 +409,30 @@ export function allocateFromXY(scene, rawX, rawY) {
   };
 
   const unstableParams = {
-    sceneBoost: isBeatArch ? 1.0 : isAmbient ? 1.38 : isDeathInd ? 1.34 : 1.32,
-    droneLevel: isBeatArch ? lerp(0.22, 0.78, b(0)) : lerp(0.74, 0.98, 0.35 + 0.65 * b(0)),
-    pulseLevel: isAmbient ? lerp(0.08, 0.28, b(4)) : isPowerElec ? lerp(0.35, 0.95, b(4)) : lerp(0.25, 0.85, b(4)),
-    fmIndex: isAmbient ? lerp(0.12, 0.62, y) : lerp(0.18, 0.95, y),
-    mangleMix: isAmbient ? lerp(0.08, 0.30, x) : lerp(0.30, 0.95, x),
+    sceneBoost: isBeatArch ? 1.25 : isAmbient ? 1.62 : isDeathInd ? 1.50 : 1.54,
+    droneLevel: isBeatArch ? lerp(0.58, 0.96, b(0)) : lerp(0.82, 1.0, 0.35 + 0.65 * b(0)),
+    pulseLevel: isAmbient ? lerp(0.14, 0.36, b(4)) : isPowerElec ? lerp(0.45, 0.98, b(4)) : lerp(0.45, 0.95, b(4)),
+    fmIndex: isAmbient ? lerp(0.18, 0.68, y) : lerp(0.24, 0.95, y),
+    mangleMix: isAmbient ? lerp(0.08, 0.30, x) : lerp(0.30, 0.88, x),
     shaperDrive: isAmbient
-      ? lerp(0.08, 0.38, y)
+      ? lerp(0.18, 0.48, y)
       : isPowerElec
         ? lerp(0.68, 1.0, clamp(0.55 * y + 0.45 * b(17), 0, 1))
-        : lerp(0.20, 0.96, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
+        : lerp(0.28, 0.96, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
     fbGain: isAmbient
-      ? lerp(0.76, 0.95, clamp(0.5 * y + 0.5 * b(2), 0, 1))
+      ? lerp(0.78, 0.95, clamp(0.5 * y + 0.5 * b(2), 0, 1))
       : isDeathInd
-        ? lerp(0.58, 0.94, clamp(0.55 * y + 0.45 * b(2), 0, 1))
+        ? lerp(0.62, 0.94, clamp(0.55 * y + 0.45 * b(2), 0, 1))
         : isPowerElec
-          ? lerp(0.65, 0.98, clamp(0.6 * y + 0.4 * b(2), 0, 1))
-          : lerp(0.32, 0.96, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
+          ? lerp(0.68, 0.98, clamp(0.6 * y + 0.4 * b(2), 0, 1))
+          : lerp(0.45, 0.95, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
     fbDampHz: isAmbient
-      ? Math.round(lerp(420, 2400, 1 - y * 0.45))
+      ? Math.round(lerp(900, 3800, 1 - y * 0.45))
       : isDeathInd
-        ? Math.round(lerp(520, 4200, 1 - y * 0.4))
-        : Math.round(lerp(900, 11000, 1 - y * 0.4)),
-    scDepth: isAmbient ? 0.12 : isPowerElec ? lerp(0.10, 0.36, b(1)) : isDeathInd ? lerp(0.24, 0.56, b(1)) : lerp(0.55, 0.96, b(1)),
-    scMode: isBeatArch ? Math.floor(b(14) * 4) : 0,
+        ? Math.round(lerp(850, 5200, 1 - y * 0.4))
+        : Math.round(lerp(1200, 11000, 1 - y * 0.4)),
+    scDepth: isAmbient ? 0.08 : isPowerElec ? 0.12 : isDeathInd ? lerp(0.18, 0.42, b(1)) : lerp(0.22, 0.52, b(1)),
+    scMode: isBeatArch ? (b(14) > 0.75 ? 1 : 0) : 0,
     padX: x,
     padY: y,
   };

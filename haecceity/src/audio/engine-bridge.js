@@ -22,7 +22,7 @@ export class HaecceityAudioBridge {
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AudioCtx({ latencyHint: 'interactive' });
-    await this.ctx.audioWorklet.addModule('./src/audio/haecceity-worklet.js');
+    await this.ctx.audioWorklet.addModule('./src/audio/haecceity-worklet.js?v=3');
 
     this.node = new AudioWorkletNode(this.ctx, 'haecceity-processor', {
       numberOfInputs: 0,
