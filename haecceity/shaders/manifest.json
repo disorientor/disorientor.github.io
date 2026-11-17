@@ -1,0 +1,8604 @@
+{
+  "backgrounds": [
+    {
+      "id": "f01_raymarched_mandelbulb",
+      "path": "./shaders/backgrounds/f01_raymarched_mandelbulb.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_power",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        },
+        {
+          "name": "u_max_iterations",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 20.0,
+          "range": null
+        },
+        {
+          "name": "u_camera_dist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.15,
+          "range": null
+        },
+        {
+          "name": "u_glow_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_color_palette",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f02_mandelbox_infinite_nave",
+      "path": "./shaders/backgrounds/f02_mandelbox_infinite_nave.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -2.6,
+          "range": null
+        },
+        {
+          "name": "u_folding_limit",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_min_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_cam_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_ambient_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f03_apollonian_sphere_packing",
+      "path": "./shaders/backgrounds/f03_apollonian_sphere_packing.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_inversion_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.75,
+          "range": null
+        },
+        {
+          "name": "u_sphere_gap",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_iridescence",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_camera_orbit",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f04_menger_jerusalem_sponge",
+      "path": "./shaders/backgrounds/f04_menger_jerusalem_sponge.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_sponge_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_cross_cut_ratio",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_crepuscular_rays",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_gold_trim",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f05_quaternion_julia_4d",
+      "path": "./shaders/backgrounds/f05_quaternion_julia_4d.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_c_real",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -0.13,
+          "range": null
+        },
+        {
+          "name": "u_c_i",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.74,
+          "range": null
+        },
+        {
+          "name": "u_c_j",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.22,
+          "range": null
+        },
+        {
+          "name": "u_c_k",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -0.38,
+          "range": null
+        },
+        {
+          "name": "u_slice_w",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_hyper_rot_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.8,
+          "range": null
+        },
+        {
+          "name": "u_specular_gloss",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f06_kleinian_limit_coral",
+      "path": "./shaders/backgrounds/f06_kleinian_limit_coral.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_box_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.3,
+          "range": null
+        },
+        {
+          "name": "u_sphere_inversion",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        },
+        {
+          "name": "u_coral_spiral",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_deep_sea_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f07_sierpinski_octahedral_sanctum",
+      "path": "./shaders/backgrounds/f07_sierpinski_octahedral_sanctum.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_scale_factor",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.05,
+          "range": null
+        },
+        {
+          "name": "u_offset_dist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_crystal_core",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_rotation_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f08_burning_ship_deep_zoom",
+      "path": "./shaders/backgrounds/f08_burning_ship_deep_zoom.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_zoom_level",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.0,
+          "range": null
+        },
+        {
+          "name": "u_center_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -1.755,
+          "range": null
+        },
+        {
+          "name": "u_center_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -0.035,
+          "range": null
+        },
+        {
+          "name": "u_flame_cycle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_interior_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f09_lyapunov_biomorph_space",
+      "path": "./shaders/backgrounds/f09_lyapunov_biomorph_space.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_sequence_type",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_param_a",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_param_b",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_exponent_gamma",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.8,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f10_newton_raphson_basins",
+      "path": "./shaders/backgrounds/f10_newton_raphson_basins.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_relaxation",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_root_morph",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_contour_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f11_hyperbolic_colonnade_ifs",
+      "path": "./shaders/backgrounds/f11_hyperbolic_colonnade_ifs.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_arch_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_pillar_repeat",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.0,
+          "range": null
+        },
+        {
+          "name": "u_candelabra_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_fly_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f12_collatz_fractal_lattice",
+      "path": "./shaders/backgrounds/f12_collatz_fractal_lattice.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 10.25,
+          "range": null
+        },
+        {
+          "name": "u_center_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_center_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_tendril_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_phase_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f13_kaleidoscopic_dodecahedron_ifs",
+      "path": "./shaders/backgrounds/f13_kaleidoscopic_dodecahedron_ifs.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_rotation_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_facet_shine",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_inner_lasers",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f14_duffing_attractor_sheet",
+      "path": "./shaders/backgrounds/f14_duffing_attractor_sheet.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_damping",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.25,
+          "range": null
+        },
+        {
+          "name": "u_forcing",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.55,
+          "range": null
+        },
+        {
+          "name": "u_sheet_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_poincare_slice",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f15_barnsley_fern_quantum_ifs",
+      "path": "./shaders/backgrounds/f15_barnsley_fern_quantum_ifs.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_quantum_wave",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_wind_sway",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_fluor_color",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "f16_fractal_flame_supersampler",
+      "path": "./shaders/backgrounds/f16_fractal_flame_supersampler.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_variation_blend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_flame_symmetry",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_flame_gamma",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_spectral_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t01_hopf_fibration_clifford_torus",
+      "path": "./shaders/backgrounds/t01_hopf_fibration_clifford_torus.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_fiber_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_bundle_twist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_villarceau_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cam_distance",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t02_poincare_hyperbolic_disk",
+      "path": "./shaders/backgrounds/t02_poincare_hyperbolic_disk.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_p_sides",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_tessellation_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        },
+        {
+          "name": "u_geodesic_width",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_horocycle_rings",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t03_gray_scott_reaction_diffusion",
+      "path": "./shaders/backgrounds/t03_gray_scott_reaction_diffusion.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_morph_pattern",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_feed_f",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.04,
+          "range": null
+        },
+        {
+          "name": "u_kill_k",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.06,
+          "range": null
+        },
+        {
+          "name": "u_irid_saturation",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t04_calabi_yau_string_manifold",
+      "path": "./shaders/backgrounds/t04_calabi_yau_string_manifold.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_psi_modulus",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_string_flux",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_manifold_twist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_irid_shimmer",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t05_gyroid_schwarz_minimal_surfaces",
+      "path": "./shaders/backgrounds/t05_gyroid_schwarz_minimal_surfaces.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_surface_blend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_wall_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.21,
+          "range": null
+        },
+        {
+          "name": "u_tpms_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_inner_biolum",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t06_chladni_cymatic_resonance",
+      "path": "./shaders/backgrounds/t06_chladni_cymatic_resonance.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_mode_m",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 6.0,
+          "range": null
+        },
+        {
+          "name": "u_mode_n",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 6.0,
+          "range": null
+        },
+        {
+          "name": "u_nodal_sharpness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cymatic_plate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t07_complex_domain_dedekind_eta",
+      "path": "./shaders/backgrounds/t07_complex_domain_dedekind_eta.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_contour_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 17.5,
+          "range": null
+        },
+        {
+          "name": "u_grid_saturation",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_tau_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_tau_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.8,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t08_quantum_harmonic_interference",
+      "path": "./shaders/backgrounds/t08_quantum_harmonic_interference.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_state_nx",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_state_ny",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_vortex_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_current_arrows",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t09_clifford_strange_attractor",
+      "path": "./shaders/backgrounds/t09_clifford_strange_attractor.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_param_a",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -1.4,
+          "range": null
+        },
+        {
+          "name": "u_param_b",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        },
+        {
+          "name": "u_param_c",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_param_d",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.7,
+          "range": null
+        },
+        {
+          "name": "u_density_boost",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_chroma_spread",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t10_penrose_aperiodic_quasicrystal",
+      "path": "./shaders/backgrounds/t10_penrose_aperiodic_quasicrystal.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_grid_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 24.0,
+          "range": null
+        },
+        {
+          "name": "u_rhomb_contrast",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_golden_inflation",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_wireframe_thick",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t11_klein_bottle_4d_immersion",
+      "path": "./shaders/backgrounds/t11_klein_bottle_4d_immersion.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_tube_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.75,
+          "range": null
+        },
+        {
+          "name": "u_transparency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_geodesic_flow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_color_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t12_belousov_zhabotinsky_spiral",
+      "path": "./shaders/backgrounds/t12_belousov_zhabotinsky_spiral.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_spiral_arms",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_turbulence",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_target_pacemakers",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_color_scheme",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t13_octonionic_fano_plane_nexus",
+      "path": "./shaders/backgrounds/t13_octonionic_fano_plane_nexus.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_associator_shear",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_fano_ring_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_rune_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_triality_phase",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t14_hyperbolic_honeycomb_534",
+      "path": "./shaders/backgrounds/t14_hyperbolic_honeycomb_534.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dodeca_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.4,
+          "range": null
+        },
+        {
+          "name": "u_geodesic_bend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_crystal_purity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_infinity_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t15_superluminal_lorentz_warp",
+      "path": "./shaders/backgrounds/t15_superluminal_lorentz_warp.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_beta_velocity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5495,
+          "range": null
+        },
+        {
+          "name": "u_doppler_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cherenkov_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_star_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "t16_sacred_merkaba_flux_matrix",
+      "path": "./shaders/backgrounds/t16_sacred_merkaba_flux_matrix.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_tetra_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.65,
+          "range": null
+        },
+        {
+          "name": "u_metatron_rays",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_torus_vortex",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_sacred_gold",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v01_hyperspace_wormhole_tunnel",
+      "path": "./shaders/backgrounds/v01_hyperspace_wormhole_tunnel.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_twist_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.5,
+          "range": null
+        },
+        {
+          "name": "u_throat_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.1,
+          "range": null
+        },
+        {
+          "name": "u_chroma_warp",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.4,
+          "range": null
+        },
+        {
+          "name": "u_starlight_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 20.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v02_infinite_gothic_cathedral_colonnade",
+      "path": "./shaders/backgrounds/v02_infinite_gothic_cathedral_colonnade.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_vault_height",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.8,
+          "range": null
+        },
+        {
+          "name": "u_stained_glass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.3,
+          "range": null
+        },
+        {
+          "name": "u_god_ray_boost",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_fog_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.045,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v03_dmt_hyperbolic_kaleidoscope_vortex",
+      "path": "./shaders/backgrounds/v03_dmt_hyperbolic_kaleidoscope_vortex.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dive_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.8,
+          "range": null
+        },
+        {
+          "name": "u_fold_symmetry",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 7.0,
+          "range": null
+        },
+        {
+          "name": "u_spiral_twist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_morph_cycles",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_psychedelic_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v04_cyberpunk_neon_trench_run",
+      "path": "./shaders/backgrounds/v04_cyberpunk_neon_trench_run.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_trench_width",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.8,
+          "range": null
+        },
+        {
+          "name": "u_neon_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        },
+        {
+          "name": "u_hologram_flicker",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.6,
+          "range": null
+        },
+        {
+          "name": "u_wet_reflection",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.85,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v05_kerr_black_hole_accretion_dive",
+      "path": "./shaders/backgrounds/v05_kerr_black_hole_accretion_dive.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dive_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_spin_parameter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.92,
+          "range": null
+        },
+        {
+          "name": "u_doppler_beaming",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_disk_temperature",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_photon_ring_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v06_bismuth_fractal_staircase_labyrinth",
+      "path": "./shaders/backgrounds/v06_bismuth_fractal_staircase_labyrinth.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_descent_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_terrace_steps",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 12.0,
+          "range": null
+        },
+        {
+          "name": "u_iridescence_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.5,
+          "range": null
+        },
+        {
+          "name": "u_metallic_sheen",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        },
+        {
+          "name": "u_hopper_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.785,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v07_biomorphic_neural_mycelium_tunnel",
+      "path": "./shaders/backgrounds/v07_biomorphic_neural_mycelium_tunnel.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_synapse_pulse_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_gyroid_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_bioluminescence",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_cellular_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v08_hyper_torus_clifford_rollercoaster",
+      "path": "./shaders/backgrounds/v08_hyper_torus_clifford_rollercoaster.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.4,
+          "range": null
+        },
+        {
+          "name": "u_knot_p",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_knot_q",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_tube_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.85,
+          "range": null
+        },
+        {
+          "name": "u_neon_ring_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 16.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v09_retro_synthwave_wireframe_horizon",
+      "path": "./shaders/backgrounds/v09_retro_synthwave_wireframe_horizon.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.8,
+          "range": null
+        },
+        {
+          "name": "u_grid_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 22.0,
+          "range": null
+        },
+        {
+          "name": "u_mountain_height",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.1,
+          "range": null
+        },
+        {
+          "name": "u_sun_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.52,
+          "range": null
+        },
+        {
+          "name": "u_sun_blinds_count",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 10.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v10_quantum_chromodynamic_gluon_tube",
+      "path": "./shaders/backgrounds/v10_quantum_chromodynamic_gluon_tube.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.2,
+          "range": null
+        },
+        {
+          "name": "u_braid_frequency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.1,
+          "range": null
+        },
+        {
+          "name": "u_flux_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.45,
+          "range": null
+        },
+        {
+          "name": "u_vacuum_fluctuation",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        },
+        {
+          "name": "u_color_charge_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v11_escher_hyperbolic_mirror_corridor",
+      "path": "./shaders/backgrounds/v11_escher_hyperbolic_mirror_corridor.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_mirror_reflectivity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.85,
+          "range": null
+        },
+        {
+          "name": "u_corridor_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.2,
+          "range": null
+        },
+        {
+          "name": "u_rotation_warp",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.1,
+          "range": null
+        },
+        {
+          "name": "u_checker_frequency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v12_solar_corona_prominence_voyage",
+      "path": "./shaders/backgrounds/v12_solar_corona_prominence_voyage.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_plasma_heat",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        },
+        {
+          "name": "u_magnetic_loops",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_granulation_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 6.0,
+          "range": null
+        },
+        {
+          "name": "u_solar_flare_pulse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v13_tesseract_4d_corridor_hyperjump",
+      "path": "./shaders/backgrounds/v13_tesseract_4d_corridor_hyperjump.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_hyper_rot_xw",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_hyper_rot_zw",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        },
+        {
+          "name": "u_lattice_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.08,
+          "range": null
+        },
+        {
+          "name": "u_quantum_flux",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v14_sacred_merkaba_stellar_chasm",
+      "path": "./shaders/backgrounds/v14_sacred_merkaba_stellar_chasm.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_descent_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.4,
+          "range": null
+        },
+        {
+          "name": "u_merkaba_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.25,
+          "range": null
+        },
+        {
+          "name": "u_metatron_laser_rays",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_sacred_gold_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_spin_harmony",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v15_crystal_cavern_geode_chasm",
+      "path": "./shaders/backgrounds/v15_crystal_cavern_geode_chasm.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_crystal_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.2,
+          "range": null
+        },
+        {
+          "name": "u_amethyst_hue",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.4,
+          "range": null
+        },
+        {
+          "name": "u_caustic_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        },
+        {
+          "name": "u_cave_roughness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.75,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v16_transcendence_omega_point_vortex",
+      "path": "./shaders/backgrounds/v16_transcendence_omega_point_vortex.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dive_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.8,
+          "range": null
+        },
+        {
+          "name": "u_spiral_arms",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_singularity_flare",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.5,
+          "range": null
+        },
+        {
+          "name": "u_hyperspace_warp",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.3,
+          "range": null
+        },
+        {
+          "name": "u_rainbow_frequency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v17_neotokyo_cyber_megalopolis_run",
+      "path": "./shaders/backgrounds/v17_neotokyo_cyber_megalopolis_run.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.5,
+          "range": null
+        },
+        {
+          "name": "u_neon_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_traffic_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_rain_wetness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v18_tokamak_fusion_plasma_voyage",
+      "path": "./shaders/backgrounds/v18_tokamak_fusion_plasma_voyage.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.4,
+          "range": null
+        },
+        {
+          "name": "u_plasma_temp",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_magnetic_twist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.5,
+          "range": null
+        },
+        {
+          "name": "u_cherenkov_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v19_calabi_yau_crystal_chasm",
+      "path": "./shaders/backgrounds/v19_calabi_yau_crystal_chasm.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.2,
+          "range": null
+        },
+        {
+          "name": "u_crystal_facets",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_superstring_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_prismatic_sheen",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.6,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "v20_chronos_temporal_wormhole",
+      "path": "./shaders/backgrounds/v20_chronos_temporal_wormhole.gdshader",
+      "uniforms": [
+        {
+          "name": "u_fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1060.0,
+            550.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_plunge_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_throat_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "u_causality_ripples",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.8,
+          "range": null
+        },
+        {
+          "name": "u_spectral_shift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        }
+      ]
+    }
+  ],
+  "glitches": [
+    {
+      "id": "01_chromatic_aberration",
+      "path": "./shaders/glitch/01_chromatic_aberration.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_direction_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_spectral_taps",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 6.0,
+          "range": null
+        },
+        {
+          "name": "u_jitter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "02_datamosh",
+      "path": "./shaders/glitch/02_datamosh.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_block_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 16.0,
+          "range": null
+        },
+        {
+          "name": "u_hold_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flow_direction",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "03_vhs_static",
+      "path": "./shaders/glitch/03_vhs_static.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_tracking_pos",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_noise_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_tape_wobble",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "04_macroblock_scramble",
+      "path": "./shaders/glitch/04_macroblock_scramble.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_block_dimension",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 32.0,
+          "range": null
+        },
+        {
+          "name": "u_scramble_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        },
+        {
+          "name": "u_corrupt_threshold",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_invert_prob",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "05_crt_vhold_roll",
+      "path": "./shaders/glitch/05_crt_vhold_roll.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_roll_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "u_vbi_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.12,
+          "range": null
+        },
+        {
+          "name": "u_curvature",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.18,
+          "range": null
+        },
+        {
+          "name": "u_beam_collapse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "06_bitcrush_alu",
+      "path": "./shaders/glitch/06_bitcrush_alu.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_bit_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_pixel_resolution",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 128.0,
+          "range": null
+        },
+        {
+          "name": "u_alu_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_palette_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "07_interlace_jitter",
+      "path": "./shaders/glitch/07_interlace_jitter.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_comb_strength",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.015,
+          "range": null
+        },
+        {
+          "name": "u_jitter_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 25.0,
+          "range": null
+        },
+        {
+          "name": "u_field_invert",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "08_ntsc_composite",
+      "path": "./shaders/glitch/08_ntsc_composite.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_phase_jitter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cross_color",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_ring_samples",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "09_vram_stride_dump",
+      "path": "./shaders/glitch/09_vram_stride_dump.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_stride_skew",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.15,
+          "range": null
+        },
+        {
+          "name": "u_leak_prob",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_noise_blend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "10_temporal_feedback",
+      "path": "./shaders/glitch/10_temporal_feedback.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_feedback_zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_feedback_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_decay_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.85,
+          "range": null
+        },
+        {
+          "name": "u_chroma_spin",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.2,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "11_magnetic_degauss",
+      "path": "./shaders/glitch/11_magnetic_degauss.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_magnet_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_magnet_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_twist_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_degauss_pulse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "12_raster_drift",
+      "path": "./shaders/glitch/12_raster_drift.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_hum_bar_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.25,
+          "range": null
+        },
+        {
+          "name": "u_hum_bar_width",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_ripple_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 45.0,
+          "range": null
+        },
+        {
+          "name": "u_rf_interference",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "13_pixel_sort",
+      "path": "./shaders/glitch/13_pixel_sort.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_sort_direction",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_threshold_min",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_threshold_max",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.95,
+          "range": null
+        },
+        {
+          "name": "u_sort_spread",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 40.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "14_voltage_fault",
+      "path": "./shaders/glitch/14_voltage_fault.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_burst_frequency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.5,
+          "range": null
+        },
+        {
+          "name": "u_strobe_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.8,
+          "range": null
+        },
+        {
+          "name": "u_shear_strength",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "15_moire_aliasing",
+      "path": "./shaders/glitch/15_moire_aliasing.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_grid_frequency",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 120.0,
+          "range": null
+        },
+        {
+          "name": "u_angle_offset",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_subpixel_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "16_crt_phosphor_bloom",
+      "path": "./shaders/glitch/16_crt_phosphor_bloom.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_mask_type",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_mask_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_bloom_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.75,
+          "range": null
+        },
+        {
+          "name": "u_scanline_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_phosphor_jitter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "17_tape_wow_flutter",
+      "path": "./shaders/glitch/17_tape_wow_flutter.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_wow_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_flutter_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 33.0,
+          "range": null
+        },
+        {
+          "name": "u_tape_tension",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dropouts",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "18_rutt_etra_scan_deflection",
+      "path": "./shaders/glitch/18_rutt_etra_scan_deflection.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_scanline_count",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 175.0,
+          "range": null
+        },
+        {
+          "name": "u_z_depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_line_thickness",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_wireframe_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "19_broken_lcd_crystal_leak",
+      "path": "./shaders/glitch/19_broken_lcd_crystal_leak.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_impact_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_impact_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.45,
+          "range": null
+        },
+        {
+          "name": "u_crack_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 17.5,
+          "range": null
+        },
+        {
+          "name": "u_fluid_radius",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.275,
+          "range": null
+        },
+        {
+          "name": "u_dead_lines",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "20_entropy_huffman_desync",
+      "path": "./shaders/glitch/20_entropy_huffman_desync.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_slice_height",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 36.0,
+          "range": null
+        },
+        {
+          "name": "u_bit_error_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.55,
+          "range": null
+        },
+        {
+          "name": "u_zigzag_drift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_chroma_desync",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "21_quantization_ringing_gibbs",
+      "path": "./shaders/glitch/21_quantization_ringing_gibbs.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_block_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        },
+        {
+          "name": "u_ringing_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 22.5,
+          "range": null
+        },
+        {
+          "name": "u_ringing_decay",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.5,
+          "range": null
+        },
+        {
+          "name": "u_quant_steps",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 18.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "22_tmds_hdmi_sparkle_sync_drop",
+      "path": "./shaders/glitch/22_tmds_hdmi_sparkle_sync_drop.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_sparkle_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.255,
+          "range": null
+        },
+        {
+          "name": "u_clock_jitter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_line_drop_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "23_audio_lissajous_vectorscope",
+      "path": "./shaders/glitch/23_audio_lissajous_vectorscope.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_freq_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_freq_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_phase_delta",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.14,
+          "range": null
+        },
+        {
+          "name": "u_trace_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_warp_strength",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "24_point_cloud_zbuffer_shred",
+      "path": "./shaders/glitch/24_point_cloud_zbuffer_shred.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_z_precision",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.0,
+          "range": null
+        },
+        {
+          "name": "u_shred_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_vertex_snap",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_z_fight_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "25_kerr_soliton_caustic_tear",
+      "path": "./shaders/glitch/25_kerr_soliton_caustic_tear.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_kerr_n2",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_filament_freq",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_caustic_shear",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_spectral_split",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "26_denormal_float_poisoning",
+      "path": "./shaders/glitch/26_denormal_float_poisoning.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_nan_spread",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.55,
+          "range": null
+        },
+        {
+          "name": "u_ftz_threshold",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.13,
+          "range": null
+        },
+        {
+          "name": "u_bit_flip_prob",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.205,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "27_cellular_rule30_corruption",
+      "path": "./shaders/glitch/27_cellular_rule30_corruption.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cell_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 9.0,
+          "range": null
+        },
+        {
+          "name": "u_rule_type",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_decay_blend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "28_neural_latent_drift",
+      "path": "./shaders/glitch/28_neural_latent_drift.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_drift_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.55,
+          "range": null
+        },
+        {
+          "name": "u_codebook_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 36.0,
+          "range": null
+        },
+        {
+          "name": "u_hallucination",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "29_flux_jump_demagnetization",
+      "path": "./shaders/glitch/29_flux_jump_demagnetization.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_azimuth_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_hf_loss",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_print_through",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.25,
+          "range": null
+        },
+        {
+          "name": "u_flux_jump_rate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "30_hyperspace_telemetry_desync",
+      "path": "./shaders/glitch/30_hyperspace_telemetry_desync.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_mux_channels",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        },
+        {
+          "name": "u_radar_sweep",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 2.25,
+          "range": null
+        },
+        {
+          "name": "u_telemetry_strobe",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_channel_shear",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "31_ordered_dither_palette",
+      "path": "./shaders/glitch/31_ordered_dither_palette.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cell_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 3.0,
+          "range": null
+        },
+        {
+          "name": "u_matrix_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_palette",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_levels",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.0,
+          "range": null
+        },
+        {
+          "name": "u_contrast",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_threshold_drift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "32_ascii_glyph_cells",
+      "path": "./shaders/glitch/32_ascii_glyph_cells.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_cell_height",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 12.0,
+          "range": null
+        },
+        {
+          "name": "u_color_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_glyph_set",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_rain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_background",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.1,
+          "range": null
+        },
+        {
+          "name": "u_flicker",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.15,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "33_halftone_hatching",
+      "path": "./shaders/glitch/33_halftone_hatching.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_dot_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 9.0,
+          "range": null
+        },
+        {
+          "name": "u_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_dot_gain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.85,
+          "range": null
+        },
+        {
+          "name": "u_misregister",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.25,
+          "range": null
+        },
+        {
+          "name": "u_line_width",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "34_risograph_print_glow",
+      "path": "./shaders/glitch/34_risograph_print_glow.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_drum_palette",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_misregister",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_grain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.4,
+          "range": null
+        },
+        {
+          "name": "u_paper_tone",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.94,
+          "range": null
+        },
+        {
+          "name": "u_glow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.45,
+          "range": null
+        },
+        {
+          "name": "u_ink_density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.1,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "35_woven_textile_kilim",
+      "path": "./shaders/glitch/35_woven_textile_kilim.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_yarn_size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 12.0,
+          "range": null
+        },
+        {
+          "name": "u_palette",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_relief",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.75,
+          "range": null
+        },
+        {
+          "name": "u_border_kilim",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_sheen",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.4,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "36_topographic_contour_map",
+      "path": "./shaders/glitch/36_topographic_contour_map.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_intervals",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 16.0,
+          "range": null
+        },
+        {
+          "name": "u_line_width",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.8,
+          "range": null
+        },
+        {
+          "name": "u_style",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_plateau_fill",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.35,
+          "range": null
+        },
+        {
+          "name": "u_index_interval",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 5.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "37_adaptive_quadtree_matrix",
+      "path": "./shaders/glitch/37_adaptive_quadtree_matrix.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_max_block",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 32.0,
+          "range": null
+        },
+        {
+          "name": "u_variance_th",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.08,
+          "range": null
+        },
+        {
+          "name": "u_wireframe",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.65,
+          "range": null
+        },
+        {
+          "name": "u_style",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "38_crystal_glass_dispersion",
+      "path": "./shaders/glitch/38_crystal_glass_dispersion.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_facet_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 14.0,
+          "range": null
+        },
+        {
+          "name": "u_refraction",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.04,
+          "range": null
+        },
+        {
+          "name": "u_dispersion",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.025,
+          "range": null
+        },
+        {
+          "name": "u_sparkle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "u_facet_edges",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.4,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "39_kinetic_type_mosaics",
+      "path": "./shaders/glitch/39_kinetic_type_mosaics.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_mode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 16.0,
+          "range": null
+        },
+        {
+          "name": "u_speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_ink_color",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_bleed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.25,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "master_glitch_pipeline",
+      "path": "./shaders/glitch/master_glitch_pipeline.gdshader",
+      "uniforms": [
+        {
+          "name": "u_resolution",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1920.0,
+            1080.0
+          ],
+          "range": null
+        },
+        {
+          "name": "u_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "u_master_intensity",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_chroma",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_datamosh",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_vhs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_macroblock",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_crt_roll",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_bitcrush",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_interlace",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_ntsc",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_vram",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_feedback",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_magnetic",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_raster",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_pixelsort",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_fault",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_enable_moire",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_glitch_seed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_magnet_center_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "u_magnet_center_y",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    }
+  ],
+  "foregrounds": [
+    {
+      "id": "composition_attractor",
+      "path": "./shaders/composition_attractor.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            128.0,
+            128.0
+          ],
+          "range": null
+        },
+        {
+          "name": "kind",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "p",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            -1.4,
+            1.6,
+            1.0,
+            0.7
+          ],
+          "range": null
+        },
+        {
+          "name": "dt",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.006,
+          "range": null
+        },
+        {
+          "name": "scatter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "frame",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "reset",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_attractor_points",
+      "path": "./shaders/composition_attractor_points.gdshader",
+      "uniforms": [
+        {
+          "name": "side",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 128.0,
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "centre",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.0
+          ],
+          "range": null
+        },
+        {
+          "name": "at",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            400.0,
+            255.0
+          ],
+          "range": null
+        },
+        {
+          "name": "rot",
+          "type": "mat3",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 100.0,
+          "range": null
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.5,
+          "range": null
+        },
+        {
+          "name": "bright",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.12,
+          "range": null
+        },
+        {
+          "name": "persp_k",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.05,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_automata",
+      "path": "./shaders/composition_automata.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            266.0,
+            170.0
+          ],
+          "range": null
+        },
+        {
+          "name": "rule",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "birth",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 8.0,
+          "range": null
+        },
+        {
+          "name": "survive",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 12.0,
+          "range": null
+        },
+        {
+          "name": "mu",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.15,
+          "range": null
+        },
+        {
+          "name": "sigma",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.017,
+          "range": null
+        },
+        {
+          "name": "threshold",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 2.0,
+          "range": null
+        },
+        {
+          "name": "trail",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.9,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "drops",
+          "type": "vec4",
+          "arrayLen": 4,
+          "default": null,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_automata_view",
+      "path": "./shaders/composition_automata_view.gdshader",
+      "uniforms": [
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "rule",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.95,
+            0.96,
+            0.94,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            266.0,
+            170.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_bloom",
+      "path": "./shaders/composition_bloom.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "hit",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_colony",
+      "path": "./shaders/composition_colony.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "sense_d",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 12.0,
+          "range": null
+        },
+        {
+          "name": "sense_a",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "turn",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.4,
+          "range": null
+        },
+        {
+          "name": "speed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "scatter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "frame",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "reset",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "blob",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.5,
+            0.5,
+            0.0,
+            0.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_colony_points",
+      "path": "./shaders/composition_colony_points.gdshader",
+      "uniforms": [
+        {
+          "name": "share",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "bright",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.03,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_colony_trail",
+      "path": "./shaders/composition_colony_trail.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "decay",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.9,
+          "range": null
+        },
+        {
+          "name": "diffuse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_colony_view",
+      "path": "./shaders/composition_colony_view.gdshader",
+      "uniforms": [
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "gain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            1.0,
+            0.7,
+            0.28
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.43,
+            0.83,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_copy",
+      "path": "./shaders/composition_copy.gdshader",
+      "uniforms": []
+    },
+    {
+      "id": "composition_cymatics",
+      "path": "./shaders/composition_cymatics.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "mode_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            2.0,
+            3.0,
+            0.0
+          ],
+          "range": null
+        },
+        {
+          "name": "mode_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            2.0,
+            3.0,
+            0.0
+          ],
+          "range": null
+        },
+        {
+          "name": "blend",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "energy",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "timbre",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "shimmer",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "plate",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.31,
+          "range": null
+        },
+        {
+          "name": "grain_amt",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "beat",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.95,
+            0.96,
+            0.94,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "glow",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.36,
+            0.44,
+            1.0,
+            1.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_databend",
+      "path": "./shaders/composition_databend.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "kick",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "bass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "highs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "flux",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "sort_angle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "mosh",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "sort_amt",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "block_amt",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "crush_amt",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_fluid",
+      "path": "./shaders/composition_fluid.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            160.0,
+            102.0
+          ],
+          "range": null
+        },
+        {
+          "name": "stage",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "turbulence",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "scale",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 4.0,
+          "range": null
+        },
+        {
+          "name": "keep",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.98,
+          "range": null
+        },
+        {
+          "name": "drops",
+          "type": "vec4",
+          "arrayLen": 4,
+          "default": null,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_fluid_dye",
+      "path": "./shaders/composition_fluid_dye.gdshader",
+      "uniforms": [
+        {
+          "name": "vel_res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            160.0,
+            102.0
+          ],
+          "range": null
+        },
+        {
+          "name": "refresh",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.1,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "sharpen",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.6,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_fx",
+      "path": "./shaders/composition_fx.gdshader",
+      "uniforms": [
+        {
+          "name": "has_prev",
+          "type": "bool",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.45,
+          "range": null
+        },
+        {
+          "name": "spike",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_glass",
+      "path": "./shaders/composition_glass.gdshader",
+      "uniforms": [
+        {
+          "name": "ink",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.07
+          ],
+          "range": null
+        },
+        {
+          "name": "alpha",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "edge_alpha",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_glow_view",
+      "path": "./shaders/composition_glow_view.gdshader",
+      "uniforms": [
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "gain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.95,
+            0.96,
+            0.94,
+            1.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_glyphs",
+      "path": "./shaders/composition_glyphs.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "cols",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 64.0,
+          "range": null
+        },
+        {
+          "name": "rows",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 24.0,
+          "range": null
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "twist",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "weight",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "snap",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "heading",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "wave",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -1.0,
+          "range": null
+        },
+        {
+          "name": "sym",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 6.0,
+          "range": null
+        },
+        {
+          "name": "bass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "highs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "flux",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "hit",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "bands",
+          "type": "float",
+          "arrayLen": 16,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "peaks",
+          "type": "float",
+          "arrayLen": 16,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.36,
+            0.44,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_mosh",
+      "path": "./shaders/composition_mosh.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "refresh",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "push",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_points",
+      "path": "./shaders/composition_points.gdshader",
+      "uniforms": [
+        {
+          "name": "grid",
+          "type": "ivec2",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "depth",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "yaw",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "pitch",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "explode",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "seed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "slice",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -9.0,
+          "range": null
+        },
+        {
+          "name": "jitter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "size",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.95,
+            0.96,
+            0.94,
+            1.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_reaction",
+      "path": "./shaders/composition_reaction.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            400.0,
+            255.0
+          ],
+          "range": null
+        },
+        {
+          "name": "feed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.037,
+          "range": null
+        },
+        {
+          "name": "kill",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.06,
+          "range": null
+        },
+        {
+          "name": "spread",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "da",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "db",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "drops",
+          "type": "vec4",
+          "arrayLen": 4,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_reaction_view",
+      "path": "./shaders/composition_reaction_view.gdshader",
+      "uniforms": [
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.95,
+            0.96,
+            0.94,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            400.0,
+            255.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_screen",
+      "path": "./shaders/composition_screen.gdshader",
+      "uniforms": [
+        {
+          "name": "void_col",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.85
+          ],
+          "range": null
+        },
+        {
+          "name": "ink",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.07
+          ],
+          "range": null
+        },
+        {
+          "name": "use_custom",
+          "type": "bool",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "fade",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "invert",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "zoom",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "crop_seed",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "bezel",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.004,
+          "range": null
+        },
+        {
+          "name": "gain",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "near_cut",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "grid",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "cell",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "shatter",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "motion_time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "fold",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "fold_style",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_shards",
+      "path": "./shaders/composition_shards.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1600.0,
+            1020.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "burst",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "force",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "streaks",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "yaw",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "travel",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "bass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.23,
+            0.36,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.91,
+            0.93,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_temporal",
+      "path": "./shaders/composition_temporal.gdshader",
+      "uniforms": [
+        {
+          "name": "head",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "slit_dir",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            1.0,
+            0.0
+          ],
+          "range": null
+        },
+        {
+          "name": "slit",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "luma_hold",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ripple",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "ripple_at",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            0.5
+          ],
+          "range": null
+        },
+        {
+          "name": "ripple_r",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "echo",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "flow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "span",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 15.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_terrain",
+      "path": "./shaders/composition_terrain.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            800.0,
+            510.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "stars",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "bass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "highs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "star_fire",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "sun_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "shift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "mono_paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.29,
+            0.42,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            1.0,
+            0.42,
+            0.24
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_terrain_gleam",
+      "path": "./shaders/composition_terrain_gleam.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            533.0,
+            340.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_terrain_head",
+      "path": "./shaders/composition_terrain_head.gdshader",
+      "uniforms": [
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "appear",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "jaw_open",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "mouth_wide",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "lip_pucker",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "speech_pulse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "blink",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "highs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "paper",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.29,
+            0.42,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            1.0,
+            0.42,
+            0.24
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_terrain_mesh",
+      "path": "./shaders/composition_terrain_mesh.gdshader",
+      "uniforms": [
+        {
+          "name": "mode",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "cam_x",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "travel",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "lines",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "flow",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "bass",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "highs",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "wave",
+          "type": "float",
+          "arrayLen": 0,
+          "default": -1.0,
+          "range": null
+        },
+        {
+          "name": "note_pulse",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "bands",
+          "type": "float",
+          "arrayLen": 16,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "shift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.29,
+            0.42,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            1.0,
+            0.42,
+            0.24
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_textmode",
+      "path": "./shaders/composition_textmode.gdshader",
+      "uniforms": [
+        {
+          "name": "grid",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            200.0,
+            72.0
+          ],
+          "range": null
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "col_a",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.25,
+            0.76,
+            0.79
+          ],
+          "range": null
+        },
+        {
+          "name": "col_b",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.84,
+            1.0,
+            0.25
+          ],
+          "range": null
+        },
+        {
+          "name": "col_w",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.96
+          ],
+          "range": null
+        },
+        {
+          "name": "col_k",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_textmode_cells",
+      "path": "./shaders/composition_textmode_cells.gdshader",
+      "uniforms": [
+        {
+          "name": "grid",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            200.0,
+            72.0
+          ],
+          "range": null
+        },
+        {
+          "name": "wins",
+          "type": "vec4",
+          "arrayLen": 24,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "wstyle",
+          "type": "vec4",
+          "arrayLen": 24,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "count",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "keep",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.99,
+          "range": null
+        },
+        {
+          "name": "frame",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "clear_rect",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            -1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "bands",
+          "type": "float",
+          "arrayLen": 16,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "mode",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "scan",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "first",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "flash_chars",
+          "type": "int",
+          "arrayLen": 24,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "flash_box",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            -1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "flash_info",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.0
+          ],
+          "range": null
+        },
+        {
+          "name": "flash_span",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            0.0
+          ],
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_trail_fade",
+      "path": "./shaders/composition_trail_fade.gdshader",
+      "uniforms": [
+        {
+          "name": "decay",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.9,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_volume",
+      "path": "./shaders/composition_volume.gdshader",
+      "uniforms": [
+        {
+          "name": "res",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            533.0,
+            340.0
+          ],
+          "range": null
+        },
+        {
+          "name": "time",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "density",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "light",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "form",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "drift",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.5,
+          "range": null
+        },
+        {
+          "name": "swell",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "light_pos",
+          "type": "vec3",
+          "arrayLen": 0,
+          "default": [
+            3.0,
+            0.6,
+            0.8,
+            0.2
+          ],
+          "range": null
+        },
+        {
+          "name": "shape_a",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        },
+        {
+          "name": "shape_b",
+          "type": "int",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "shape_t",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 1.0,
+          "range": null
+        },
+        {
+          "name": "puffs",
+          "type": "vec4",
+          "arrayLen": 4,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "sparkle",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    },
+    {
+      "id": "composition_window",
+      "path": "./shaders/composition_window.gdshader",
+      "uniforms": [
+        {
+          "name": "crop",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "half_size",
+          "type": "vec2",
+          "arrayLen": 0,
+          "default": [
+            2.0,
+            100.0,
+            100.0
+          ],
+          "range": null
+        },
+        {
+          "name": "circle",
+          "type": "bool",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "empty",
+          "type": "bool",
+          "arrayLen": 0,
+          "default": null,
+          "range": null
+        },
+        {
+          "name": "bg",
+          "type": "vec4",
+          "arrayLen": 0,
+          "default": [
+            4.0,
+            0.07,
+            0.075,
+            0.08,
+            1.0
+          ],
+          "range": null
+        },
+        {
+          "name": "flash",
+          "type": "float",
+          "arrayLen": 0,
+          "default": 0.0,
+          "range": null
+        }
+      ]
+    }
+  ]
+}

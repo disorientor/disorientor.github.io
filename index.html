@@ -110,7 +110,8 @@
     }
 
     .menu-container:hover .dropdown-menu,
-    .menu-container:focus-within .dropdown-menu {
+    .menu-container:focus-within .dropdown-menu,
+    .menu-container.open .dropdown-menu {
       max-height: 360px;
       opacity: 1;
       transform: translateY(0);
@@ -283,39 +284,17 @@
     <!-- CENTER / MENU -->
     <main class="my-auto pointer-active">
       <div class="menu-container inline-block intro-hidden">
-        <h1 id="brand-title" class="menu-trigger text-lg sm:text-xl md:text-2xl font-light tracking-widest uppercase cursor-pointer">
+        <h1 id="brand-title" class="menu-trigger text-lg sm:text-xl md:text-2xl font-light tracking-widest uppercase cursor-pointer" tabindex="0">
           disorientor environments
         </h1>
 
         <div class="dropdown-menu flex flex-col gap-1.5 mt-4 ml-1">
-          <a href="https://disorientor.itch.io/ex-cathedra" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Ex cathedra" data-action="cathedra">
-            <span class="text-neutral-600 mr-2">[01]</span><span class="item-text">Ex cathedra</span>
+          <a href="haecceity/index.html" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="engine" data-hover-label="haecceity" data-action="engine">
+            <span class="text-neutral-600 mr-2">[01]</span><span class="item-text">engine</span>
           </a>
-          <a href="https://itch.io/embed-upload/19985811?color=333333" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="ophan-turismo" data-action="ophan-turismo">
-            <span class="text-neutral-600 mr-2">[02]</span><span class="item-text">ophan-turismo</span>
+          <a href="https://disorientor.bandcamp.com" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="output" data-hover-label="bandcamp" data-action="output">
+            <span class="text-neutral-600 mr-2">[02]</span><span class="item-text">output</span>
           </a>
-          <a href="haecceity/index.html" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="Haecceity" data-action="haecceity">
-            <span class="text-neutral-600 mr-2">[03]</span><span class="item-text">Haecceity</span>
-          </a>
-          <div class="menu-group">
-            <div class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="tools" data-action="tools" tabindex="0" role="button" aria-expanded="false">
-              <span class="text-neutral-600 mr-2">[04]</span><span class="item-text">tools</span>
-            </div>
-            <div class="submenu flex flex-col gap-1.5 ml-6 mt-1.5">
-              <a href="tools-access/?next=strung_along/chord-grid.html" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="strung_along" data-action="strung-along">
-                <span class="text-neutral-600 mr-2">[04.1]</span><span class="item-text">strung_along</span>
-              </a>
-              <a href="tools-access/?next=reelcut/" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="reel/cut" data-action="reelcut">
-                <span class="text-neutral-600 mr-2">[04.2]</span><span class="item-text">reel/cut</span>
-              </a>
-              <a href="tools-access/?next=sleeve-press/" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="sleeve+press" data-action="sleeve-press">
-                <span class="text-neutral-600 mr-2">[04.3]</span><span class="item-text">sleeve+press</span>
-              </a>
-              <a href="tools-access/?next=cut-studio/" class="menu-item text-xs sm:text-sm tracking-wider uppercase text-neutral-400" data-label="cut+studio" data-action="cut-studio">
-                <span class="text-neutral-600 mr-2">[04.4]</span><span class="item-text">cut+studio</span>
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </main>
@@ -1665,30 +1644,42 @@
 
       // Menu Scramble
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_/*!#<>";
+      const scrambleTo = (item, textSpan, target) => {
+        let iterations = 0;
+        clearInterval(item.scrambleInterval);
+        item.scrambleInterval = setInterval(() => {
+          textSpan.textContent = target
+            .split("")
+            .map((char, index) => {
+              if (index < iterations) return target[index];
+              return chars[Math.floor(Math.random() * chars.length)];
+            })
+            .join("");
+
+          if (iterations >= target.length) {
+            clearInterval(item.scrambleInterval);
+            textSpan.textContent = target;
+          }
+          iterations += 1 / 2;
+        }, 30);
+      };
+
       menuItems.forEach((item) => {
-        const originalText = item.getAttribute('data-label');
+        const baseLabel = item.getAttribute('data-label');
+        const hoverLabel = item.getAttribute('data-hover-label') || baseLabel;
         const textSpan = item.querySelector('.item-text');
 
         item.addEventListener('mouseenter', () => {
           soundEngine.playRelayClick(false, 0.4);
-          let iterations = 0;
-          clearInterval(item.scrambleInterval);
-          item.scrambleInterval = setInterval(() => {
-            textSpan.textContent = originalText
-              .split("")
-              .map((char, index) => {
-                if (index < iterations) return originalText[index];
-                return chars[Math.floor(Math.random() * chars.length)];
-              })
-              .join("");
-
-            if (iterations >= originalText.length) {
-              clearInterval(item.scrambleInterval);
-              textSpan.textContent = originalText;
-            }
-            iterations += 1 / 2;
-          }, 30);
+          scrambleTo(item, textSpan, hoverLabel);
         });
+
+        item.addEventListener('mouseleave', () => {
+          scrambleTo(item, textSpan, baseLabel);
+        });
+
+        item.addEventListener('focus', () => scrambleTo(item, textSpan, hoverLabel));
+        item.addEventListener('blur', () => scrambleTo(item, textSpan, baseLabel));
 
         item.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1715,15 +1706,15 @@
         if (document.hidden) soundEngine.silence(); else soundEngine.unsilence();
       });
 
-      // Tools: tap (or Enter/Space) pins its sub menu open, since touch screens have no hover
-      const toolsItem = document.querySelector('#ui-layer .menu-item[data-action="tools"]');
-      const toggleTools = () => {
-        const open = toolsItem.parentElement.classList.toggle('open');
-        toolsItem.setAttribute('aria-expanded', open);
-      };
-      toolsItem.addEventListener('click', toggleTools);
-      toolsItem.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTools(); }
+      // Touch/keyboard toggle for the main menu trigger
+      const brandTitle = document.getElementById('brand-title');
+      const toggleMenu = () => menuContainer.classList.toggle('open');
+      brandTitle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMenu();
+      });
+      brandTitle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMenu(); }
       });
     });
   </script>

@@ -1,0 +1,209 @@
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('./assets/DepartureMono-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-mono: 'Departure Mono', 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  --fg: #e4eeeb;
+  --cyan: #3ad8e8;
+  --yellow: #ece535;
+  --accent: #ff5436;
+  --phosphor: #96f7be;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000000;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: none;
+  user-select: none;
+}
+
+#bg-shader,
+#fg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+#bg-shader {
+  z-index: 0;
+  pointer-events: none;
+}
+
+#fg-canvas {
+  z-index: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* Top-right "haecceity" button matching the native app */
+.haecceity-btn {
+  position: fixed;
+  top: 20px;
+  right: 26px;
+  z-index: 10;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.92);
+  transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.haecceity-btn:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.haecceity-btn:active {
+  transform: scale(0.97);
+  color: var(--cyan);
+}
+
+.scene-toast {
+  position: fixed;
+  top: 58px;
+  right: 34px;
+  z-index: 10;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(228, 238, 235, 0.72);
+  text-shadow: 1px 1px 2px #000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  text-align: right;
+}
+
+.scene-toast.is-visible {
+  opacity: 1;
+}
+
+.boot-hint {
+  position: fixed;
+  top: 24px;
+  left: 26px;
+  z-index: 9;
+  font-size: 11px;
+  color: rgba(228, 238, 235, 0.58);
+  text-shadow: 1px 1px 2px #000;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.boot-hint.is-hidden {
+  opacity: 0;
+}
+
+/* Textmode-styled floating MumbleSpeak box */
+.mumble-modal {
+  position: fixed;
+  z-index: 20;
+  min-width: 300px;
+  max-width: min(460px, 86vw);
+  background: rgba(4, 6, 8, 0.94);
+  border: 1.5px solid var(--cyan);
+  padding: 12px 10px 8px;
+  box-shadow: 8px 8px 0 rgba(58, 216, 232, 0.18);
+}
+
+.mumble-tag {
+  position: absolute;
+  top: -9px;
+  left: 10px;
+  background: #040608;
+  color: var(--yellow);
+  font-size: 11px;
+  padding: 0 5px;
+}
+
+#mumble-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+}
+
+#mumble-input::placeholder {
+  color: rgba(228, 238, 235, 0.36);
+}
+
+/* Bottom [|||....] channel volume bars — all on one horizontal level */
+.volume-dock {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  max-width: 96vw;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 6px 14px;
+  background: rgba(3, 5, 6, 0.72);
+  border: 1px solid rgba(228, 238, 235, 0.16);
+  backdrop-filter: blur(2px);
+}
+
+.vol-chan {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
+  cursor: ew-resize;
+  font-size: 11px;
+  padding: 2px 3px;
+  touch-action: none;
+}
+
+.vol-chan:hover .vol-lbl,
+.vol-chan.is-dragging .vol-lbl {
+  color: var(--cyan);
+}
+
+.vol-chan.is-dragging .vol-bar {
+  color: var(--yellow);
+}
+
+.vol-lbl {
+  color: rgba(228, 238, 235, 0.62);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.vol-bar {
+  color: var(--fg);
+  letter-spacing: -0.5px;
+  text-shadow: 0 0 6px rgba(150, 247, 190, 0.25);
+}
