@@ -150,6 +150,24 @@ const KICK_RECIPES = [
     shape: 0.65, sub: 0.62, click: 1.65, clickType: 1, clickHz: 3400, clickMs: 12,
     cutoff: 5400, drive1: 0.82, bias: 0.22, screechHz: 980, screechQ: 2.6, drive2: 0.62, decayMs: 390, gain: 0.88,
   },
+  // 5: Gabber / Digital Hardcore Diode Kick
+  {
+    pitchMidi: 40, drop: 42, dropMs: 8, glide: 16, glideMs: 120,
+    shape: 0.85, sub: 0.58, click: 1.85, clickType: 2, clickHz: 4800, clickMs: 8,
+    cutoff: 6400, drive1: 0.96, bias: 0.34, screechHz: 1150, screechQ: 3.1, drive2: 0.78, decayMs: 310, gain: 0.92,
+  },
+  // 6: Microsound 40Hz Pure Sine Impulse
+  {
+    pitchMidi: 28, drop: 18, dropMs: 4, glide: 2, glideMs: 35,
+    shape: 0.0, sub: 0.92, click: 1.35, clickType: 0, clickHz: 6400, clickMs: 1.8,
+    cutoff: 1400, drive1: 0.06, bias: 0.0, screechHz: 90, screechQ: 0.5, drive2: 0.04, decayMs: 260, gain: 0.96,
+  },
+  // 7: Flashcore / Splittercore Laser-Tok Kick
+  {
+    pitchMidi: 38, drop: 54, dropMs: 6, glide: 12, glideMs: 42,
+    shape: 0.55, sub: 0.48, click: 1.95, clickType: 1, clickHz: 3800, clickMs: 4,
+    cutoff: 5800, drive1: 0.86, bias: 0.24, screechHz: 1850, screechQ: 3.8, drive2: 0.68, decayMs: 145, gain: 0.90,
+  },
 ];
 
 class KickEngine {
@@ -273,8 +291,23 @@ class KickEngine {
 }
 
 // ---------------------------------------------------------------------------
-// PROCEDURAL DRUMKITS (4 Kits x 8 Voices)
+// PROCEDURAL DRUMKITS (12 Kits x 8 Voices)
 // ---------------------------------------------------------------------------
+const DRUM_KIT_DECAYS_MS = [
+  [180, 140, 110, 48, 220, 75, 160, 290],  // 0: Binary Raster
+  [220, 190, 160, 62, 290, 115, 240, 380], // 1: Hydraulic Piston
+  [260, 220, 180, 95, 340, 150, 290, 450], // 2: Wire Ritual KS
+  [240, 210, 150, 70, 310, 95, 220, 420],  // 3: Crate Dust
+  [120, 110, 85,  36, 155, 65, 130, 220],  // 4: Surgical Blades
+  [280, 240, 200, 85, 320, 165, 260, 460], // 5: Iron Foundry / Bronze Teeth
+  [165, 135, 95,  42, 180, 80, 150, 260],  // 6: Gabber / Hardcore Chop
+  [75,  60,  45,  22, 85,  38, 65,  110],  // 7: Microsound Zero-Crossing
+  [210, 175, 140, 58, 240, 130, 220, 340], // 8: Lowercase Foley / Paper & Glass
+  [145, 125, 100, 44, 170, 85, 140, 260],  // 9: Comb Needle / Buffer Glitch
+  [190, 155, 115, 52, 230, 78, 165, 310],  // 10: Amen / Breakbeat Vault
+  [310, 250, 180, 75, 330, 140, 290, 480], // 11: Bone Room / Concrete Slam
+];
+
 class DrumVoice {
   constructor(sr) {
     this.sr = sr;
@@ -316,18 +349,15 @@ class DrumVoice {
     const pans = [-0.05, 0.08, -0.24, 0.30, -0.36, 0.20, -0.28, 0.38];
     this.pan = pans[slot % 8];
 
-    const baseDecaysMs = [
-      [180, 140, 110, 48, 220, 75, 160, 290],
-      [220, 190, 160, 62, 290, 115, 240, 380],
-      [260, 220, 180, 95, 340, 150, 290, 450],
-      [240, 210, 150, 70, 310, 95, 220, 420],
-    ];
-    this.decaySamples = Math.round((baseDecaysMs[kit][slot] / 1000) * this.sr);
+    const decayTable = DRUM_KIT_DECAYS_MS[clamp(kit | 0, 0, DRUM_KIT_DECAYS_MS.length - 1)];
+    this.decaySamples = Math.round((decayTable[slot] / 1000) * this.sr);
 
-    if (kit === 2 || slot === 7) {
+    if (kit === 2 || kit === 9 || slot === 7) {
       const wireHz = (kit === 2
         ? [68, 185, 310, 1120, 1540, 440, 132, 620][slot]
-        : [90, 240, 400, 1600, 1900, 520, 180, 780][slot]) * this.pitchMul;
+        : kit === 9
+          ? [120, 340, 580, 1850, 2400, 920, 210, 1240][slot]
+          : [90, 240, 400, 1600, 1900, 520, 180, 780][slot]) * this.pitchMul;
       this.ksLen = clamp(Math.round(this.sr / wireHz), 16, 2000);
       this.ksIdx = 0;
       this.ksLast = 0;
@@ -430,7 +460,7 @@ class DrumVoice {
       } else {
         s = fastTanh(cur * 1.6) * env;
       }
-    } else {
+    } else if (this.kit === 3) {
       if (this.slot === 0) {
         const f = (56 + 150 * Math.exp(-t * 65)) * pm;
         this.phase = (this.phase + f / this.sr) % 1;
@@ -454,9 +484,104 @@ class DrumVoice {
         this.phase = (this.phase + (3400 * pm) / this.sr) % 1;
         s = this.svf.process(n + Math.sin(TAU * this.phase) * 0.25, 4200 * pm, 1.2, this.sr).high * env;
       }
+    } else if (this.kit === 4) {
+      // 4: Surgical Blades (razor metallic FM slice + cold high-Q transient)
+      const fBase = [78, 240, 410, 6200, 4900, 1420, 165, 2950][this.slot] * pm;
+      this.modPhase = (this.modPhase + (fBase * 2.414) / this.sr) % 1;
+      this.phase = (this.phase + (fBase * (1 + 2.2 * Math.exp(-t * 140))) / this.sr) % 1;
+      const slice = Math.sin(TAU * this.phase + Math.sin(TAU * this.modPhase) * (3.2 * env));
+      if (this.slot === 3 || this.slot === 4) {
+        s = this.svf.process(slice * 0.55 + n * 0.65, fBase, 2.6, this.sr).high * env * 1.3;
+      } else if (this.slot === 2 || this.slot === 1) {
+        s = fastTanh((slice * 0.8 + this.svf.process(n, 3200 * pm, 2.8, this.sr).band * 0.9) * 1.8) * env;
+      } else {
+        s = fastTanh(slice * 1.9) * env;
+      }
+    } else if (this.kit === 5) {
+      // 5: Iron Foundry / Bronze Teeth (ring-modulated steel plate & anvil clang)
+      const fBase = [58, 195, 360, 4600, 3400, 740, 128, 1180][this.slot] * pm;
+      this.phase = (this.phase + fBase / this.sr) % 1;
+      this.modPhase = (this.modPhase + (fBase * 1.732) / this.sr) % 1;
+      const ring = Math.sin(TAU * this.phase) * Math.sin(TAU * this.modPhase);
+      const body = Math.sin(TAU * this.phase * (1 + 1.5 * Math.exp(-t * 45)));
+      s = fastTanh((ring * 0.95 + body * 0.55 + this.svf.process(n, fBase * 2.2, 3.0, this.sr).band * 0.55) * 1.7) * env;
+    } else if (this.kit === 6) {
+      // 6: Gabber / Hardcore Chop (overdriven diode punch & tight rave snare)
+      if (this.slot === 0 || this.slot === 6) {
+        const f = ((this.slot === 0 ? 52 : 98) + 240 * Math.exp(-t * 105)) * pm;
+        this.phase = (this.phase + f / this.sr) % 1;
+        s = fastTanh((Math.sin(TAU * this.phase) + 0.12 * n) * 3.8) * env;
+      } else if (this.slot === 1 || this.slot === 2) {
+        this.phase = (this.phase + (220 * pm) / this.sr) % 1;
+        s = fastTanh((Math.sin(TAU * this.phase) * 0.7 + this.svf.process(n, 2300 * pm, 1.8, this.sr).band * 1.3) * 2.8) * env;
+      } else if (this.slot === 3 || this.slot === 4) {
+        s = fastTanh(this.svf.process(n, (this.slot === 3 ? 7200 : 5100) * pm, 1.4, this.sr).high * 2.4) * env;
+      } else {
+        this.phase = (this.phase + (520 * pm) / this.sr) % 1;
+        this.modPhase = (this.modPhase + (1310 * pm) / this.sr) % 1;
+        s = fastTanh((Math.sin(TAU * this.phase) * 0.8 + Math.sin(TAU * this.modPhase) * 0.6 + n * 0.3) * 2.5) * env;
+      }
+    } else if (this.kit === 7) {
+      // 7: Microsound Zero-Crossing (surgical impulse clicks, pure sine blips, piezo ticks)
+      const blipHz = [44, 1280, 2560, 8400, 6200, 3840, 96, 4800][this.slot] * pm;
+      this.phase = (this.phase + blipHz / this.sr) % 1;
+      const click = this.age < 10 ? (this.age % 2 === 0 ? 0.95 : -0.85) : 0;
+      const sine = Math.sin(TAU * this.phase) * Math.exp(-t * (this.slot === 0 ? 45 : 160));
+      s = (click * 0.75 + sine * 0.85 + this.svf.process(n, blipHz, 3.8, this.sr).band * 0.28) * Math.min(1, this.age / 2);
+    } else if (this.kit === 8) {
+      // 8: Lowercase Foley / Paper & Glass (glass ping, paper brush, ceramic tap)
+      const fBase = [86, 410, 920, 5400, 3800, 2140, 190, 1480][this.slot] * pm;
+      this.phase = (this.phase + fBase / this.sr) % 1;
+      if (this.slot === 2 || this.slot === 3 || this.slot === 4) {
+        const paper = this.svf.process(n, fBase, 2.2, this.sr).band;
+        s = (paper * 0.95 + Math.sin(TAU * this.phase) * 0.25) * env * 1.1;
+      } else {
+        const glass = Math.sin(TAU * this.phase) * Math.exp(-t * 14) + Math.sin(TAU * this.phase * 2.756) * 0.35 * Math.exp(-t * 22);
+        s = (glass * 0.8 + this.svf.process(n, fBase * 1.4, 2.8, this.sr).band * 0.25) * env;
+      }
+    } else if (this.kit === 9) {
+      // 9: Comb Needle / Buffer Glitch (pitched KS comb zaps + FM stutter grains)
+      const cur = this.ksBuf[this.ksIdx];
+      const lp = 0.5 * (cur + this.ksLast);
+      this.ksLast = cur;
+      this.ksBuf[this.ksIdx] = 0.968 * lp;
+      this.ksIdx = (this.ksIdx + 1) % this.ksLen;
+      const f = [95, 310, 620, 4400, 3100, 1380, 175, 2240][this.slot] * pm;
+      this.phase = (this.phase + (f * (1 + 0.8 * Math.sin(t * 210))) / this.sr) % 1;
+      s = fastTanh((cur * 1.2 + Math.sin(TAU * this.phase) * 0.65) * 1.6) * env;
+    } else if (this.kit === 10) {
+      // 10: Amen / Breakbeat Vault (tight crisp acoustic break snare/ghost/ride/kick)
+      if (this.slot === 0) {
+        const f = (58 + 185 * Math.exp(-t * 85)) * pm;
+        this.phase = (this.phase + f / this.sr) % 1;
+        s = fastTanh((Math.sin(TAU * this.phase) + n * 0.08 * Math.exp(-t * 90)) * 1.9) * env;
+      } else if (this.slot === 1 || this.slot === 2) {
+        const f = (195 + 110 * Math.exp(-t * 70)) * pm;
+        this.phase = (this.phase + f / this.sr) % 1;
+        const wires = this.svf.process(n, 3200 * pm, 1.3, this.sr).high * 0.95 + this.svf.process(n, 1650 * pm, 2.0, this.sr).band * 0.7;
+        s = fastTanh((Math.sin(TAU * this.phase) * 0.55 + wires) * (this.slot === 1 ? 1.8 : 1.15)) * env;
+      } else if (this.slot === 3 || this.slot === 4) {
+        s = this.svf.process(n, (this.slot === 3 ? 7800 : 5400) * pm, 1.4, this.sr).high * env * 1.15;
+      } else if (this.slot === 5 || this.slot === 7) {
+        this.phase = (this.phase + (680 * pm) / this.sr) % 1;
+        this.modPhase = (this.modPhase + (1790 * pm) / this.sr) % 1;
+        const metal = Math.sin(TAU * this.phase + Math.sin(TAU * this.modPhase) * 1.9);
+        s = (this.svf.process(metal + n * 0.4, 3400 * pm, 1.8, this.sr).high * 0.9 + metal * 0.35) * env;
+      } else {
+        const f = (128 + 120 * Math.exp(-t * 36)) * pm;
+        this.phase = (this.phase + f / this.sr) % 1;
+        s = fastTanh(Math.sin(TAU * this.phase) * 1.7) * env;
+      }
+    } else {
+      // 11: Bone Room / Concrete Slam (cavernous dull thud & brittle snap)
+      const f = [44, 142, 260, 2900, 2100, 510, 74, 880][this.slot] * pm;
+      this.phase = (this.phase + (f * (1 + 0.9 * Math.exp(-t * 50))) / this.sr) % 1;
+      const thud = this.svf.process(Math.sin(TAU * this.phase) + n * 0.35, f * 2.4, 1.8, this.sr).low;
+      const snap = this.svf.process(n, f * 2.0, 2.4, this.sr).band * Math.exp(-t * 65);
+      s = fastTanh((thud * 1.4 + snap * 0.9) * 1.5) * env;
     }
 
-    s *= this.vel * 0.7;
+    s *= this.vel * 0.95;
     this.age++;
     const gL = Math.cos((this.pan * 0.5 + 0.5) * Math.PI * 0.5);
     const gR = Math.sin((this.pan * 0.5 + 0.5) * Math.PI * 0.5);
@@ -978,9 +1103,17 @@ class UnstablePath {
     this.padCombCur = 0;
     this.padRootOffset = 0;
     this.padTargetOffset = 0;
+    this.padBowlPhase = 0;
+    this.microEnv = 0;
+    this.microHz = 880;
+    this.microPan = 0;
+    this.acidPhase = 0;
+    this.acidSvf = new SVF();
 
     this.chaos = {
       textureMode: 0,
+      donorTextureMode: 0,
+      crossMix: 0,
       darkInterval: 1.4983,
       routingIndex: 0,
       shaperModeIndex: 1,
@@ -999,25 +1132,29 @@ class UnstablePath {
       fbDelayRMs: 89,
       fbPolarity: 1,
       ambientPreset: {
-        name: 'Evening Reels',
-        rootMidi: 48,
-        chord: [0, 7, 12],
-        prog: [0, 7, 0, 5],
-        shape: 0.12,
-        pulseMix: 0.0,
+        name: 'Lustmord Deep Trench',
+        rootMidi: 38,
+        chord: [0, 7, 10, 15],
+        prog: [0, 1, 0, -2],
+        shape: 0.14,
+        pulseMix: 0.08,
         pw: 0.5,
-        subMix: 0.25,
-        cutoff: 1850,
-        res: 0.14,
+        subMix: 0.55,
+        cutoff: 540,
+        res: 0.16,
         detune: 11,
-        lfoRate: 0.045,
-        warpDepth: 0.8,
-        padDelayMs: 32,
-        padFeedback: 0.54,
-        padWet: 0.36,
-        vowel: -1,
-        noise: 0.012,
-        drive: 0.22,
+        lfoRate: 0.032,
+        warpDepth: 0.7,
+        padDelayMs: 36,
+        padFeedback: 0.58,
+        padWet: 0.42,
+        vowel: 3,
+        vowelAlt: 4,
+        noise: 0.024,
+        drive: 0.28,
+        metalMix: 0.28,
+        bowlRatio: 1.498,
+        subGrind: 0.35,
       },
     };
 
@@ -1110,31 +1247,42 @@ class UnstablePath {
 
   processHaecceityPad(stepIdx, p, pitchTranspose = 0) {
     const pr = this.chaos.ambientPreset || {};
-    const chord = pr.chord || [0, 7, 12];
-    const prog = pr.prog || [0, 7, 0, 5];
+    const padX = clamp(p.padX ?? 0.5, 0, 1);
+    const padY = clamp(p.padY ?? 0.5, 0, 1);
+    const chord = pr.chord || [0, 7, 10, 15];
+    const prog = pr.prog || [0, 1, 0, -2];
     const progStep = Math.floor(Math.max(0, stepIdx) / 16) % prog.length;
     this.padTargetOffset = prog[progStep] || 0;
-    this.padRootOffset += (this.padTargetOffset - this.padRootOffset) * 0.00018;
+    this.padRootOffset += (this.padTargetOffset - this.padRootOffset) * 0.00024;
 
-    const lfoRate = pr.lfoRate || 0.045;
+    const lfoRate = (pr.lfoRate || 0.038) * (0.6 + padX * 1.6);
     this.padLfoPhase = (this.padLfoPhase + lfoRate / this.sr) % 1;
-    this.padWarpPhase = (this.padWarpPhase + 0.031 / this.sr) % 1;
+    this.padWarpPhase = (this.padWarpPhase + (0.025 + padX * 0.065) / this.sr) % 1;
     const lfo = Math.sin(TAU * this.padLfoPhase);
-    const warp = Math.sin(TAU * this.padWarpPhase) * (pr.warpDepth || 0.8) * 0.0032;
+    const warp = Math.sin(TAU * this.padWarpPhase) * ((pr.warpDepth || 0.8) * (0.4 + padX * 1.4)) * 0.0038;
 
-    const rootMidi = (pr.rootMidi || 48) + pitchTranspose + this.padRootOffset;
-    const detuneCents = pr.detune || 12;
-    const shape = pr.shape ?? 0.2;
-    const pulseMix = pr.pulseMix ?? 0.2;
-    const pw = pr.pw ?? 0.45;
-    const subMix = pr.subMix ?? 0.3;
+    // X/Y sweeps transpose upper voicing, detune spread, waveshape, sub-grind & bowl harmonics
+    const rootMidi = (pr.rootMidi || 38) + pitchTranspose + this.padRootOffset;
+    const detuneCents = (pr.detune || 12) * (0.45 + padX * 1.85);
+    const shape = clamp((pr.shape ?? 0.22) + (padY - 0.3) * 0.55, 0, 0.92);
+    const pulseMix = clamp((pr.pulseMix ?? 0.2) + padX * 0.32, 0, 0.78);
+    const pw = clamp((pr.pw ?? 0.45) + lfo * 0.12 + (padX - 0.5) * 0.22, 0.18, 0.82);
+    const subMix = clamp((pr.subMix ?? 0.45) + (1 - padX * 0.4) * 0.25 + padY * 0.25, 0.1, 0.85);
+    const subGrind = (pr.subGrind ?? 0.32) * (0.2 + padY * 1.6);
+    const bowlRatio = pr.bowlRatio || 1.498;
+    const metalMix = (pr.metalMix ?? 0.3) * (0.15 + padX * 1.45);
+
+    this.padBowlPhase = (this.padBowlPhase + (440 * Math.pow(2, (rootMidi - 69) / 12) * bowlRatio) / this.sr) % 1;
+    const bowlMod = Math.sin(TAU * this.padBowlPhase) * metalMix * 1.4;
 
     let sumL = 0;
     let sumR = 0;
     const voiceCount = Math.min(4, chord.length);
     for (let v = 0; v < voiceCount; v++) {
-      const semi = rootMidi + chord[v];
-      const hz = clamp(440 * Math.pow(2, (semi - 69) / 12) * (1 + warp), 28, 1800);
+      // Top voices open up into octave shimmer / fifth drift as X sweeps right
+      const octaveLift = (v >= 2 && padX > 0.55) ? Math.round((padX - 0.55) * 2.2) * 12 : 0;
+      const semi = rootMidi + chord[v] + octaveLift;
+      const hz = clamp(440 * Math.pow(2, (semi - 69) / 12) * (1 + warp), 24, 2200);
       const det = Math.pow(2, (((v & 1 ? 1 : -1) * detuneCents * (0.6 + 0.4 * v)) / 1200));
       const hzA = hz;
       const hzB = hz * det;
@@ -1145,32 +1293,38 @@ class UnstablePath {
 
       const sawA = 2 * phA - 1;
       const sawB = 2 * phB - 1;
-      const sinA = Math.sin(TAU * phA);
-      const sinB = Math.sin(TAU * phB);
+      const sinA = Math.sin(TAU * phA + bowlMod * (v > 0 ? 1.0 : 0.25));
+      const sinB = Math.sin(TAU * phB - bowlMod * (v > 0 ? 1.0 : 0.25));
       const oscA = sinA * (1 - shape) + sawA * shape;
       const oscB = sinB * (1 - shape) + sawB * shape;
       const sqA = phA < pw ? 0.7 : -0.7;
       const sqB = phB < (1 - pw) ? 0.7 : -0.7;
-      const sub = Math.sin(TAU * phSub) * subMix;
+      const sub = Math.sin(TAU * phSub + subGrind * Math.sin(TAU * phA)) * subMix;
 
-      const voiceA = (oscA + sqA * pulseMix + sub) * (v === 0 ? 1.0 : 0.72);
-      const voiceB = (oscB + sqB * pulseMix + sub) * (v === 0 ? 1.0 : 0.72);
+      const voiceWeight = v === 0 ? 1.05 : v === 1 ? 0.85 : (0.45 + padX * 0.55);
+      const voiceA = (oscA + sqA * pulseMix + sub) * voiceWeight;
+      const voiceB = (oscB + sqB * pulseMix + sub) * voiceWeight;
       const pan = voiceCount <= 1 ? 0.5 : v / (voiceCount - 1);
-      sumL += voiceA * (1 - pan * 0.45) + voiceB * (0.25 + pan * 0.35);
-      sumR += voiceB * (0.55 + pan * 0.45) + voiceA * (0.55 - pan * 0.3);
+      sumL += voiceA * (1 - pan * 0.48) + voiceB * (0.22 + pan * 0.38);
+      sumR += voiceB * (0.52 + pan * 0.48) + voiceA * (0.58 - pan * 0.32);
     }
     const norm = 0.55 / Math.max(1, voiceCount);
     let srcL = sumL * norm;
     let srcR = sumR * norm;
 
-    const air = pr.noise || 0.01;
+    const air = (pr.noise || 0.018) * (0.35 + padY * 1.9);
     if (air > 0) {
-      srcL += this.nextNoise() * air;
-      srcR += this.nextNoise() * air;
+      const nA = this.nextNoise();
+      const nB = this.nextNoise();
+      // Shortwave ring-modulated frost / geiger texture blooms on high X*Y
+      const radioRing = 1.0 + padX * padY * 2.2 * Math.sin(TAU * this.padBowlPhase * 1.7);
+      srcL += nA * air * radioRing;
+      srcR += nB * air * radioRing;
     }
 
-    // Haecceity engine.hpp damped comb resonator (lines 360-367)
-    const delaySamples = clamp(((pr.padDelayMs || 26) + lfo * 2.2) * this.sr * 0.001, 4, 8190);
+    // Damped comb resonator swept dynamically by X (metallic cavity / reverse-room size)
+    const dynDelayMs = clamp((pr.padDelayMs || 28) * (0.55 + padX * 1.65) + lfo * (2.2 + padX * 5.5), 4, 150);
+    const delaySamples = clamp(dynDelayMs * this.sr * 0.001, 4, 8190);
     let readIdx = this.padCombCur - delaySamples;
     if (readIdx < 0) readIdx += 8192;
     const i0 = Math.floor(readIdx) % 8192;
@@ -1181,7 +1335,7 @@ class UnstablePath {
     const delR = this.padCombR[i0] * (1 - frac) + this.padCombR[i1] * frac;
     const inDelL = this.padCombInL[i0] * (1 - frac) + this.padCombInL[i1] * frac;
     const inDelR = this.padCombInR[i0] * (1 - frac) + this.padCombInR[i1] * frac;
-    const pFb = clamp(pr.padFeedback ?? 0.48, 0, 0.72);
+    const pFb = clamp((pr.padFeedback ?? 0.5) * (0.72 + padX * 0.42), 0, 0.78);
     const combL = 0.35 * srcL + 0.15 * inDelL + pFb * delL;
     const combR = 0.35 * srcR + 0.15 * inDelR + pFb * delR;
 
@@ -1191,64 +1345,34 @@ class UnstablePath {
     this.padCombR[this.padCombCur] = clamp(combR, -4, 4);
     this.padCombCur = (this.padCombCur + 1) % 8192;
 
-    const pWet = clamp(pr.padWet ?? 0.32, 0, 0.65);
+    const pWet = clamp((pr.padWet ?? 0.36) * (0.55 + padX * 0.95), 0, 0.72);
     srcL += combL * pWet;
     srcR += combR * pWet;
 
-    // Optional Haecceity vocal formant choir veil (Low Sun Ensemble / Sleep Terminal / Cyberpunk Neon)
-    if (typeof pr.vowel === 'number' && pr.vowel >= 0) {
-      const fTab = VOWEL_FORMANTS[clamp(pr.vowel | 0, 0, VOWEL_FORMANTS.length - 1)];
-      const f1 = this.svfPadFormantA.process(srcL, fTab[0], 3.2, this.sr).band;
-      const f2 = this.svfPadFormantB.process(srcR, fTab[1], 3.6, this.sr).band;
-      srcL = srcL * 0.72 + f1 * 0.42;
-      srcR = srcR * 0.72 + f2 * 0.42;
-    }
+    // Formant choir veil: morphs between vowel and vowelAlt as X sweeps
+    const vA = typeof pr.vowel === 'number' && pr.vowel >= 0 ? pr.vowel : 4;
+    const vB = typeof pr.vowelAlt === 'number' && pr.vowelAlt >= 0 ? pr.vowelAlt : 7;
+    const fTabA = VOWEL_FORMANTS[clamp(vA | 0, 0, VOWEL_FORMANTS.length - 1)];
+    const fTabB = VOWEL_FORMANTS[clamp(vB | 0, 0, VOWEL_FORMANTS.length - 1)];
+    const f1Hz = fTabA[0] + (fTabB[0] - fTabA[0]) * padX;
+    const f2Hz = fTabA[1] + (fTabB[1] - fTabA[1]) * padX;
+    const f1 = this.svfPadFormantA.process(srcL, f1Hz, 2.8 + padY * 1.4, this.sr).band;
+    const f2 = this.svfPadFormantB.process(srcR, f2Hz, 3.0 + padX * 1.6, this.sr).band;
+    const choirMix = clamp(0.18 + padX * 0.42, 0, 0.62);
+    srcL = srcL * (1 - choirMix * 0.45) + f1 * choirMix;
+    srcR = srcR * (1 - choirMix * 0.45) + f2 * choirMix;
 
-    const baseCutoff = pr.cutoff || 1400;
-    const cut = clamp(baseCutoff * Math.pow(2, lfo * 0.45 + (p.padY - 0.5) * 0.8), 160, 4800);
-    const q = clamp(0.75 + (pr.res || 0.16) * 2.4, 0.7, 2.2);
+    const baseCutoff = pr.cutoff || 1100;
+    const cut = clamp(baseCutoff * Math.pow(2, lfo * 0.55 + (padY - 0.4) * 2.4 + (padX - 0.5) * 0.65), 110, 5600);
+    const q = clamp(0.75 + (pr.res || 0.18) * (1.8 + padY * 2.8), 0.7, 3.2);
     const fL = this.svfPadL.process(srcL, cut, q, this.sr).low;
     const fR = this.svfPadR.process(srcR, cut, q, this.sr).low;
 
-    const drv = 1.15 + (pr.drive || 0.24) * 2.2;
+    const drv = 1.15 + (pr.drive || 0.28) * (1.4 + padY * 2.8);
     return [fastTanh(fL * drv), fastTanh(fR * drv)];
   }
 
-  process(stepIdx, kickEnv) {
-    if (this.params.enabled < 0.5) return [0, 0];
-    const c = this.chaos;
-    const p = this.params;
-
-    if (stepIdx !== this.lastStep) {
-      this.lastStep = stepIdx;
-      this.stepLfsr();
-    }
-
-    const fbCrossMod = c.routingIndex === 2 ? this.fbPrevL * 0.9 : 0;
-    const lfsrPitchDrift = 1.0 + ((this.lfsr & 0x0f) / 15.0 - 0.5) * 0.025;
-    const baseHz = clamp(Number.isFinite(c.droneBaseHz) ? c.droneBaseHz : 65.41, 24, 440) * lfsrPitchDrift;
-    const fmRatioSafe = Number.isFinite(c.fmRatio) ? c.fmRatio : 1.4142;
-    const subIntSafe = Number.isFinite(c.subInterval) ? c.subInterval : 0.5;
-    const modHz = baseHz * fmRatioSafe;
-    const texMode = c.textureMode | 0;
-    const boost = p.sceneBoost || 1.0;
-
-    this.modPhase = (this.modPhase + modHz / this.sr) % 1;
-    const modOut = Math.sin(TAU * this.modPhase);
-    const fmAmt = (0.3 + p.fmIndex * 3.8 + p.padY * 1.8) * (1 + fbCrossMod);
-
-    this.carPhase = (this.carPhase + baseHz / this.sr) % 1;
-    this.subPhase = (this.subPhase + (baseHz * subIntSafe) / this.sr) % 1;
-
-    let genL;
-    let genR;
-
-    const fbLen = this.fbBufL.length;
-    const dL = clamp(Math.round((c.fbDelayLMs / 1000) * this.sr), 16, fbLen - 2);
-    const dR = clamp(Math.round((c.fbDelayRMs / 1000) * this.sr), 16, fbLen - 2);
-    const fbReadL = this.fbBufL[(this.fbCursor - dL + fbLen) % fbLen];
-    const fbReadR = this.fbBufR[(this.fbCursor - dR + fbLen) % fbLen];
-
+  renderTexture(texMode, stepIdx, isNewStep, lfsrVal, p, c, baseHz, modOut, fmAmt, fbReadL, fbReadR) {
     if (texMode === 1) {
       // DEATH INDUSTRIAL: dark Haecceity organ/string bed (-12st) + bowed/scraped iron + tectonic sub
       const [padL, padR] = this.processHaecceityPad(stepIdx, p, -12);
@@ -1266,21 +1390,30 @@ class UnstablePath {
       const rumble = this.svfA.process(this.brownL * 1.5 + subCrush * 0.75, 90 + p.padY * 320 + lfo1 * 110, 1.8, this.sr).low;
       const scrape = this.svfB.process(subCrush * modOut + nR * 0.45, 220 + p.padX * 780 + lfo1 * 220, 2.4 + p.padY * 1.2, this.sr).band * 0.95;
 
-      genL = (padL * 0.62 + rumble * 0.65 + scrape * 0.50) * p.droneLevel;
-      genR = (padR * 0.62 + rumble * 0.60 - scrape * 0.46 + this.brownR * 0.32) * p.droneLevel;
-    } else if (texMode === 2) {
-      // DARK AMBIENT: pure authored Haecceity Ambient/Pad Preset Engine + glacial tape breath
+      return [
+        (padL * 0.62 + rumble * 0.65 + scrape * 0.50) * p.droneLevel,
+        (padR * 0.62 + rumble * 0.60 - scrape * 0.46 + this.brownR * 0.32) * p.droneLevel,
+      ];
+    }
+    if (texMode === 2) {
+      // DARK AMBIENT (Lustmord/Atrium Carceri/Raison d'Etre/Koner/Biosphere/Illbient):
+      // Rich XY variation across choir/organ pad, abyssal FM sub, bowed metal & geiger wind
       const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
       const nL = this.nextNoise();
       const nR = this.nextNoise();
-      this.brownL = clamp(this.brownL * 0.994 + nL * 0.05, -1, 1);
-      this.brownR = clamp(this.brownR * 0.994 + nR * 0.05, -1, 1);
-      const windL = this.svfA.process(this.brownL * 1.4, 240 + p.padY * 520, 1.6, this.sr).band * 0.45;
-      const windR = this.svfB.process(this.brownR * 1.4, 310 + p.padX * 620, 1.6, this.sr).band * 0.45;
-      genL = (padL * 1.05 + windL) * p.droneLevel;
-      genR = (padR * 1.05 + windR) * p.droneLevel;
-    } else if (texMode === 3) {
-      // POWER ELECTRONICS: brutal low-mid analog feedback grunt + diode wall + sub weight (no 4-8kHz whistle)
+      this.brownL = clamp(this.brownL * 0.994 + nL * 0.055, -1, 1);
+      this.brownR = clamp(this.brownR * 0.994 + nR * 0.055, -1, 1);
+      const windL = this.svfA.process(this.brownL * 1.5 + fbReadL * 0.22 * p.padX, 140 + p.padY * 980, 1.4 + p.padX * 1.6, this.sr).band * (0.35 + p.padX * 0.45);
+      const windR = this.svfB.process(this.brownR * 1.5 + fbReadR * 0.22 * p.padX, 190 + p.padX * 1120, 1.4 + p.padY * 1.6, this.sr).band * (0.35 + p.padY * 0.45);
+      const abyssSub = Math.sin(TAU * this.subPhase + modOut * (0.2 + p.padY * 1.4)) * (0.28 + p.padY * 0.36);
+      const bowMetal = Math.sin(TAU * this.carPhase * (c.darkInterval || 1.498) + modOut * (0.6 + p.padX * 1.8)) * (0.12 + p.padX * 0.32);
+      return [
+        (padL * 0.92 + windL + abyssSub + bowMetal) * p.droneLevel,
+        (padR * 0.92 + windR + abyssSub - bowMetal * 0.85) * p.droneLevel,
+      ];
+    }
+    if (texMode === 3) {
+      // POWER ELECTRONICS: brutal low-mid analog feedback grunt + diode wall + sub weight
       const gateRate = 0.6 + p.padX * 11.0;
       this.lfo1Phase = (this.lfo1Phase + (0.16 + p.padY * 1.6) / this.sr) % 1;
       this.lfo2Phase = (this.lfo2Phase + gateRate / this.sr) % 1;
@@ -1301,23 +1434,110 @@ class UnstablePath {
       const targetGate = lfo2 > chopThresh ? 1.0 : (0.24 + p.padY * 0.55);
       this.gateEnv += (targetGate - this.gateEnv) * 0.014;
 
-      const rawPeL = (s1.band * 0.85 + s1.low * 0.45 + subPush * 0.82 + ringN * 0.40) * this.gateEnv;
-      const rawPeR = (s2.band * 0.85 + s2.low * 0.45 + subPush * 0.78 - ringN * 0.40) * this.gateEnv;
-      genL = rawPeL * p.droneLevel;
-      genR = rawPeR * p.droneLevel;
-    } else {
-      // ALGORITHMIC PULSE / DRONE + HARMONICS + SUBTLE HAECCEITY PAD BED
+      return [
+        (s1.band * 0.85 + s1.low * 0.45 + subPush * 0.82 + ringN * 0.40) * this.gateEnv * p.droneLevel,
+        (s2.band * 0.85 + s2.low * 0.45 + subPush * 0.78 - ringN * 0.40) * this.gateEnv * p.droneLevel,
+      ];
+    }
+    if (texMode === 4) {
+      // DIGITAL HARDCORE: overdriven diode 303 acid saw/square + sub-riot bass + scream FM
+      if (isNewStep && (stepIdx % 2 === 0 || lfsrVal > 0.55)) {
+        const oct = lfsrVal > 0.78 ? 2 : lfsrVal > 0.42 ? 1.5 : 1;
+        this.microHz = clamp(baseHz * oct, 36, 520);
+      }
+      this.acidPhase = (this.acidPhase + this.microHz / this.sr) % 1;
+      const saw = 2 * this.acidPhase - 1;
+      const sq = this.acidPhase < (0.25 + p.padX * 0.45) ? 0.9 : -0.9;
+      const raw303 = saw * 0.65 + sq * 0.45 + Math.sin(TAU * this.subPhase) * 0.55;
+      const acidCut = clamp(240 + p.padX * 2600 + p.padY * 1800, 140, 4800);
+      const acidFilt = this.acidSvf.process(raw303, acidCut, 2.2 + p.padY * 3.4, this.sr);
+      const scream = fastTanh((acidFilt.low * 1.6 + acidFilt.band * (0.9 + p.padY)) * (1.8 + p.shaperDrive * 3.2));
+      return [scream * p.droneLevel * 0.9, (scream * 0.86 + Math.sin(TAU * this.carPhase + modOut * fmAmt) * 0.25) * p.droneLevel];
+    }
+    if (texMode === 5) {
+      // MICROSOUND / LOWERCASE: zero-crossing sine impulse blips, contact-mic dust & glass shimmer
+      if (isNewStep && euclidHit(stepIdx, Math.max(2, c.pulseEuclidK), Math.max(8, c.pulseEuclidN))) {
+        this.microEnv = 0.65 + lfsrVal * 0.35;
+        this.microHz = clamp(baseHz * [1, 2, 4, 6, 8, 12, 16, 24][Math.floor(lfsrVal * 8)], 40, 4200);
+        this.microPan = (lfsrVal * 2 - 1) * 0.75;
+      }
+      this.microEnv *= Math.exp(-1 / (this.sr * (0.018 + p.padY * 0.09)));
+      this.acidPhase = (this.acidPhase + this.microHz / this.sr) % 1;
+      const blip = Math.sin(TAU * this.acidPhase) * this.microEnv;
       const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
-      this.lfo1Phase = (this.lfo1Phase + 0.09 / this.sr) % 1;
-      const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
-      this.car2Phase = (this.car2Phase + (baseHz * 2.003) / this.sr) % 1;
-      const fmSig = Math.sin(TAU * this.carPhase + modOut * fmAmt);
-      const octHarm = Math.sin(TAU * this.car2Phase + modOut * (fmAmt * 0.45)) * 0.38;
-      const subSig = Math.sin(TAU * this.subPhase) * 0.35;
+      const contact = this.svfC.process(this.nextNoise(), 1200 + p.padX * 5200, 2.8, this.sr).band * (0.14 + p.padY * 0.24);
+      const subPoint = Math.sin(TAU * this.subPhase) * (0.28 + (1 - p.padX) * 0.22);
+      return [
+        (blip * (1 - this.microPan * 0.45) * 0.75 + padL * 0.45 + contact + subPoint) * p.droneLevel,
+        (blip * (1 + this.microPan * 0.45) * 0.75 + padR * 0.45 - contact * 0.8 + subPoint) * p.droneLevel,
+      ];
+    }
+    if (texMode === 6) {
+      // FLASHCORE / DECONSTRUCTION: comb-filtered reese/chug + Rhodes/Wurli pad ghosts + FM quark bursts
+      const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
+      this.car2Phase = (this.car2Phase + (baseHz * 1.008) / this.sr) % 1;
+      const reese = (2 * this.carPhase - 1) * 0.45 + (2 * this.car2Phase - 1) * 0.45 + Math.sin(TAU * this.subPhase) * 0.55;
+      const reeseCut = clamp(180 + p.padX * 1600 + p.padY * 1400, 120, 3800);
+      const fReese = this.acidSvf.process(reese, reeseCut, 1.8 + p.padY * 2.2, this.sr).low;
+      const quark = Math.sin(TAU * this.carPhase + modOut * (fmAmt * 1.15)) * (0.25 + p.padX * 0.35);
+      return [
+        (fReese * 0.72 + quark + padL * 0.48) * p.droneLevel,
+        (fReese * 0.68 - quark * 0.8 + padR * 0.48) * p.droneLevel,
+      ];
+    }
+    // 0: ALGORITHMIC DRONE + HARMONICS + SUBTLE HAECCEITY PAD BED
+    const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
+    this.lfo1Phase = (this.lfo1Phase + 0.09 / this.sr) % 1;
+    this.car2Phase = (this.car2Phase + (baseHz * 2.003) / this.sr) % 1;
+    const fmSig = Math.sin(TAU * this.carPhase + modOut * fmAmt);
+    const octHarm = Math.sin(TAU * this.car2Phase + modOut * (fmAmt * 0.45)) * 0.38;
+    const subSig = Math.sin(TAU * this.subPhase) * 0.35;
+    const drone = (fmSig * 0.55 + octHarm + subSig) * p.droneLevel;
+    return [drone + padL * 0.36, drone * 0.92 + padR * 0.36];
+  }
 
-      const drone = (fmSig * 0.55 + octHarm + subSig) * p.droneLevel;
-      genL = drone + padL * 0.32;
-      genR = drone * 0.92 + padR * 0.32;
+  process(stepIdx, kickEnv) {
+    if (this.params.enabled < 0.5) return [0, 0];
+    const c = this.chaos;
+    const p = this.params;
+
+    let isNewStep = false;
+    let lfsrVal = 0.5;
+    if (stepIdx !== this.lastStep) {
+      this.lastStep = stepIdx;
+      isNewStep = true;
+      lfsrVal = this.stepLfsr();
+    }
+
+    const fbCrossMod = c.routingIndex === 2 ? this.fbPrevL * 0.9 : 0;
+    const lfsrPitchDrift = 1.0 + ((this.lfsr & 0x0f) / 15.0 - 0.5) * 0.025;
+    const baseHz = clamp(Number.isFinite(c.droneBaseHz) ? c.droneBaseHz : 65.41, 24, 440) * lfsrPitchDrift;
+    const fmRatioSafe = Number.isFinite(c.fmRatio) ? c.fmRatio : 1.4142;
+    const subIntSafe = Number.isFinite(c.subInterval) ? c.subInterval : 0.5;
+    const modHz = baseHz * fmRatioSafe;
+    const texMode = c.textureMode | 0;
+    const donorTexMode = (c.donorTextureMode ?? texMode) | 0;
+    const crossMix = clamp(c.crossMix ?? 0, 0, 1);
+    const boost = p.sceneBoost || 1.0;
+
+    this.modPhase = (this.modPhase + modHz / this.sr) % 1;
+    const modOut = Math.sin(TAU * this.modPhase);
+    const fmAmt = (0.3 + p.fmIndex * 3.8 + p.padY * 1.8) * (1 + fbCrossMod);
+
+    this.carPhase = (this.carPhase + baseHz / this.sr) % 1;
+    this.subPhase = (this.subPhase + (baseHz * subIntSafe) / this.sr) % 1;
+
+    const fbLen = this.fbBufL.length;
+    const dL = clamp(Math.round((c.fbDelayLMs / 1000) * this.sr), 16, fbLen - 2);
+    const dR = clamp(Math.round((c.fbDelayRMs / 1000) * this.sr), 16, fbLen - 2);
+    const fbReadL = this.fbBufL[(this.fbCursor - dL + fbLen) % fbLen];
+    const fbReadR = this.fbBufR[(this.fbCursor - dR + fbLen) % fbLen];
+
+    let [genL, genR] = this.renderTexture(texMode, stepIdx, isNewStep, lfsrVal, p, c, baseHz, modOut, fmAmt, fbReadL, fbReadR);
+    if (crossMix > 0.03 && donorTexMode !== texMode) {
+      const [donL, donR] = this.renderTexture(donorTexMode, stepIdx, isNewStep, lfsrVal, p, c, baseHz, modOut, fmAmt, fbReadL, fbReadR);
+      genL = genL * (1 - crossMix) + donL * crossMix;
+      genR = genR * (1 - crossMix) + donR * crossMix;
     }
 
     const scGain = p.scMode === 2
@@ -1327,8 +1547,8 @@ class UnstablePath {
     let preFbL = genL;
     let preFbR = genR;
 
-    if (texMode === 2) {
-      // Dark ambient: smooth warm saturation, no harsh bitcrush
+    if (texMode === 2 && crossMix < 0.35 && p.mangleMix < 0.16 && p.padY < 0.48) {
+      // Dark ambient lower quadrant: smooth warm saturation + deep reverb wash
       const ambDrive = 1.2 + p.shaperDrive * 1.8;
       preFbL = fastTanh(preFbL * ambDrive);
       preFbR = fastTanh(preFbR * ambDrive);
@@ -1620,8 +1840,8 @@ class HaecceityProcessor extends AudioWorkletProcessor {
     ];
 
     this.kickGain = 0.56;
-    this.drumGain = 0.58;
-    this.idmGain = 0.72;
+    this.drumGain = 0.72;
+    this.idmGain = 0.88;
     this.unstableGain = 0.56;
     this.mumbleGain = 0.82;
     this.masterGain = 0.88;
@@ -1666,7 +1886,7 @@ class HaecceityProcessor extends AudioWorkletProcessor {
         if (Array.isArray(f.kickPattern)) this.kickPattern = f.kickPattern;
         if (Array.isArray(f.drumPattern)) this.drumPattern = f.drumPattern;
         if (f.kick) this.kick.applyParams(f.kick);
-        if (typeof f.kitIndex === 'number') this.selectedKit = clamp(f.kitIndex, 0, 3);
+        if (typeof f.kitIndex === 'number') this.selectedKit = clamp(f.kitIndex, 0, 11);
         if (typeof f.drumPitchShift === 'number') this.drumPitchShift = f.drumPitchShift;
         if (f.idm) this.idm.applyParams(f.idm);
         if (f.unstableDsp) this.unstable.applyChaos(f.unstableDsp);
@@ -1776,7 +1996,7 @@ class HaecceityProcessor extends AudioWorkletProcessor {
       const mSig = this.mumble.process() * this.mumbleGain;
       const feedIdmL = rawL + mSig * 0.25;
       const feedIdmR = rawR + mSig * 0.25;
-      const [wetIdmL, wetIdmR] = this.idm.process(feedIdmL, feedIdmR, this.beat, this.bpm, this.seed % 1000, this.idmGain);
+      const [wetIdmL, wetIdmR] = this.idm.process(feedIdmL, feedIdmR, this.beat, this.bpm, this.seed % 1000, 1.0);
 
       const dL = rawL * this.drumGain;
       const dR = rawR * this.drumGain;
@@ -1787,8 +2007,8 @@ class HaecceityProcessor extends AudioWorkletProcessor {
       const unL = uL * this.unstableGain;
       const unR = uR * this.unstableGain;
 
-      const mL = fastTanh((kSig + dL * 0.45 + iL * 0.82 + unL + mSig * 0.9) * this.masterGain);
-      const mR = fastTanh((kSig + dR * 0.45 + iR * 0.82 + unR + mSig * 0.9) * this.masterGain);
+      const mL = fastTanh((kSig + dL * 0.65 + iL * 1.05 + unL + mSig * 0.9) * this.masterGain);
+      const mR = fastTanh((kSig + dR * 0.65 + iR * 1.05 + unR + mSig * 0.9) * this.masterGain);
 
       outL[i] = mL;
       outR[i] = mR;

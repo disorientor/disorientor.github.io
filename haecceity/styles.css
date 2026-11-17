@@ -83,28 +83,12 @@ body {
   color: var(--cyan);
 }
 
-.boot-hint {
-  position: fixed;
-  top: 24px;
-  left: 26px;
-  z-index: 9;
-  font-size: 11px;
-  color: rgba(228, 238, 235, 0.58);
-  text-shadow: 1px 1px 2px #000;
-  pointer-events: none;
-  transition: opacity 0.6s ease;
-}
-
-.boot-hint.is-hidden {
-  opacity: 0;
-}
-
 /* Textmode-styled floating MumbleSpeak box */
 .mumble-modal {
   position: fixed;
   z-index: 20;
-  min-width: 300px;
-  max-width: min(460px, 86vw);
+  min-width: min(300px, calc(100vw - 24px));
+  max-width: min(460px, calc(100vw - 24px));
   background: rgba(4, 6, 8, 0.94);
   border: 1.5px solid var(--cyan);
   padding: 12px 10px 8px;
@@ -128,7 +112,7 @@ body {
   outline: none;
   color: var(--fg);
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0.03em;
 }
 

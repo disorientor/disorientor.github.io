@@ -13,11 +13,8 @@
   <!-- Top-right haecceity scene switcher (matching the standalone app) -->
   <button type="button" id="haecceity-btn" class="haecceity-btn" title="Click to change scene">haecceity</button>
 
-  <!-- Minimalist hint on first load before interaction -->
-  <div id="boot-hint" class="boot-hint">DRAG XY TO PLAY · DOUBLE-CLICK FOR MUMBLESPEAK · CLICK HAECCEITY FOR NEW SCENE</div>
-
-  <!-- Double-click MumbleSpeak word editor (Textmode style) -->
-  <div id="mumble-modal" class="mumble-modal" hidden>
+  <!-- Double-click / double-tap MumbleSpeak word editor (Textmode style) -->
+  <form id="mumble-modal" class="mumble-modal" hidden>
     <div class="mumble-tag">[MUMBLESPEAK]</div>
     <input
       id="mumble-input"
@@ -25,9 +22,11 @@
       maxlength="140"
       spellcheck="false"
       autocomplete="off"
+      autocapitalize="off"
+      enterkeyhint="send"
       placeholder="type words · enter to speak"
     />
-  </div>
+  </form>
 
   <!-- Bottom [|||....] drag-up/down channel volume bars -->
   <div id="volume-dock" class="volume-dock" aria-label="Channel Volumes"></div>

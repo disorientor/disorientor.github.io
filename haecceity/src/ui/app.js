@@ -26,8 +26,8 @@ function renderBarString(norm, slots = 10) {
 
 const VOLUME_CHANNELS = [
   { key: 'kickGain',     label: 'KICK',  value: 0.56, max: 1.2 },
-  { key: 'drumGain',     label: 'DRUM',  value: 0.58, max: 1.2 },
-  { key: 'idmGain',      label: 'TRACK', value: 0.72, max: 1.3 },
+  { key: 'drumGain',     label: 'DRUM',  value: 0.72, max: 1.2 },
+  { key: 'idmGain',      label: 'TRACK', value: 0.88, max: 1.3 },
   { key: 'unstableGain', label: 'PATH',  value: 0.56, max: 1.2 },
   { key: 'mumbleGain',   label: 'MUMB',  value: 0.82, max: 1.2 },
   { key: 'masterGain',   label: 'MSTR',  value: 0.88, max: 1.2 },
@@ -76,8 +76,6 @@ class HaecceityStageApp {
 
   async bootAudioAndPlay() {
     this.audio.unlock();
-    const hint = document.getElementById('boot-hint');
-    if (hint) hint.classList.add('is-hidden');
 
     if (!this.audio.ready) {
       await this.audio.init();
@@ -145,6 +143,7 @@ class HaecceityStageApp {
       const modal = document.getElementById('mumble-modal');
       if (!modal.hidden) {
         modal.hidden = true;
+        document.getElementById('mumble-input')?.blur();
         return;
       }
       e.preventDefault();
@@ -188,52 +187,129 @@ class HaecceityStageApp {
     const modal = document.getElementById('mumble-modal');
     const input = document.getElementById('mumble-input');
 
-    fgCanvas.addEventListener('dblclick', (e) => {
-      e.preventDefault();
+    const openModalAt = (clientX, clientY, isTouch = false) => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const boxW = Math.min(420, vw - 24);
-      const left = clamp(e.clientX - 24, 12, Math.max(12, vw - boxW - 12));
-      const top = clamp(e.clientY - 22, 16, Math.max(16, vh - 96));
+      const left = clamp(clientX - 24, 12, Math.max(12, vw - boxW - 12));
+      const maxTop = isTouch ? Math.max(16, Math.min(vh * 0.42, vh - 96)) : Math.max(16, vh - 96);
+      const top = clamp(clientY - 22, 16, maxTop);
 
       modal.style.left = `${left}px`;
       modal.style.top = `${top}px`;
       modal.hidden = false;
       input.value = this.lastMumbleText;
       input.focus();
-      input.select();
+      try {
+        input.select();
+      } catch (_) {}
+    };
+
+    const submitMumble = async () => {
+      if (modal.hidden) return;
+      const text = input.value.trim();
+      this.lastMumbleText = text;
+      modal.hidden = true;
+      input.blur();
+      this.audio.unlock();
+      await this.bootAudioAndPlay();
+
+      if (!text) {
+        this.audio.send({ type: 'mumblePhrase', phonemes: [] });
+        return;
+      }
+
+      // Automatically select textmode (0), terrain (1), or both (2)
+      const fgs = this.currentFrame.visual.foregroundFields;
+      const autoChoice = fgs.includes('textmode') && fgs.includes('terrain') ? 2
+        : fgs.includes('terrain') ? 1
+        : fgs.includes('textmode') ? 0
+        : (this.scene.seed16 % 3);
+      this.gpu.setMumbleAutoMode(autoChoice);
+
+      const phonemes = textToPhonemes(text, {
+        speed: 125,
+        pitchRange: 7,
+        seed: this.scene.seed16,
+      });
+      this.audio.send({ type: 'mumblePhrase', phonemes });
+    };
+
+    let lastTouchOpenAt = 0;
+    let activeTouch = null;
+    let lastTap = { time: 0, x: 0, y: 0 };
+
+    fgCanvas.addEventListener('touchstart', (e) => {
+      if (!modal.hidden || e.touches.length !== 1) {
+        activeTouch = null;
+        return;
+      }
+      const t = e.touches[0];
+      activeTouch = { time: performance.now(), x: t.clientX, y: t.clientY, moved: false };
+    }, { passive: true });
+
+    fgCanvas.addEventListener('touchmove', (e) => {
+      if (!activeTouch) return;
+      if (e.touches.length !== 1) {
+        activeTouch.moved = true;
+        return;
+      }
+      const t = e.touches[0];
+      if (Math.hypot(t.clientX - activeTouch.x, t.clientY - activeTouch.y) > 18) {
+        activeTouch.moved = true;
+      }
+    }, { passive: true });
+
+    fgCanvas.addEventListener('touchend', (e) => {
+      if (!activeTouch || e.changedTouches.length !== 1) {
+        activeTouch = null;
+        return;
+      }
+      const tap = activeTouch;
+      activeTouch = null;
+      const t = e.changedTouches[0];
+      const now = performance.now();
+
+      if (!modal.hidden || tap.moved || now - tap.time > 300) {
+        lastTap.time = 0;
+        return;
+      }
+
+      if (lastTap.time > 0 && now - lastTap.time < 380 && Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y) < 42) {
+        lastTap.time = 0;
+        lastTouchOpenAt = now;
+        this.draggingXY = false;
+        openModalAt(t.clientX, t.clientY, true);
+        e.preventDefault();
+      } else {
+        lastTap = { time: now, x: t.clientX, y: t.clientY };
+      }
+    }, { passive: false });
+
+    fgCanvas.addEventListener('touchcancel', () => {
+      activeTouch = null;
+      lastTap.time = 0;
+    }, { passive: true });
+
+    fgCanvas.addEventListener('dblclick', (e) => {
+      if (performance.now() - lastTouchOpenAt < 500) return;
+      e.preventDefault();
+      openModalAt(e.clientX, e.clientY, false);
     });
 
-    input.addEventListener('keydown', async (e) => {
-      if (e.key === 'Enter') {
+    modal.addEventListener('submit', (e) => {
+      e.preventDefault();
+      void submitMumble().catch((err) => console.error(err));
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
-        const text = input.value.trim();
-        this.lastMumbleText = text;
-        modal.hidden = true;
-        await this.bootAudioAndPlay();
-
-        if (!text) {
-          this.audio.send({ type: 'mumblePhrase', phonemes: [] });
-          return;
-        }
-
-        // Automatically select textmode (0), terrain (1), or both (2)
-        const fgs = this.currentFrame.visual.foregroundFields;
-        const autoChoice = fgs.includes('textmode') && fgs.includes('terrain') ? 2
-          : fgs.includes('terrain') ? 1
-          : fgs.includes('textmode') ? 0
-          : (this.scene.seed16 % 3);
-        this.gpu.setMumbleAutoMode(autoChoice);
-
-        const phonemes = textToPhonemes(text, {
-          speed: 125,
-          pitchRange: 7,
-          seed: this.scene.seed16,
-        });
-        this.audio.send({ type: 'mumblePhrase', phonemes });
+        void submitMumble().catch((err) => console.error(err));
       } else if (e.key === 'Escape') {
         e.preventDefault();
         modal.hidden = true;
+        input.blur();
       }
     });
   }

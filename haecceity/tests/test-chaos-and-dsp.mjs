@@ -176,6 +176,42 @@ for (const [archIdx, label] of [[3, 'DEATH_INDUSTRIAL'], [4, 'DARK_AMBIENT'], [5
   console.log(`   PASS: ${label} (texMode=${fr.unstableDsp.textureMode}, bpm=${fr.bpm}) peak=${peak.toFixed(3)}.`);
 }
 
+console.log('4c. Testing 12 Drumkits, 8 Kick Recipes, IDM Drum Loudness, and Genre_Bin Cross-Pollination...');
+for (let k = 0; k < 12; k++) {
+  const kp = new RegisteredProcessor();
+  kp.handleMessage({ type: 'xyFrame', frame: { ...f11, kitIndex: k, kick: { ...f11.kick, recipe: k % 8 } } });
+  kp.handleMessage({ type: 'mixParam', key: 'unstableGain', value: 0.0 });
+  kp.handleMessage({ type: 'mixParam', key: 'kickGain', value: 0.0 });
+  kp.handleMessage({ type: 'transport', playing: true, bpm: 140 });
+  let kitPeak = 0;
+  for (let s = 0; s < 8; s++) kp.handleMessage({ type: 'trigDrum', slot: s, vel: 0.95 });
+  for (let b = 0; b < 60; b++) {
+    kp.process([], [[outL, outR]]);
+    for (let i = 0; i < 128; i++) {
+      assert.ok(Number.isFinite(outL[i]) && Number.isFinite(outR[i]), `Kit ${k} non-finite`);
+      kitPeak = Math.max(kitPeak, Math.abs(outL[i]), Math.abs(outR[i]));
+    }
+  }
+  assert.ok(kitPeak > 0.25, `Kit ${k} + IDM drums too quiet: peak=${kitPeak}`);
+}
+
+const daScene = createScene(0x7777, { archetype: 4 });
+const daLo = allocateFromXY(daScene, 0.06, 0.08);
+const daHi = allocateFromXY(daScene, 0.94, 0.92);
+assert.notEqual(daLo.crossMix, daHi.crossMix, 'Dark Ambient XY must sweep cross-pollination');
+assert.ok(daHi.unstableDsp.ambientPreset.cutoff > daLo.unstableDsp.ambientPreset.cutoff * 1.8, 'Dark Ambient XY must sweep cutoff widely');
+assert.ok(daHi.unstableParams.mangleMix > daLo.unstableParams.mangleMix + 0.15, 'Dark Ambient XY must sweep mangleMix');
+
+const seenGenres = new Set();
+for (let i = 0; i < 300; i++) {
+  const sc = createScene((i * 4999) & 0xffff);
+  seenGenres.add(sc.primaryProject.genre);
+}
+for (const g of ['DARK_AMBIENT', 'DIGITAL_HARDCORE', 'MICROSOUND', 'LOWERCASE', 'FLASHCORE', 'BREAKCORE', 'POWER_ELECTRONICS', 'DECONSTRUCTION']) {
+  assert.ok(seenGenres.has(g), `Expected Genre_Bin genre ${g} to appear in scene rolls`);
+}
+console.log(`   PASS: 12 kits loud & finite, Dark Ambient XY variation verified, genres=[${[...seenGenres].join(', ')}].`);
+
 console.log('5. Checking minimal UI & HTML invariants...');
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
 const appSrc = fs.readFileSync(path.join(rootDir, 'src/ui/app.js'), 'utf8');
@@ -184,6 +220,8 @@ const bridgeSrc = fs.readFileSync(path.join(rootDir, 'src/audio/engine-bridge.js
 assert.ok(indexHtml.includes('id="haecceity-btn"') && indexHtml.includes('>haecceity<'), 'Missing top-right haecceity button');
 assert.ok(indexHtml.includes('id="mumble-modal"') && indexHtml.includes('id="volume-dock"'), 'Missing MumbleSpeak modal or volume dock');
 assert.ok(!indexHtml.includes('scene-toast') && !appSrc.includes('scene-toast'), 'Scene toast popup text must be removed');
+assert.ok(!indexHtml.includes('boot-hint') && !appSrc.includes('boot-hint'), 'Top-left boot-hint text must be removed');
+assert.ok(appSrc.includes('touchend') && indexHtml.includes('enterkeyhint="send"'), 'Mobile double-tap MumbleSpeak support missing');
 assert.ok(!fgSrc.includes('fillText'), 'Coordinate reticle text bar must be removed');
 assert.ok(bridgeSrc.includes('unlock()') && bridgeSrc.includes('audioSession') && bridgeSrc.includes('createBufferSource'), 'iOS Web Audio unlock missing');
 assert.ok(!/<input\b[^>]*type\s*=\s*["']range["']/i.test(indexHtml + appSrc), 'Must not use HTML range sliders');
