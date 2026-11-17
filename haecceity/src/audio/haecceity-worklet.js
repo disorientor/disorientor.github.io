@@ -56,9 +56,10 @@ class SVF {
     this.ic2eq = 0;
   }
   process(v0, cutoffHz, q, sr) {
-    const fc = clamp(cutoffHz, 20, sr * 0.44);
+    if (!Number.isFinite(v0)) return { low: 0, band: 0, high: 0 };
+    const fc = clamp(Number.isFinite(cutoffHz) ? cutoffHz : 1000, 20, sr * 0.44);
+    const k = 1 / Math.max(0.25, Number.isFinite(q) ? q : 0.7);
     const g = Math.tan(Math.PI * fc / sr);
-    const k = 1 / Math.max(0.25, q);
     const a1 = 1 / (1 + g * (g + k));
     const a2 = g * a1;
     const a3 = g * a2;
@@ -67,6 +68,11 @@ class SVF {
     const v2 = this.ic2eq + a2 * this.ic1eq + a3 * v3;
     this.ic1eq = 2 * v1 - this.ic1eq;
     this.ic2eq = 2 * v2 - this.ic2eq;
+    if (!Number.isFinite(this.ic1eq) || !Number.isFinite(this.ic2eq)) {
+      this.ic1eq = 0;
+      this.ic2eq = 0;
+      return { low: 0, band: 0, high: 0 };
+    }
     return { low: v2, band: v1, high: v0 - k * v1 - v2 };
   }
 }
@@ -950,10 +956,28 @@ class UnstablePath {
     this.svfA = new SVF();
     this.svfB = new SVF();
     this.svfC = new SVF();
+    this.svfPadL = new SVF();
+    this.svfPadR = new SVF();
+    this.svfPadFormantA = new SVF();
+    this.svfPadFormantB = new SVF();
     this.dcL = new DCBlock();
     this.dcR = new DCBlock();
     this.fbPrevL = 0;
     this.fbPrevR = 0;
+
+    // Haecceity Ambient/Pad engine state (4-voice chord + damped comb resonator + tape warp)
+    this.padPhasesA = new Float64Array(4);
+    this.padPhasesB = new Float64Array(4);
+    this.padSubPhases = new Float64Array(4);
+    this.padWarpPhase = 0;
+    this.padLfoPhase = 0;
+    this.padCombL = new Float32Array(8192);
+    this.padCombR = new Float32Array(8192);
+    this.padCombInL = new Float32Array(8192);
+    this.padCombInR = new Float32Array(8192);
+    this.padCombCur = 0;
+    this.padRootOffset = 0;
+    this.padTargetOffset = 0;
 
     this.chaos = {
       textureMode: 0,
@@ -974,6 +998,27 @@ class UnstablePath {
       fbDelayLMs: 65,
       fbDelayRMs: 89,
       fbPolarity: 1,
+      ambientPreset: {
+        name: 'Evening Reels',
+        rootMidi: 48,
+        chord: [0, 7, 12],
+        prog: [0, 7, 0, 5],
+        shape: 0.12,
+        pulseMix: 0.0,
+        pw: 0.5,
+        subMix: 0.25,
+        cutoff: 1850,
+        res: 0.14,
+        detune: 11,
+        lfoRate: 0.045,
+        warpDepth: 0.8,
+        padDelayMs: 32,
+        padFeedback: 0.54,
+        padWet: 0.36,
+        vowel: -1,
+        noise: 0.012,
+        drive: 0.22,
+      },
     };
 
     this.params = {
@@ -1063,6 +1108,112 @@ class UnstablePath {
     return [this.heldL, this.heldR];
   }
 
+  processHaecceityPad(stepIdx, p, pitchTranspose = 0) {
+    const pr = this.chaos.ambientPreset || {};
+    const chord = pr.chord || [0, 7, 12];
+    const prog = pr.prog || [0, 7, 0, 5];
+    const progStep = Math.floor(Math.max(0, stepIdx) / 16) % prog.length;
+    this.padTargetOffset = prog[progStep] || 0;
+    this.padRootOffset += (this.padTargetOffset - this.padRootOffset) * 0.00018;
+
+    const lfoRate = pr.lfoRate || 0.045;
+    this.padLfoPhase = (this.padLfoPhase + lfoRate / this.sr) % 1;
+    this.padWarpPhase = (this.padWarpPhase + 0.031 / this.sr) % 1;
+    const lfo = Math.sin(TAU * this.padLfoPhase);
+    const warp = Math.sin(TAU * this.padWarpPhase) * (pr.warpDepth || 0.8) * 0.0032;
+
+    const rootMidi = (pr.rootMidi || 48) + pitchTranspose + this.padRootOffset;
+    const detuneCents = pr.detune || 12;
+    const shape = pr.shape ?? 0.2;
+    const pulseMix = pr.pulseMix ?? 0.2;
+    const pw = pr.pw ?? 0.45;
+    const subMix = pr.subMix ?? 0.3;
+
+    let sumL = 0;
+    let sumR = 0;
+    const voiceCount = Math.min(4, chord.length);
+    for (let v = 0; v < voiceCount; v++) {
+      const semi = rootMidi + chord[v];
+      const hz = clamp(440 * Math.pow(2, (semi - 69) / 12) * (1 + warp), 28, 1800);
+      const det = Math.pow(2, (((v & 1 ? 1 : -1) * detuneCents * (0.6 + 0.4 * v)) / 1200));
+      const hzA = hz;
+      const hzB = hz * det;
+
+      const phA = (this.padPhasesA[v] = (this.padPhasesA[v] + hzA / this.sr) % 1);
+      const phB = (this.padPhasesB[v] = (this.padPhasesB[v] + hzB / this.sr) % 1);
+      const phSub = (this.padSubPhases[v] = (this.padSubPhases[v] + (hz * 0.5) / this.sr) % 1);
+
+      const sawA = 2 * phA - 1;
+      const sawB = 2 * phB - 1;
+      const sinA = Math.sin(TAU * phA);
+      const sinB = Math.sin(TAU * phB);
+      const oscA = sinA * (1 - shape) + sawA * shape;
+      const oscB = sinB * (1 - shape) + sawB * shape;
+      const sqA = phA < pw ? 0.7 : -0.7;
+      const sqB = phB < (1 - pw) ? 0.7 : -0.7;
+      const sub = Math.sin(TAU * phSub) * subMix;
+
+      const voiceA = (oscA + sqA * pulseMix + sub) * (v === 0 ? 1.0 : 0.72);
+      const voiceB = (oscB + sqB * pulseMix + sub) * (v === 0 ? 1.0 : 0.72);
+      const pan = voiceCount <= 1 ? 0.5 : v / (voiceCount - 1);
+      sumL += voiceA * (1 - pan * 0.45) + voiceB * (0.25 + pan * 0.35);
+      sumR += voiceB * (0.55 + pan * 0.45) + voiceA * (0.55 - pan * 0.3);
+    }
+    const norm = 0.55 / Math.max(1, voiceCount);
+    let srcL = sumL * norm;
+    let srcR = sumR * norm;
+
+    const air = pr.noise || 0.01;
+    if (air > 0) {
+      srcL += this.nextNoise() * air;
+      srcR += this.nextNoise() * air;
+    }
+
+    // Haecceity engine.hpp damped comb resonator (lines 360-367)
+    const delaySamples = clamp(((pr.padDelayMs || 26) + lfo * 2.2) * this.sr * 0.001, 4, 8190);
+    let readIdx = this.padCombCur - delaySamples;
+    if (readIdx < 0) readIdx += 8192;
+    const i0 = Math.floor(readIdx) % 8192;
+    const i1 = (i0 + 1) % 8192;
+    const frac = readIdx - Math.floor(readIdx);
+
+    const delL = this.padCombL[i0] * (1 - frac) + this.padCombL[i1] * frac;
+    const delR = this.padCombR[i0] * (1 - frac) + this.padCombR[i1] * frac;
+    const inDelL = this.padCombInL[i0] * (1 - frac) + this.padCombInL[i1] * frac;
+    const inDelR = this.padCombInR[i0] * (1 - frac) + this.padCombInR[i1] * frac;
+    const pFb = clamp(pr.padFeedback ?? 0.48, 0, 0.72);
+    const combL = 0.35 * srcL + 0.15 * inDelL + pFb * delL;
+    const combR = 0.35 * srcR + 0.15 * inDelR + pFb * delR;
+
+    this.padCombInL[this.padCombCur] = srcL;
+    this.padCombInR[this.padCombCur] = srcR;
+    this.padCombL[this.padCombCur] = clamp(combL, -4, 4);
+    this.padCombR[this.padCombCur] = clamp(combR, -4, 4);
+    this.padCombCur = (this.padCombCur + 1) % 8192;
+
+    const pWet = clamp(pr.padWet ?? 0.32, 0, 0.65);
+    srcL += combL * pWet;
+    srcR += combR * pWet;
+
+    // Optional Haecceity vocal formant choir veil (Low Sun Ensemble / Sleep Terminal / Cyberpunk Neon)
+    if (typeof pr.vowel === 'number' && pr.vowel >= 0) {
+      const fTab = VOWEL_FORMANTS[clamp(pr.vowel | 0, 0, VOWEL_FORMANTS.length - 1)];
+      const f1 = this.svfPadFormantA.process(srcL, fTab[0], 3.2, this.sr).band;
+      const f2 = this.svfPadFormantB.process(srcR, fTab[1], 3.6, this.sr).band;
+      srcL = srcL * 0.72 + f1 * 0.42;
+      srcR = srcR * 0.72 + f2 * 0.42;
+    }
+
+    const baseCutoff = pr.cutoff || 1400;
+    const cut = clamp(baseCutoff * Math.pow(2, lfo * 0.45 + (p.padY - 0.5) * 0.8), 160, 4800);
+    const q = clamp(0.75 + (pr.res || 0.16) * 2.4, 0.7, 2.2);
+    const fL = this.svfPadL.process(srcL, cut, q, this.sr).low;
+    const fR = this.svfPadR.process(srcR, cut, q, this.sr).low;
+
+    const drv = 1.15 + (pr.drive || 0.24) * 2.2;
+    return [fastTanh(fL * drv), fastTanh(fR * drv)];
+  }
+
   process(stepIdx, kickEnv) {
     if (this.params.enabled < 0.5) return [0, 0];
     const c = this.chaos;
@@ -1081,8 +1232,10 @@ class UnstablePath {
 
     const fbCrossMod = c.routingIndex === 2 ? this.fbPrevL * 0.9 : 0;
     const lfsrPitchDrift = 1.0 + ((this.lfsr & 0x0f) / 15.0 - 0.5) * 0.025;
-    const baseHz = c.droneBaseHz * lfsrPitchDrift;
-    const modHz = baseHz * c.fmRatio;
+    const baseHz = clamp(Number.isFinite(c.droneBaseHz) ? c.droneBaseHz : 65.41, 24, 440) * lfsrPitchDrift;
+    const fmRatioSafe = Number.isFinite(c.fmRatio) ? c.fmRatio : 1.4142;
+    const subIntSafe = Number.isFinite(c.subInterval) ? c.subInterval : 0.5;
+    const modHz = baseHz * fmRatioSafe;
     const texMode = c.textureMode | 0;
     const boost = p.sceneBoost || 1.0;
 
@@ -1091,7 +1244,7 @@ class UnstablePath {
     const fmAmt = (0.3 + p.fmIndex * 3.8 + p.padY * 1.8) * (1 + fbCrossMod);
 
     this.carPhase = (this.carPhase + baseHz / this.sr) % 1;
-    this.subPhase = (this.subPhase + (baseHz * c.subInterval) / this.sr) % 1;
+    this.subPhase = (this.subPhase + (baseHz * subIntSafe) / this.sr) % 1;
     this.pulsePhase = (this.pulsePhase + this.pulseHz / this.sr) % 1;
 
     let genL;
@@ -1104,63 +1257,40 @@ class UnstablePath {
     const fbReadR = this.fbBufR[(this.fbCursor - dR + fbLen) % fbLen];
 
     if (texMode === 1) {
-      // DEATH INDUSTRIAL: tectonic sub-rumble + bowed inharmonic iron + scraped resonance + machinery pulse
-      this.lfo1Phase = (this.lfo1Phase + (0.07 + p.padX * 0.35) / this.sr) % 1;
+      // DEATH INDUSTRIAL: dark Haecceity organ/string bed (-12st) + bowed/scraped iron + tectonic sub
+      const [padL, padR] = this.processHaecceityPad(stepIdx, p, -12);
+      this.lfo1Phase = (this.lfo1Phase + (0.07 + p.padX * 0.25) / this.sr) % 1;
       const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
       this.car2Phase = (this.car2Phase + (baseHz * 1.4142) / this.sr) % 1;
-      this.car3Phase = (this.car3Phase + (baseHz * 2.732) / this.sr) % 1;
       const nL = this.nextNoise();
       const nR = this.nextNoise();
       this.brownL = clamp(this.brownL * 0.992 + nL * 0.09, -1, 1);
       this.brownR = clamp(this.brownR * 0.992 + nR * 0.09, -1, 1);
 
-      const subCrush = Math.sin(TAU * this.carPhase + modOut * (0.55 + p.fmIndex * 2.4)) * 0.55 +
-                       Math.sin(TAU * this.car2Phase + modOut * 0.8) * 0.35 +
-                       Math.sin(TAU * this.car3Phase) * 0.24 +
+      const subCrush = Math.sin(TAU * this.carPhase + modOut * (0.45 + p.fmIndex * 1.8)) * 0.55 +
+                       Math.sin(TAU * this.car2Phase) * 0.30 +
                        Math.sin(TAU * this.subPhase) * 0.42;
-      const rumble = this.svfA.process(this.brownL * 1.7 + subCrush * 0.85, 110 + p.padY * 480 + lfo1 * 140, 2.8 + p.padY * 2.8, this.sr).low;
-      const scrapeSrc = subCrush * (0.5 + modOut) + nR * 0.65 + fbReadR * 0.42;
-      const scrape = this.svfB.process(scrapeSrc, 280 + p.padX * 2100 + lfo1 * 480, 4.5 + p.padY * 4.5, this.sr).band * 1.55;
-      const clang = (this.pulsePhase < 0.28 ? 1 : -1) * this.pulseEnv * p.pulseLevel * 0.85;
+      const rumble = this.svfA.process(this.brownL * 1.5 + subCrush * 0.75, 90 + p.padY * 320 + lfo1 * 110, 1.8, this.sr).low;
+      const scrape = this.svfB.process(subCrush * modOut + nR * 0.45, 220 + p.padX * 780 + lfo1 * 220, 2.4 + p.padY * 1.2, this.sr).band * 0.95;
+      const clang = (this.pulsePhase < 0.3 ? 1 : -1) * this.pulseEnv * p.pulseLevel * 0.55;
 
-      genL = (rumble * 0.92 + scrape * 0.82 + clang) * p.droneLevel;
-      genR = (rumble * 0.88 - scrape * 0.78 + this.brownR * 0.45 - clang * 0.75) * p.droneLevel;
+      genL = (padL * 0.62 + rumble * 0.65 + scrape * 0.50 + clang) * p.droneLevel;
+      genR = (padR * 0.62 + rumble * 0.60 - scrape * 0.46 + this.brownR * 0.32 - clang * 0.7) * p.droneLevel;
     } else if (texMode === 2) {
-      // DARK AMBIENT: rich harmonic/tritone/fifth ambient pad + octave shimmer + glacial wind + 4-tap wash
-      this.lfo1Phase = (this.lfo1Phase + (0.035 + p.padX * 0.09) / this.sr) % 1;
-      this.lfo2Phase = (this.lfo2Phase + (0.023 + p.padY * 0.07) / this.sr) % 1;
-      const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
-      const lfo2 = 0.5 + 0.5 * Math.sin(TAU * this.lfo2Phase);
-
-      this.car2Phase = (this.car2Phase + (baseHz * (1.005 + p.padX * 0.012)) / this.sr) % 1;
-      this.car3Phase = (this.car3Phase + (baseHz * (c.darkInterval || 1.4983)) / this.sr) % 1;
-
-      const p1 = TAU * this.carPhase;
-      const p2 = TAU * this.car2Phase;
-      const p3 = TAU * this.car3Phase;
-      const d1 = Math.sin(p1 + modOut * (0.24 + lfo1 * 0.55)) + 0.36 * Math.sin(p1 * 2.0) + 0.18 * Math.sin(p1 * 3.0);
-      const d2 = Math.sin(p2) + 0.32 * Math.sin(p2 * 2.0) + 0.14 * Math.sin(p2 * 4.0);
-      const d3 = (Math.sin(p3) + 0.28 * Math.sin(p3 * 2.0)) * (0.42 + 0.40 * lfo2);
-      const dSub = Math.sin(TAU * this.subPhase) * 0.45;
-
+      // DARK AMBIENT: pure authored Haecceity Ambient/Pad Preset Engine + glacial tape breath
+      const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
       const nL = this.nextNoise();
       const nR = this.nextNoise();
-      this.brownL = clamp(this.brownL * 0.994 + nL * 0.07, -1, 1);
-      this.brownR = clamp(this.brownR * 0.994 + nR * 0.07, -1, 1);
-
-      const windL = this.svfA.process(this.brownL * 1.9 + nL * 0.35, 190 + lfo1 * (360 + p.padY * 950), 3.4 + p.padY * 3.2, this.sr).band * 1.65;
-      const windR = this.svfB.process(this.brownR * 1.9 + nR * 0.35, 260 + lfo2 * (440 + p.padX * 1150), 3.6 + p.padX * 3.0, this.sr).band * 1.65;
-      const chime = (Math.sin(TAU * this.pulsePhase) + 0.35 * Math.sin(TAU * this.pulsePhase * 2.0)) * this.pulseEnv * p.pulseLevel * 0.55;
-
-      const padBodyL = this.svfC.process((d1 * 0.44 + d2 * 0.40 + d3 * 0.38 + dSub) * 0.62, 420 + lfo1 * 1200 + p.padY * 900, 1.2, this.sr).low;
-      const padBodyR = (d1 * 0.38 + d2 * 0.44 - d3 * 0.34 + dSub) * 0.55;
-
-      genL = (padBodyL + windL + chime) * p.droneLevel;
-      genR = (padBodyR + windR - chime * 0.8) * p.droneLevel;
+      this.brownL = clamp(this.brownL * 0.994 + nL * 0.05, -1, 1);
+      this.brownR = clamp(this.brownR * 0.994 + nR * 0.05, -1, 1);
+      const windL = this.svfA.process(this.brownL * 1.4, 240 + p.padY * 520, 1.6, this.sr).band * 0.45;
+      const windR = this.svfB.process(this.brownR * 1.4, 310 + p.padX * 620, 1.6, this.sr).band * 0.45;
+      genL = (padL * 1.05 + windL) * p.droneLevel;
+      genR = (padR * 1.05 + windR) * p.droneLevel;
     } else if (texMode === 3) {
-      // POWER ELECTRONICS: cross-coupled self-oscillating feedback shriek + diode wall + sub weight
-      const gateRate = 0.6 + p.padX * 14.0;
-      this.lfo1Phase = (this.lfo1Phase + (0.18 + p.padY * 2.4) / this.sr) % 1;
+      // POWER ELECTRONICS: brutal low-mid analog feedback grunt + diode wall + sub weight (no 4-8kHz whistle)
+      const gateRate = 0.6 + p.padX * 11.0;
+      this.lfo1Phase = (this.lfo1Phase + (0.16 + p.padY * 1.6) / this.sr) % 1;
       this.lfo2Phase = (this.lfo2Phase + gateRate / this.sr) % 1;
       const lfo1 = Math.sin(TAU * this.lfo1Phase);
       const lfo2 = Math.sin(TAU * this.lfo2Phase);
@@ -1168,38 +1298,37 @@ class UnstablePath {
       const nL = this.nextNoise();
       const nR = this.nextNoise();
       const ringN = nL * modOut;
-      const f1Hz = clamp(340 + p.padX * 3600 + lfo1 * 780 + fbReadR * 950, 110, 6800);
-      const f2Hz = clamp(240 + p.padY * 2900 - lfo1 * 580 + fbReadL * 820, 95, 6200);
+      const f1Hz = clamp(180 + p.padX * 920 + lfo1 * 260, 90, 1450);
+      const f2Hz = clamp(140 + p.padY * 780 - lfo1 * 220, 80, 1250);
 
-      const s1 = this.svfA.process(nL * 0.72 + ringN * 0.62 + fbReadL * 0.78, f1Hz, 6.5 + p.padY * 7.0, this.sr);
-      const s2 = this.svfB.process(nR * 0.72 + s1.band * 0.65 + fbReadR * 0.78, f2Hz, 6.0 + p.padX * 6.5, this.sr);
-      const subPush = Math.sin(TAU * this.subPhase) * 0.60 + Math.sin(TAU * this.carPhase + modOut * 2.8) * 0.52;
+      const s1 = this.svfA.process(nL * 0.65 + ringN * 0.55 + fbReadL * 0.35, f1Hz, 2.2 + p.padY * 1.8, this.sr);
+      const s2 = this.svfB.process(nR * 0.65 + s1.band * 0.45 + fbReadR * 0.35, f2Hz, 2.0 + p.padX * 1.8, this.sr);
+      const subPush = Math.sin(TAU * this.subPhase) * 0.62 + Math.sin(TAU * this.carPhase + modOut * 2.4) * 0.52;
 
       const chopThresh = -0.75 + p.padX * 1.15 - p.padY * 0.55;
-      const targetGate = lfo2 > chopThresh ? 1.0 : (0.22 + p.padY * 0.55);
+      const targetGate = lfo2 > chopThresh ? 1.0 : (0.24 + p.padY * 0.55);
       this.gateEnv += (targetGate - this.gateEnv) * 0.014;
 
-      const rawPeL = (s1.band * 1.05 + s2.high * 0.48 + subPush * 0.85 + ringN * 0.52) * this.gateEnv;
-      const rawPeR = (s2.band * 1.05 + s1.high * 0.48 + subPush * 0.80 - ringN * 0.52) * this.gateEnv;
+      const rawPeL = (s1.band * 0.85 + s1.low * 0.45 + subPush * 0.82 + ringN * 0.40) * this.gateEnv;
+      const rawPeR = (s2.band * 0.85 + s2.low * 0.45 + subPush * 0.78 - ringN * 0.40) * this.gateEnv;
       genL = rawPeL * p.droneLevel;
       genR = rawPeR * p.droneLevel;
     } else {
-      // ALGORITHMIC PULSE / DRONE + HARMONICS + SUBTLE AMBIENT MIST
+      // ALGORITHMIC PULSE / DRONE + HARMONICS + SUBTLE HAECCEITY PAD BED
+      const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
       this.lfo1Phase = (this.lfo1Phase + 0.09 / this.sr) % 1;
       const lfo1 = 0.5 + 0.5 * Math.sin(TAU * this.lfo1Phase);
       this.car2Phase = (this.car2Phase + (baseHz * 2.003) / this.sr) % 1;
-      const nL = this.nextNoise();
       const fmSig = Math.sin(TAU * this.carPhase + modOut * fmAmt);
-      const octHarm = Math.sin(TAU * this.car2Phase + modOut * (fmAmt * 0.45)) * 0.42;
+      const octHarm = Math.sin(TAU * this.car2Phase + modOut * (fmAmt * 0.45)) * 0.38;
       const subSig = Math.sin(TAU * this.subPhase) * 0.35;
-      const mist = this.svfA.process(nL * 0.35, 320 + lfo1 * 1100 + p.padY * 800, 2.8, this.sr).band * 0.42;
 
-      const drone = (fmSig * 0.62 + octHarm + subSig + mist) * p.droneLevel;
-      const pulseWave = (this.pulsePhase < (0.22 + p.padX * 0.32) ? 1 : -1) * 0.65 +
-                        Math.sin(TAU * this.pulsePhase) * 0.35;
+      const drone = (fmSig * 0.55 + octHarm + subSig) * p.droneLevel;
+      const pulseWave = (this.pulsePhase < (0.22 + p.padX * 0.32) ? 1 : -1) * 0.62 +
+                        Math.sin(TAU * this.pulsePhase) * 0.38;
       const pulse = pulseWave * this.pulseEnv * p.pulseLevel;
-      genL = drone + pulse * 0.92;
-      genR = drone * 0.92 - pulse * 0.88;
+      genL = drone + pulse * 0.88 + padL * 0.32;
+      genR = drone * 0.92 - pulse * 0.85 + padR * 0.32;
     }
 
     const scGain = p.scMode === 2
@@ -1247,7 +1376,7 @@ class UnstablePath {
       preFbR *= scGain;
     }
 
-    const fbAmt = clamp(p.fbGain + p.padY * 0.25 + (p.scMode === 3 ? kickEnv * 0.25 : 0), 0, 1.03);
+    const fbAmt = clamp(p.fbGain + p.padY * 0.14 + (p.scMode === 3 ? kickEnv * 0.15 : 0), 0, texMode >= 1 ? 0.78 : 0.84);
     let tapReadL = fbReadL;
     let tapReadR = fbReadR;
     if (texMode === 2) {

@@ -19,6 +19,30 @@ export const COMPOSITION_ARCHETYPES = [
   'POWER_ELECTRONICS',
 ];
 
+// Authored Haecceity Ambient & Pad presets ported from build_ambient_presets.py / build_ambient_pad_voice2.py
+export const AMBIENT_PAD_PRESETS = [
+  { name: 'Evening Reels',    rootMidi: 48, chord: [0, 7, 12],     prog: [0, 7, 0, 5],  shape: 0.12, pulseMix: 0.0,  pw: 0.50, subMix: 0.25, cutoff: 1850, res: 0.14, detune: 11, lfoRate: 0.045, warpDepth: 0.8,  padDelayMs: 32, padFeedback: 0.54, padWet: 0.36, vowel: -1, noise: 0.012, drive: 0.22 },
+  { name: 'Lichen Chords',    rootMidi: 48, chord: [0, 5, 7, 12],  prog: [0, -2, 0, 5], shape: 0.08, pulseMix: 0.25, pw: 0.45, subMix: 0.30, cutoff: 1550, res: 0.12, detune: 13, lfoRate: 0.038, warpDepth: 0.7,  padDelayMs: 22, padFeedback: 0.42, padWet: 0.28, vowel: -1, noise: 0.008, drive: 0.18 },
+  { name: 'Distant Strings',  rootMidi: 48, chord: [0, 7, 12, 19], prog: [0, 5, 7, 3],  shape: 0.35, pulseMix: 0.15, pw: 0.50, subMix: 0.28, cutoff: 1650, res: 0.12, detune: 16, lfoRate: 0.052, warpDepth: 0.9,  padDelayMs: 24, padFeedback: 0.46, padWet: 0.32, vowel: -1, noise: 0.010, drive: 0.20 },
+  { name: 'Low Sun Ensemble', rootMidi: 43, chord: [0, 7, 12],     prog: [0, 5, 3, 7],  shape: 0.22, pulseMix: 0.10, pw: 0.48, subMix: 0.45, cutoff: 1150, res: 0.16, detune: 14, lfoRate: 0.035, warpDepth: 0.8,  padDelayMs: 28, padFeedback: 0.48, padWet: 0.30, vowel: 4,  noise: 0.014, drive: 0.28 },
+  { name: 'Memory Glass',     rootMidi: 55, chord: [0, 7, 12],     prog: [0, 7, 5, 0],  shape: 0.06, pulseMix: 0.0,  pw: 0.50, subMix: 0.20, cutoff: 2400, res: 0.18, detune: 9,  lfoRate: 0.060, warpDepth: 0.6,  padDelayMs: 19, padFeedback: 0.52, padWet: 0.40, vowel: -1, noise: 0.006, drive: 0.16 },
+  { name: 'Sleep Terminal',   rootMidi: 52, chord: [0, 5, 12],     prog: [0, 3, 5, 7],  shape: 0.15, pulseMix: 0.20, pw: 0.42, subMix: 0.30, cutoff: 1900, res: 0.14, detune: 12, lfoRate: 0.048, warpDepth: 1.2,  padDelayMs: 26, padFeedback: 0.50, padWet: 0.34, vowel: 7,  noise: 0.018, drive: 0.22 },
+  { name: 'Blue Hour',        rootMidi: 48, chord: [0, 7, 11, 12], prog: [0, -3, 2, 5], shape: 0.28, pulseMix: 0.35, pw: 0.40, subMix: 0.38, cutoff: 920,  res: 0.15, detune: 12, lfoRate: 0.042, warpDepth: 0.7,  padDelayMs: 21, padFeedback: 0.40, padWet: 0.28, vowel: -1, noise: 0.010, drive: 0.25 },
+  { name: 'Ion Voyager',      rootMidi: 43, chord: [0, 7, 12],     prog: [0, 7, 5, 2],  shape: 0.32, pulseMix: 0.55, pw: 0.36, subMix: 0.45, cutoff: 1250, res: 0.18, detune: 14, lfoRate: 0.055, warpDepth: 0.8,  padDelayMs: 29, padFeedback: 0.52, padWet: 0.38, vowel: -1, noise: 0.012, drive: 0.26 },
+  { name: 'Phaedra Mist',     rootMidi: 48, chord: [0, 5, 7],      prog: [0, 3, 7, 5],  shape: 0.30, pulseMix: 0.30, pw: 0.44, subMix: 0.35, cutoff: 1650, res: 0.24, detune: 15, lfoRate: 0.050, warpDepth: 1.1,  padDelayMs: 25, padFeedback: 0.48, padWet: 0.34, vowel: -1, noise: 0.012, drive: 0.24 },
+  { name: 'Rubycon Drift',    rootMidi: 48, chord: [0, 7, 12],     prog: [0, 5, 2, 7],  shape: 0.24, pulseMix: 0.60, pw: 0.32, subMix: 0.32, cutoff: 1450, res: 0.16, detune: 13, lfoRate: 0.040, warpDepth: 1.3,  padDelayMs: 31, padFeedback: 0.56, padWet: 0.40, vowel: -1, noise: 0.010, drive: 0.24 },
+  { name: 'Ravine Organ',     rootMidi: 43, chord: [0, 7, 12],     prog: [0, 1, 5, 0],  shape: 0.28, pulseMix: 0.20, pw: 0.50, subMix: 0.48, cutoff: 980,  res: 0.18, detune: 16, lfoRate: 0.036, warpDepth: 1.5,  padDelayMs: 27, padFeedback: 0.50, padWet: 0.34, vowel: -1, noise: 0.014, drive: 0.38 },
+  { name: 'Glacial Radio',    rootMidi: 46, chord: [0, 5, 12],     prog: [0, -2, 3, 0], shape: 0.18, pulseMix: 0.15, pw: 0.46, subMix: 0.34, cutoff: 1750, res: 0.14, detune: 14, lfoRate: 0.032, warpDepth: 1.8,  padDelayMs: 34, padFeedback: 0.54, padWet: 0.36, vowel: -1, noise: 0.025, drive: 0.24 },
+  { name: 'Warm Analog Swell',rootMidi: 48, chord: [0, 4, 7, 11],  prog: [0, -3, 5, 7], shape: 0.48, pulseMix: 0.25, pw: 0.45, subMix: 0.36, cutoff: 1120, res: 0.22, detune: 16, lfoRate: 0.065, warpDepth: 0.6,  padDelayMs: 20, padFeedback: 0.36, padWet: 0.26, vowel: -1, noise: 0.008, drive: 0.28 },
+  { name: 'Glass Cathedral',  rootMidi: 52, chord: [0, 7, 12, 19], prog: [0, 5, 7, 2],  shape: 0.10, pulseMix: 0.10, pw: 0.50, subMix: 0.25, cutoff: 2350, res: 0.20, detune: 10, lfoRate: 0.055, warpDepth: 0.5,  padDelayMs: 23, padFeedback: 0.50, padWet: 0.38, vowel: -1, noise: 0.006, drive: 0.18 },
+  { name: 'Solaris Strings',  rootMidi: 48, chord: [0, 3, 7, 12],  prog: [0, 5, 3, -2], shape: 0.44, pulseMix: 0.20, pw: 0.50, subMix: 0.32, cutoff: 1750, res: 0.15, detune: 18, lfoRate: 0.058, warpDepth: 0.8,  padDelayMs: 24, padFeedback: 0.44, padWet: 0.32, vowel: -1, noise: 0.010, drive: 0.24 },
+  { name: 'Cyberpunk Neon',   rootMidi: 45, chord: [0, 7, 10, 12], prog: [0, 3, 5, -2], shape: 0.38, pulseMix: 0.55, pw: 0.34, subMix: 0.42, cutoff: 1380, res: 0.26, detune: 14, lfoRate: 0.075, warpDepth: 0.9,  padDelayMs: 22, padFeedback: 0.46, padWet: 0.32, vowel: 3,  noise: 0.010, drive: 0.32 },
+];
+
+function pick(arr, t) {
+  return arr[Math.min(arr.length - 1, Math.max(0, Math.floor(t * arr.length)))];
+}
+
 export const PALETTES = [
   { name: 'TEXTMODE_CYAN',   a: [0.02, 0.03, 0.04], b: [0.28, 0.85, 0.92], accent: [0.95, 0.92, 0.20] },
   { name: 'VECTREX_SUN',     a: [0.03, 0.02, 0.05], b: [0.95, 0.65, 0.35], accent: [0.46, 0.56, 1.00] },
@@ -184,11 +208,14 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, ar
       ? shuffle([2, 3, 2, 1])
       : shuffle([0, 1, 2, 3]);
 
+  const ambientPreset = AMBIENT_PAD_PRESETS[rng.int(0, AMBIENT_PAD_PRESETS.length - 1)];
+
   return {
     seed16: s16,
     hex: formatHex16(s16),
     tempoArchetype,
     archetypeName,
+    ambientPreset,
     bgOrder,
     fgBase,
     fgBonus,
@@ -369,69 +396,80 @@ export function allocateFromXY(scene, rawX, rawY) {
   };
 
   // Unstable Signal Path
-  const routingIndex = scene.routingOrder[Math.min(7, Math.floor(b(5) * 8))];
-  const shaperModeIndex = scene.shaperOrder[Math.min(4, Math.floor(b(8) * 5))];
-  const droneBaseHz = scene.droneRoots[Math.floor(b(11) * scene.droneRoots.length)];
-  const fmRatio = scene.fmRatios[Math.floor(b(14) * scene.fmRatios.length)];
+  const routingIndex = pick(scene.routingOrder, b(5));
+  const shaperModeIndex = pick(scene.shaperOrder, b(8));
+  const droneBaseHz = pick(scene.droneRoots, b(11));
+  const fmRatio = pick(scene.fmRatios, b(14));
+  const preset = scene.ambientPreset || AMBIENT_PAD_PRESETS[0];
 
   const unstableDsp = {
     textureMode,
     darkInterval: scene.darkInterval || 1.4983,
     routingIndex,
     shaperModeIndex,
-    bitDepth: isAmbient ? Math.round(lerp(10, 16, 1 - x * 0.3)) : Math.round(lerp(4, 15, 1 - x * 0.65)),
+    bitDepth: isAmbient ? Math.round(lerp(12, 16, 1 - x * 0.25)) : Math.round(lerp(4, 15, 1 - x * 0.65)),
     srDivider: isAmbient ? 1 : Math.round(lerp(1, 14, clamp(x * 0.75 + b(16) * 0.25, 0, 1))),
     xorMask: Math.floor(b(13) * 31),
     droneBaseHz,
     fmRatio,
-    subInterval: [0.5, 0.75, 1.0, 1.5][Math.floor(b(3) * 4)],
+    subInterval: pick([0.5, 0.75, 1.0, 1.5], b(3)),
     lfsrMask: (scene.seed16 ^ (quad * 0x1337)) | 0x8001,
     pulseEuclidK: isBeatArch ? Math.round(lerp(3, 11, b(6))) : Math.round(lerp(1, 5, b(6))),
-    pulseEuclidN: [12, 14, 16, 18][Math.floor(b(7) * 4)],
+    pulseEuclidN: pick([12, 14, 16, 18], b(7)),
     mangleSliceMs: isDeathInd ? Math.round(lerp(60, 260, 1 - x * 0.6)) : Math.round(lerp(12, 140, 1 - x * 0.7)),
     mangleRevProb: lerp(0.15, 0.90, b(9)),
     fbDelayLMs: isAmbient
-      ? Number(lerp(240, 780, b(10)).toFixed(1))
+      ? Number(lerp(180, 460, b(10)).toFixed(1))
       : isDeathInd
-        ? Number(lerp(110, 480, b(10)).toFixed(1))
+        ? Number(lerp(110, 380, b(10)).toFixed(1))
         : isPowerElec
-          ? Number(lerp(12, 220, b(10)).toFixed(1))
+          ? Number(lerp(18, 180, b(10)).toFixed(1))
           : Number(lerp(16, 180, b(10)).toFixed(1)),
     fbDelayRMs: isAmbient
-      ? Number(lerp(310, 890, b(12)).toFixed(1))
+      ? Number(lerp(240, 560, b(12)).toFixed(1))
       : isDeathInd
-        ? Number(lerp(160, 620, b(12)).toFixed(1))
+        ? Number(lerp(160, 480, b(12)).toFixed(1))
         : isPowerElec
-          ? Number(lerp(18, 280, b(12)).toFixed(1))
+          ? Number(lerp(24, 240, b(12)).toFixed(1))
           : Number(lerp(24, 210, b(12)).toFixed(1)),
     fbPolarity: b(15) > 0.5 ? 1 : -1,
     combBaseHz: Math.round(lerp(90, 640, y)),
+    ambientPreset: {
+      ...preset,
+      cutoff: Math.round(preset.cutoff * lerp(0.55, 1.65, y)),
+      res: clamp(preset.res + x * 0.14, 0.06, 0.42),
+      padWet: clamp(preset.padWet * lerp(0.65, 1.35, x), 0.12, 0.55),
+      padFeedback: clamp(preset.padFeedback * lerp(0.75, 1.15, y), 0.18, 0.68),
+      detune: preset.detune * lerp(0.65, 1.45, b(17)),
+    },
   };
 
   const unstableParams = {
-    sceneBoost: isBeatArch ? 1.25 : isAmbient ? 1.62 : isDeathInd ? 1.50 : 1.54,
-    droneLevel: isBeatArch ? lerp(0.58, 0.96, b(0)) : lerp(0.82, 1.0, 0.35 + 0.65 * b(0)),
-    pulseLevel: isAmbient ? lerp(0.14, 0.36, b(4)) : isPowerElec ? lerp(0.45, 0.98, b(4)) : lerp(0.45, 0.95, b(4)),
-    fmIndex: isAmbient ? lerp(0.18, 0.68, y) : lerp(0.24, 0.95, y),
-    mangleMix: isAmbient ? lerp(0.08, 0.30, x) : lerp(0.30, 0.88, x),
+    sceneBoost: isBeatArch ? 1.22 : isAmbient ? 1.48 : isDeathInd ? 1.45 : 1.45,
+    droneLevel: isBeatArch ? lerp(0.58, 0.94, b(0)) : lerp(0.84, 1.0, 0.35 + 0.65 * b(0)),
+    pulseLevel: isAmbient ? lerp(0.14, 0.34, b(4)) : isPowerElec ? lerp(0.45, 0.95, b(4)) : lerp(0.45, 0.92, b(4)),
+    fmIndex: isAmbient ? lerp(0.16, 0.58, y) : lerp(0.24, 0.92, y),
+    mangleMix: isAmbient ? 0.0 : lerp(0.30, 0.85, x),
     shaperDrive: isAmbient
-      ? lerp(0.18, 0.48, y)
+      ? lerp(0.14, 0.36, y)
       : isPowerElec
-        ? lerp(0.68, 1.0, clamp(0.55 * y + 0.45 * b(17), 0, 1))
-        : lerp(0.28, 0.96, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
+        ? lerp(0.55, 0.92, clamp(0.55 * y + 0.45 * b(17), 0, 1))
+        : lerp(0.28, 0.88, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
     fbGain: isAmbient
-      ? lerp(0.78, 0.95, clamp(0.5 * y + 0.5 * b(2), 0, 1))
+      ? lerp(0.42, 0.72, clamp(0.5 * y + 0.5 * b(2), 0, 1))
       : isDeathInd
-        ? lerp(0.62, 0.94, clamp(0.55 * y + 0.45 * b(2), 0, 1))
+        ? lerp(0.42, 0.74, clamp(0.55 * y + 0.45 * b(2), 0, 1))
         : isPowerElec
-          ? lerp(0.68, 0.98, clamp(0.6 * y + 0.4 * b(2), 0, 1))
-          : lerp(0.45, 0.95, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
+          ? lerp(0.45, 0.74, clamp(0.6 * y + 0.4 * b(2), 0, 1))
+          : lerp(0.35, 0.76, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
     fbDampHz: isAmbient
-      ? Math.round(lerp(900, 3800, 1 - y * 0.45))
+      ? Math.round(lerp(1100, 3400, 1 - y * 0.35))
       : isDeathInd
-        ? Math.round(lerp(850, 5200, 1 - y * 0.4))
-        : Math.round(lerp(1200, 11000, 1 - y * 0.4)),
-    scDepth: isAmbient ? 0.08 : isPowerElec ? 0.12 : isDeathInd ? lerp(0.18, 0.42, b(1)) : lerp(0.22, 0.52, b(1)),
+        ? Math.round(lerp(750, 2400, 1 - y * 0.35))
+        : isPowerElec
+          ? Math.round(lerp(900, 2600, 1 - y * 0.35))
+          : Math.round(lerp(1200, 6800, 1 - y * 0.4)),
+    scDepth: isAmbient ? 0.0 : isPowerElec ? 0.08 : isDeathInd ? lerp(0.16, 0.38, b(1)) : lerp(0.22, 0.48, b(1)),
     scMode: isBeatArch ? (b(14) > 0.75 ? 1 : 0) : 0,
     padX: x,
     padY: y,
@@ -505,5 +543,6 @@ export function allocateFromXY(scene, rawX, rawY) {
     routingName: DSP_ROUTINGS[routingIndex],
     tempoArchetype: scene.tempoArchetype,
     archetypeName: scene.archetypeName,
+    ambientPresetName: preset.name,
   };
 }
