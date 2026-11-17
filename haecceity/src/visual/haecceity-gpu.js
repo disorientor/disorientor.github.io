@@ -1,7 +1,7 @@
 /**
  * Authentic Multi-Pass WebGL2 Haecceity Shader Engine
  * Loads, transpiles, caches, and executes ALL imported Haecceity shaders:
- *  - 52 Backgrounds (shaders/backgrounds/*.gdshader)
+ *  - 51 Backgrounds (shaders/backgrounds/*.gdshader)
  *  - 40 Glitch Shaders (shaders/glitch/*.gdshader)
  *  - Foreground Fields (textmode, terrain, cymatics, glyphs, shards, volume,
  *    automata, reaction, colony, attractor, fluid, temporal, databend)
@@ -1178,7 +1178,7 @@ export class HaecceityGPUEngine {
     const bgWrite = flip ? bgFbo1 : bgFbo0;
     const bgPrev = flip ? bgFbo0 : bgFbo1;
 
-    // 1. RENDER BACKGROUND SHADER (52 imported backgrounds)
+    // 1. RENDER BACKGROUND SHADER (51 imported backgrounds)
     const bgDesc = this.manifest.backgrounds[v.backgroundIndex % this.manifest.backgrounds.length];
     const bgProg = this.getProg(bgDesc.path, 'canvas');
     if (bgProg) {

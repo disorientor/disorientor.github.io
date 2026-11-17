@@ -1,7 +1,7 @@
 /**
  * Radical Scene & X/Y Coordinate Allocation Engine
  * Clicking `haecceity` rerolls a radical new scene across:
- *   - 52 Imported Background Shaders
+ *   - 51 Imported Background Shaders
  *   - 13 Imported Multi-Pass GPU Foreground Fields
  *   - 40 Imported Glitch Shaders (stacked chains + parameter sweeps)
  *   - Tempo extremes, Polymeters, Kick Engine, 4 Drumkits, IDM Plugin, Unstable Path, MumbleSpeak
@@ -40,7 +40,7 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-export function createScene(seed16, { backgroundCount = 52, glitchCount = 40 } = {}) {
+export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } = {}) {
   const s16 = (seed16 >>> 0) & 0xffff;
   const rng = makePrng(splitmix32(s16 ^ 0x9e3779b9));
 
@@ -265,7 +265,7 @@ export function allocateFromXY(scene, rawX, rawY) {
     carrierRing: clamp((b(5) - 0.45) * 1.5, 0, 0.75),
   };
 
-  // Visual Scene + X/Y Uniform Allocation across ALL 52 Backgrounds, 13 Foregrounds, 40 Glitch Shaders
+  // Visual Scene + X/Y Uniform Allocation across ALL 51 Backgrounds, 13 Foregrounds, 40 Glitch Shaders
   const backgroundIndex = scene.bgSwapOnDrag
     ? scene.bgOrder[quad % scene.bgOrder.length]
     : scene.bgOrder[0];

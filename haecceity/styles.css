@@ -207,3 +207,10 @@ body {
   letter-spacing: -0.5px;
   text-shadow: 0 0 6px rgba(150, 247, 190, 0.25);
 }
+
+/* Remove bottom volume controls on mobile devices only */
+@media (hover: none) and (pointer: coarse) {
+  .volume-dock {
+    display: none;
+  }
+}

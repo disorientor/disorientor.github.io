@@ -29,10 +29,10 @@ assert.notEqual(f00.visual.bgXY[0], f11.visual.bgXY[0], 'XY must sweep backgroun
 assert.notEqual(sA.bgOrder[0], sB.bgOrder[0], 'Radical scene switch must change background');
 console.log(`   PASS: XY sweeps BPM (${f00.bpm}..${f11.bpm}), patterns, IDM, DSP, and shader parameters.`);
 
-console.log('1b. Testing Imported Shader Transpilation (52 backgrounds, 40 glitches, 34 foregrounds)...');
+console.log('1b. Testing Imported Shader Transpilation (51 backgrounds, 40 glitches, 34 foregrounds)...');
 const shadersRoot = path.join(rootDir, 'shaders');
 const manifest = JSON.parse(fs.readFileSync(path.join(shadersRoot, 'manifest.json'), 'utf8'));
-assert.equal(manifest.backgrounds.length, 52);
+assert.equal(manifest.backgrounds.length, 51);
 assert.equal(manifest.glitches.length, 40);
 assert.equal(manifest.foregrounds.length, 34);
 const inc = {
@@ -55,7 +55,7 @@ for (const f of manifest.foregrounds) {
   else if (instanced.has(f.id)) transpileInstancedCanvasItem(raw, { isPoints: f.id === 'composition_colony_points' });
   else transpileCanvasItem(raw, inc);
 }
-console.log('   PASS: All 126 imported Haecceity shaders transpiled cleanly.');
+console.log('   PASS: All 125 imported Haecceity shaders transpiled cleanly.');
 
 console.log('2. Testing MumbleSpeak text-to-phoneme conversion...');
 const ph = textToPhonemes('haecceity breaks the signal!', { speed: 120, seed: 0xdead });

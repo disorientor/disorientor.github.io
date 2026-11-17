@@ -1,7 +1,7 @@
 /**
  * Haecceity Web — Full-Screen X/Y Audiovisual Instrument
  * - Drag anywhere across the screen to sweep a single X/Y coordinate that mutates everything
- * - Click "haecceity" (top-right) to reroll a radical new scene across all 52 backgrounds,
+ * - Click "haecceity" (top-right) to reroll a radical new scene across all 51 backgrounds,
  *   13 GPU foreground fields, and 40 glitch shaders
  * - Double-click anywhere for MumbleSpeak Departure Mono word box (auto-activates Textmode/Terrain)
  * - Drag [|||....] channel volume bars left/right on a single bottom row
@@ -102,7 +102,7 @@ class HaecceityStageApp {
 
   changeScene() {
     const nextSeed = Math.floor(Math.random() * 0x10000);
-    const bgCount = this.gpu.manifest?.backgrounds?.length || 52;
+    const bgCount = this.gpu.manifest?.backgrounds?.length || 51;
     const glCount = this.gpu.manifest?.glitches?.length || 40;
     this.scene = createScene(nextSeed, { backgroundCount: bgCount, glitchCount: glCount });
 

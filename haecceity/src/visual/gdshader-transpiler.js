@@ -1,6 +1,6 @@
 /**
  * Godot .gdshader -> WebGL2 GLSL ES 3.00 Transpiler
- * Preserves original Haecceity backgrounds (52), glitch shaders (40),
+ * Preserves original Haecceity backgrounds (51), glitch shaders (40),
  * and composition foreground field shaders (34) verbatim without simplifying them.
  */
 
@@ -85,6 +85,7 @@ export function transpileCanvasItem(rawSrc, includes = {}) {
   body = cleanUniforms(body);
   body = stripLocalConstArrays(body);
   body = rewriteTextureCalls(body);
+  body = body.replace(/\bactive\b/g, 'gd_active').replace(/\bpatch\b/g, 'gd_patch');
 
   const hasURes = /\buniform\s+vec2\s+u_resolution\b/.test(body);
   const hasUTime = /\buniform\s+float\s+u_time\b/.test(body);
@@ -252,6 +253,7 @@ export function transpileSpatial(rawSrc) {
 
   const vert = `#version 300 es
 precision highp float;
+precision highp int;
 in vec3 a_pos;
 in vec2 a_uv;
 in vec4 a_color;
@@ -273,6 +275,7 @@ void main() {
 
   const frag = `#version 300 es
 precision highp float;
+precision highp int;
 in vec2 v_uv;
 out vec4 outColor;
 #ifndef PI
