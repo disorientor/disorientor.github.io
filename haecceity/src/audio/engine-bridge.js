@@ -69,7 +69,7 @@ export class HaecceityAudioBridge {
           throw new Error('AudioWorklet unavailable');
         }
 
-        const workletUrl = new URL('./haecceity-worklet.js?v=5', import.meta.url).href;
+        const workletUrl = new URL('./haecceity-worklet.js?v=6', import.meta.url).href;
         await ctx.audioWorklet.addModule(workletUrl);
 
         this.node = new AudioWorkletNode(ctx, 'haecceity-processor', {

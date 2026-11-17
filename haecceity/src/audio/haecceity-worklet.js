@@ -1221,14 +1221,8 @@ class UnstablePath {
 
     if (stepIdx !== this.lastStep) {
       this.lastStep = stepIdx;
-      const lfsrVal = this.stepLfsr();
-      if (euclidHit(stepIdx, c.pulseEuclidK, c.pulseEuclidN)) {
-        this.pulseEnv = 0.60 + lfsrVal * 0.40;
-        this.pulseHz = c.droneBaseHz * [2, 3, 4, 5, 6, 8, 9, 12][Math.floor(lfsrVal * 8)];
-      }
+      this.stepLfsr();
     }
-    const pulseDecaySec = (c.textureMode | 0) === 1 ? 0.175 : (c.textureMode | 0) === 2 ? 0.38 : 0.115;
-    this.pulseEnv *= Math.exp(-1 / (this.sr * pulseDecaySec));
 
     const fbCrossMod = c.routingIndex === 2 ? this.fbPrevL * 0.9 : 0;
     const lfsrPitchDrift = 1.0 + ((this.lfsr & 0x0f) / 15.0 - 0.5) * 0.025;
@@ -1245,7 +1239,6 @@ class UnstablePath {
 
     this.carPhase = (this.carPhase + baseHz / this.sr) % 1;
     this.subPhase = (this.subPhase + (baseHz * subIntSafe) / this.sr) % 1;
-    this.pulsePhase = (this.pulsePhase + this.pulseHz / this.sr) % 1;
 
     let genL;
     let genR;
@@ -1272,10 +1265,9 @@ class UnstablePath {
                        Math.sin(TAU * this.subPhase) * 0.42;
       const rumble = this.svfA.process(this.brownL * 1.5 + subCrush * 0.75, 90 + p.padY * 320 + lfo1 * 110, 1.8, this.sr).low;
       const scrape = this.svfB.process(subCrush * modOut + nR * 0.45, 220 + p.padX * 780 + lfo1 * 220, 2.4 + p.padY * 1.2, this.sr).band * 0.95;
-      const clang = (this.pulsePhase < 0.3 ? 1 : -1) * this.pulseEnv * p.pulseLevel * 0.55;
 
-      genL = (padL * 0.62 + rumble * 0.65 + scrape * 0.50 + clang) * p.droneLevel;
-      genR = (padR * 0.62 + rumble * 0.60 - scrape * 0.46 + this.brownR * 0.32 - clang * 0.7) * p.droneLevel;
+      genL = (padL * 0.62 + rumble * 0.65 + scrape * 0.50) * p.droneLevel;
+      genR = (padR * 0.62 + rumble * 0.60 - scrape * 0.46 + this.brownR * 0.32) * p.droneLevel;
     } else if (texMode === 2) {
       // DARK AMBIENT: pure authored Haecceity Ambient/Pad Preset Engine + glacial tape breath
       const [padL, padR] = this.processHaecceityPad(stepIdx, p, 0);
@@ -1324,11 +1316,8 @@ class UnstablePath {
       const subSig = Math.sin(TAU * this.subPhase) * 0.35;
 
       const drone = (fmSig * 0.55 + octHarm + subSig) * p.droneLevel;
-      const pulseWave = (this.pulsePhase < (0.22 + p.padX * 0.32) ? 1 : -1) * 0.62 +
-                        Math.sin(TAU * this.pulsePhase) * 0.38;
-      const pulse = pulseWave * this.pulseEnv * p.pulseLevel;
-      genL = drone + pulse * 0.88 + padL * 0.32;
-      genR = drone * 0.92 - pulse * 0.85 + padR * 0.32;
+      genL = drone + padL * 0.32;
+      genR = drone * 0.92 + padR * 0.32;
     }
 
     const scGain = p.scMode === 2
@@ -1633,7 +1622,7 @@ class HaecceityProcessor extends AudioWorkletProcessor {
     this.kickGain = 0.56;
     this.drumGain = 0.58;
     this.idmGain = 0.72;
-    this.unstableGain = 0.92;
+    this.unstableGain = 0.56;
     this.mumbleGain = 0.82;
     this.masterGain = 0.88;
 

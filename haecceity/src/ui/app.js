@@ -28,7 +28,7 @@ const VOLUME_CHANNELS = [
   { key: 'kickGain',     label: 'KICK',  value: 0.56, max: 1.2 },
   { key: 'drumGain',     label: 'DRUM',  value: 0.58, max: 1.2 },
   { key: 'idmGain',      label: 'TRACK', value: 0.72, max: 1.3 },
-  { key: 'unstableGain', label: 'PATH',  value: 0.92, max: 1.2 },
+  { key: 'unstableGain', label: 'PATH',  value: 0.56, max: 1.2 },
   { key: 'mumbleGain',   label: 'MUMB',  value: 0.82, max: 1.2 },
   { key: 'masterGain',   label: 'MSTR',  value: 0.88, max: 1.2 },
 ];
