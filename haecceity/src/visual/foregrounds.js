@@ -4,7 +4,6 @@
  *  - Full-viewport axis hairlines & graduation ticks
  *  - Rotating phosphor/coral corner brackets & live audio-waveform orbital halo
  *  - Expanding kick shockwave rings & fading drag trail
- *  - Crisp floating Departure Mono telemetry tag
  */
 
 export class CoordinateOverlay {
@@ -176,7 +175,7 @@ export class CoordinateOverlay {
     }
     ctx.restore();
 
-    // 6. Center diamond + floating telemetry
+    // 6. Center diamond
     ctx.fillStyle = this.dragging ? '#ff5436' : '#ffffff';
     ctx.beginPath();
     ctx.moveTo(cx, cy - 6);
@@ -185,21 +184,6 @@ export class CoordinateOverlay {
     ctx.lineTo(cx - 6, cy);
     ctx.closePath();
     ctx.fill();
-
-    const tagX = cx + baseR + 18 > vw - 210 ? cx - baseR - 205 : cx + baseR + 18;
-    const tagY = cy - 10 < 24 ? cy + 28 : cy - 10;
-    ctx.fillStyle = 'rgba(5, 7, 8, 0.80)';
-    ctx.fillRect(tagX - 4, tagY - 12, 198, 18);
-    ctx.strokeStyle = this.dragging ? '#ff5436' : main;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(tagX - 4, tagY - 12, 198, 18);
-    ctx.fillStyle = '#e8ede9';
-    ctx.font = '11px "Departure Mono", monospace';
-    ctx.fillText(
-      `X:${this.x.toFixed(2)} Y:${this.y.toFixed(2)} ${this.telemetry.idmMode} ${this.bpm}`,
-      tagX,
-      tagY + 1
-    );
 
     ctx.restore();
   }

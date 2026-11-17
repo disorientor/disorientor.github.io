@@ -39,8 +39,8 @@ class HaecceityStageApp {
     this.y = 0.52;
     this.draggingXY = false;
     this.playing = false;
+    this.audioConfigured = false;
     this.lastAudioSyncMs = 0;
-    this.toastTimer = null;
     this.lastMumbleText = '';
 
     this.scene = createScene(0xdead);
@@ -50,6 +50,7 @@ class HaecceityStageApp {
     this.reticle = new CoordinateOverlay(document.getElementById('fg-canvas'));
     this.audio = new HaecceityAudioBridge((t) => this.onTelemetry(t));
 
+    this.setupAudioUnlock();
     this.setupStageInteraction();
     this.setupHaecceityButton();
     this.setupMumbleModal();
@@ -60,12 +61,29 @@ class HaecceityStageApp {
     this.startLoop();
   }
 
+  setupAudioUnlock() {
+    const unlock = () => this.audio.unlock();
+    for (const ev of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'click', 'keydown']) {
+      window.addEventListener(ev, unlock, { capture: true, passive: true });
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && this.audio.ctx) unlock();
+    });
+    window.addEventListener('pageshow', () => {
+      if (this.audio.ctx) unlock();
+    });
+  }
+
   async bootAudioAndPlay() {
+    this.audio.unlock();
     const hint = document.getElementById('boot-hint');
     if (hint) hint.classList.add('is-hidden');
 
     if (!this.audio.ready) {
       await this.audio.init();
+    }
+    if (!this.audioConfigured) {
+      this.audioConfigured = true;
       this.audio.send({ type: 'scene', seed16: this.scene.seed16 });
       for (const ch of VOLUME_CHANNELS) {
         this.audio.send({ type: 'mixParam', key: ch.key, value: ch.value });
@@ -110,21 +128,6 @@ class HaecceityStageApp {
     this.gpu.setMumbleAutoMode(nextSeed % 3);
     this.audio.send({ type: 'scene', seed16: this.scene.seed16 });
     this.applyFrame(true);
-
-    const toast = document.getElementById('scene-toast');
-    if (toast && this.gpu.manifest) {
-      const f = this.currentFrame.visual;
-      const bgName = this.gpu.manifest.backgrounds[f.backgroundIndex % bgCount]?.id || '';
-      const fgNames = f.foregroundFields.join('+');
-      const glNames = f.glitchIndices.map((i) => this.gpu.manifest.glitches[i % glCount]?.id.slice(0, 12)).join('·');
-      const archTag = this.scene.tempoArchetype === 4
-        ? `${this.scene.archetypeName.replace('_', ' ')} (${this.scene.ambientPreset?.name || 'Pad'})`
-        : this.scene.archetypeName.replace('_', ' ');
-      toast.textContent = `${this.scene.hex} · ${archTag} · ${bgName} · ${fgNames} · ${glNames}`;
-      toast.classList.add('is-visible');
-      clearTimeout(this.toastTimer);
-      this.toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
-    }
   }
 
   setupStageInteraction() {
@@ -138,16 +141,19 @@ class HaecceityStageApp {
       this.applyFrame(false);
     };
 
-    fgCanvas.addEventListener('pointerdown', async (e) => {
+    fgCanvas.addEventListener('pointerdown', (e) => {
       const modal = document.getElementById('mumble-modal');
       if (!modal.hidden) {
         modal.hidden = true;
         return;
       }
       e.preventDefault();
-      await this.bootAudioAndPlay();
+      this.audio.unlock();
+      void this.bootAudioAndPlay().catch((err) => console.error(err));
       this.draggingXY = true;
-      fgCanvas.setPointerCapture(e.pointerId);
+      try {
+        fgCanvas.setPointerCapture(e.pointerId);
+      } catch (_) {}
       updateXYFromEvent(e, true);
     });
 
@@ -159,7 +165,9 @@ class HaecceityStageApp {
     const endDrag = (e) => {
       if (!this.draggingXY) return;
       this.draggingXY = false;
-      if (fgCanvas.hasPointerCapture(e.pointerId)) fgCanvas.releasePointerCapture(e.pointerId);
+      try {
+        if (fgCanvas.hasPointerCapture(e.pointerId)) fgCanvas.releasePointerCapture(e.pointerId);
+      } catch (_) {}
       this.applyFrame(true);
     };
     fgCanvas.addEventListener('pointerup', endDrag);
@@ -168,8 +176,9 @@ class HaecceityStageApp {
 
   setupHaecceityButton() {
     const btn = document.getElementById('haecceity-btn');
-    btn.addEventListener('click', async () => {
-      await this.bootAudioAndPlay();
+    btn.addEventListener('click', () => {
+      this.audio.unlock();
+      void this.bootAudioAndPlay().catch((err) => console.error(err));
       this.changeScene();
     });
   }
@@ -258,15 +267,18 @@ class HaecceityStageApp {
         this.audio.send({ type: 'mixParam', key: ch.key, value: ch.value });
       };
 
-      item.addEventListener('pointerdown', async (e) => {
+      item.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        await this.bootAudioAndPlay();
+        this.audio.unlock();
+        void this.bootAudioAndPlay().catch((err) => console.error(err));
         dragging = true;
         startX = e.clientX;
         startVal = ch.value;
         item.classList.add('is-dragging');
-        item.setPointerCapture(e.pointerId);
+        try {
+          item.setPointerCapture(e.pointerId);
+        } catch (_) {}
       });
 
       item.addEventListener('pointermove', (e) => {

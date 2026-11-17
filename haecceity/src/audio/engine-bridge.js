@@ -7,47 +7,105 @@ export class HaecceityAudioBridge {
     this.ctx = null;
     this.node = null;
     this.ready = false;
-    this.initializing = false;
+    this.initPromise = null;
+    this.silentBuffer = null;
     this.onTelemetry = onTelemetry;
     this.pendingMessages = [];
   }
 
-  async init() {
-    if (this.ready) {
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
-      return;
-    }
-    if (this.initializing) return;
-    this.initializing = true;
-
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    this.ctx = new AudioCtx({ latencyHint: 'interactive' });
-    await this.ctx.audioWorklet.addModule('./src/audio/haecceity-worklet.js?v=4');
-
-    this.node = new AudioWorkletNode(this.ctx, 'haecceity-processor', {
-      numberOfInputs: 0,
-      numberOfOutputs: 1,
-      outputChannelCount: [2],
-    });
-
-    this.node.port.onmessage = (e) => {
-      if (e.data?.type === 'telemetry' && this.onTelemetry) {
-        this.onTelemetry(e.data);
+  ensureAudioSession() {
+    try {
+      if ('audioSession' in navigator && navigator.audioSession && navigator.audioSession.type !== 'playback') {
+        navigator.audioSession.type = 'playback';
       }
-    };
+    } catch (_) {}
+  }
 
-    this.node.connect(this.ctx.destination);
-    if (this.ctx.state === 'suspended') {
-      await this.ctx.resume();
+  ensureContext() {
+    this.ensureAudioSession();
+    if (this.ctx && this.ctx.state !== 'closed') return this.ctx;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    try {
+      this.ctx = new AudioCtx({ latencyHint: 'interactive' });
+    } catch (_) {
+      this.ctx = new AudioCtx();
     }
+    this.silentBuffer = null;
+    return this.ctx;
+  }
 
-    this.ready = true;
-    this.initializing = false;
-
-    for (const msg of this.pendingMessages) {
-      this.node.port.postMessage(msg);
+  /**
+   * Synchronously unlocks/resumes Web Audio inside a user gesture call stack
+   * (required by iOS Safari/WebKit, where activation expires across await).
+   */
+  unlock() {
+    const ctx = this.ensureContext();
+    if (!ctx || ctx.state === 'closed') return;
+    if (ctx.state !== 'running') {
+      ctx.resume().catch(() => {});
+      try {
+        if (!this.silentBuffer) {
+          this.silentBuffer = ctx.createBuffer(1, 1, ctx.sampleRate || 44100);
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = this.silentBuffer;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch (_) {}
     }
-    this.pendingMessages.length = 0;
+  }
+
+  async init() {
+    this.unlock();
+    if (this.ready) return;
+    if (this.initPromise) return this.initPromise;
+
+    this.initPromise = (async () => {
+      try {
+        const ctx = this.ensureContext();
+        if (!ctx) throw new Error('Web Audio API unavailable');
+        if (!ctx.audioWorklet || !window.AudioWorkletNode) {
+          throw new Error('AudioWorklet unavailable');
+        }
+
+        const workletUrl = new URL('./haecceity-worklet.js?v=5', import.meta.url).href;
+        await ctx.audioWorklet.addModule(workletUrl);
+
+        this.node = new AudioWorkletNode(ctx, 'haecceity-processor', {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [2],
+        });
+
+        this.node.onprocessorerror = (err) => {
+          console.error('Haecceity worklet error:', err);
+        };
+
+        this.node.port.onmessage = (e) => {
+          if (e.data?.type === 'telemetry' && this.onTelemetry) {
+            this.onTelemetry(e.data);
+          }
+        };
+
+        this.node.connect(ctx.destination);
+        this.ready = true;
+
+        for (const msg of this.pendingMessages) {
+          this.node.port.postMessage(msg);
+        }
+        this.pendingMessages.length = 0;
+
+        if (ctx.state !== 'running' && ctx.state !== 'closed') {
+          ctx.resume().catch(() => {});
+        }
+      } catch (err) {
+        this.initPromise = null;
+        throw err;
+      }
+    })();
+
+    return this.initPromise;
   }
 
   send(msg) {

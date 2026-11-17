@@ -179,7 +179,12 @@ for (const [archIdx, label] of [[3, 'DEATH_INDUSTRIAL'], [4, 'DARK_AMBIENT'], [5
 console.log('5. Checking minimal UI & HTML invariants...');
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
 const appSrc = fs.readFileSync(path.join(rootDir, 'src/ui/app.js'), 'utf8');
+const fgSrc = fs.readFileSync(path.join(rootDir, 'src/visual/foregrounds.js'), 'utf8');
+const bridgeSrc = fs.readFileSync(path.join(rootDir, 'src/audio/engine-bridge.js'), 'utf8');
 assert.ok(indexHtml.includes('id="haecceity-btn"') && indexHtml.includes('>haecceity<'), 'Missing top-right haecceity button');
 assert.ok(indexHtml.includes('id="mumble-modal"') && indexHtml.includes('id="volume-dock"'), 'Missing MumbleSpeak modal or volume dock');
+assert.ok(!indexHtml.includes('scene-toast') && !appSrc.includes('scene-toast'), 'Scene toast popup text must be removed');
+assert.ok(!fgSrc.includes('fillText'), 'Coordinate reticle text bar must be removed');
+assert.ok(bridgeSrc.includes('unlock()') && bridgeSrc.includes('audioSession') && bridgeSrc.includes('createBufferSource'), 'iOS Web Audio unlock missing');
 assert.ok(!/<input\b[^>]*type\s*=\s*["']range["']/i.test(indexHtml + appSrc), 'Must not use HTML range sliders');
 console.log('   PASS: All UI invariants verified.');
