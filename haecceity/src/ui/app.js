@@ -117,7 +117,7 @@ class HaecceityStageApp {
       const bgName = this.gpu.manifest.backgrounds[f.backgroundIndex % bgCount]?.id || '';
       const fgNames = f.foregroundFields.join('+');
       const glNames = f.glitchIndices.map((i) => this.gpu.manifest.glitches[i % glCount]?.id.slice(0, 12)).join('·');
-      toast.textContent = `${this.scene.hex} · ${bgName} · ${fgNames} · ${glNames}`;
+      toast.textContent = `${this.scene.hex} · ${this.scene.archetypeName.replace('_', ' ')} · ${bgName} · ${fgNames} · ${glNames}`;
       toast.classList.add('is-visible');
       clearTimeout(this.toastTimer);
       this.toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);

@@ -10,6 +10,15 @@
 import { makePrng, splitmix32, formatHex16 } from './chaos-seed.js';
 import { FG_FIELD_NAMES } from './visual/haecceity-gpu.js';
 
+export const COMPOSITION_ARCHETYPES = [
+  'DOOM_TECHNO',
+  'BROKEN_IDM',
+  'BREAKCORE',
+  'DEATH_INDUSTRIAL',
+  'DARK_AMBIENT',
+  'POWER_ELECTRONICS',
+];
+
 export const PALETTES = [
   { name: 'TEXTMODE_CYAN',   a: [0.02, 0.03, 0.04], b: [0.28, 0.85, 0.92], accent: [0.95, 0.92, 0.20] },
   { name: 'VECTREX_SUN',     a: [0.03, 0.02, 0.05], b: [0.95, 0.65, 0.35], accent: [0.46, 0.56, 1.00] },
@@ -40,7 +49,7 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } = {}) {
+export function createScene(seed16, { backgroundCount = 51, glitchCount = 40, archetype = null } = {}) {
   const s16 = (seed16 >>> 0) & 0xffff;
   const rng = makePrng(splitmix32(s16 ^ 0x9e3779b9));
 
@@ -66,10 +75,36 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } =
   const paletteIndex = rng.int(0, PALETTES.length - 1);
   const palette = PALETTES[paletteIndex];
 
-  // Radical tempo archetypes: slow crushed doom, mid broken techno, fast footwork/breakcore
-  const tempoArchetype = rng.int(0, 2);
-  const bpmMin = tempoArchetype === 0 ? rng.int(78, 102) : tempoArchetype === 1 ? rng.int(118, 138) : rng.int(150, 174);
-  const bpmMax = tempoArchetype === 0 ? rng.int(128, 152) : tempoArchetype === 1 ? rng.int(162, 188) : rng.int(190, 224);
+  // Equal 50/50 split between Beat/IDM/Breakcore (0..2) and Death Industrial / Dark Ambient / Power Electronics (3..5)
+  const isHeavyDarkFamily = rng.nextFloat() < 0.5;
+  const rolledArchetype = isHeavyDarkFamily ? rng.int(3, 5) : rng.int(0, 2);
+  const tempoArchetype = typeof archetype === 'number' ? clamp(Math.round(archetype), 0, 5) : rolledArchetype;
+  const archetypeName = COMPOSITION_ARCHETYPES[tempoArchetype];
+
+  let bpmMin;
+  let bpmMax;
+  if (tempoArchetype === 0) {
+    bpmMin = rng.int(78, 102);
+    bpmMax = rng.int(128, 152);
+  } else if (tempoArchetype === 1) {
+    bpmMin = rng.int(118, 138);
+    bpmMax = rng.int(162, 188);
+  } else if (tempoArchetype === 2) {
+    bpmMin = rng.int(150, 174);
+    bpmMax = rng.int(190, 224);
+  } else if (tempoArchetype === 3) {
+    // DEATH_INDUSTRIAL: tectonic, slow machinery / sub-crush
+    bpmMin = rng.int(38, 52);
+    bpmMax = rng.int(58, 76);
+  } else if (tempoArchetype === 4) {
+    // DARK_AMBIENT: glacial drift
+    bpmMin = rng.int(30, 44);
+    bpmMax = rng.int(48, 66);
+  } else {
+    // POWER_ELECTRONICS: unstable throbbing / harsh noise pulse
+    bpmMin = rng.int(48, 72);
+    bpmMax = rng.int(84, 118);
+  }
 
   const bases = Array.from({ length: 24 }, () => ({
     wx: rng.range(-2.4, 2.4),
@@ -82,6 +117,24 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } =
   }));
 
   const cornerKick = Array.from({ length: 4 }, (_, q) => {
+    if (tempoArchetype === 3) {
+      // Death industrial: sparse heavy slams, not a 4/4 dance groove
+      const dens = [0.06, 0.14, 0.10, 0.22][q];
+      return Array.from({ length: 16 }, (__, i) => {
+        if (i === 0 && q % 2 === 0) return 2;
+        return rng.nextFloat() < dens ? (rng.nextFloat() < 0.55 ? 2 : 1) : 0;
+      });
+    }
+    if (tempoArchetype === 4) {
+      // Dark ambient: beatless or ultra-sparse distant sub-bloom
+      const hitStep = rng.int(0, 15);
+      return Array.from({ length: 16 }, (__, i) => (q === 3 && i === hitStep ? 1 : 0));
+    }
+    if (tempoArchetype === 5) {
+      // Power electronics: mostly absent or erratic blown-out sub thuds
+      const dens = [0.0, 0.06, 0.04, 0.12][q];
+      return Array.from({ length: 16 }, () => (rng.nextFloat() < dens ? 2 : 0));
+    }
     const dens = [0.22, 0.48, 0.34, 0.64][q];
     return Array.from({ length: 16 }, (__, i) => {
       if (i === 0) return 2;
@@ -91,6 +144,27 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } =
 
   const cornerDrums = Array.from({ length: 4 }, (_, q) =>
     Array.from({ length: 8 }, (__, slot) => {
+      if (tempoArchetype === 3) {
+        // Death industrial: sparse echoing metallic impacts (avoid busy hi-hats)
+        const diDens = [0.08, 0.14, 0.12, 0.04, 0.04, 0.10, 0.08, 0.18][slot] * (0.6 + q * 0.25);
+        return Array.from({ length: 16 }, () =>
+          rng.nextFloat() < diDens ? Number(rng.range(0.55, 1.0).toFixed(2)) : 0
+        );
+      }
+      if (tempoArchetype === 4) {
+        // Dark ambient: ultra-sparse ghostly wire/metal resonances
+        const ambDens = [0.02, 0.03, 0.03, 0.0, 0.0, 0.02, 0.02, 0.06][slot] * (0.5 + q * 0.25);
+        return Array.from({ length: 16 }, () =>
+          rng.nextFloat() < ambDens ? Number(rng.range(0.28, 0.58).toFixed(2)) : 0
+        );
+      }
+      if (tempoArchetype === 5) {
+        // Power electronics: rare harsh metallic static bursts
+        const peDens = [0.03, 0.06, 0.05, 0.04, 0.02, 0.05, 0.04, 0.08][slot] * (0.5 + q * 0.3);
+        return Array.from({ length: 16 }, () =>
+          rng.nextFloat() < peDens ? Number(rng.range(0.65, 1.0).toFixed(2)) : 0
+        );
+      }
       const baseDens = [0.24, 0.28, 0.22, 0.58, 0.20, 0.28, 0.25, 0.22][slot] * (0.65 + q * 0.3);
       return Array.from({ length: 16 }, () =>
         rng.nextFloat() < baseDens ? Number(rng.range(0.45, 1.0).toFixed(2)) : 0
@@ -98,9 +172,25 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } =
     })
   );
 
+  const droneRootsPool = tempoArchetype >= 3
+    ? [24.50, 27.50, 30.87, 32.70, 36.71, 41.20, 46.25, 49.00, 55.00, 61.74]
+    : [32.70, 36.71, 41.20, 49.00, 55.00, 61.74, 73.42, 82.41, 98.00];
+
+  const fmRatiosPool = tempoArchetype >= 3
+    ? [0.5, 0.7071, 1.0, 1.0595, 1.4142, 1.4983, 2.31, 3.1415, 4.71]
+    : [0.5, 1.0, 1.4142, 1.5, 2.0, 2.718, 3.1415, 4.33, 5.66];
+
+  const kitOrder = tempoArchetype === 3
+    ? shuffle([1, 2, 1, 3])
+    : tempoArchetype === 4
+      ? shuffle([2, 3, 2, 1])
+      : shuffle([0, 1, 2, 3]);
+
   return {
     seed16: s16,
     hex: formatHex16(s16),
+    tempoArchetype,
+    archetypeName,
     bgOrder,
     fgBase,
     fgBonus,
@@ -110,18 +200,19 @@ export function createScene(seed16, { backgroundCount = 51, glitchCount = 40 } =
     palette,
     bpmMin,
     bpmMax,
-    kitOrder: shuffle([0, 1, 2, 3]),
+    kitOrder,
     kickOrder: shuffle([0, 1, 2, 3, 4]),
     idmOrder: shuffle([0, 1, 2, 3, 4, 5, 6]),
     routingOrder: shuffle([0, 1, 2, 3, 4, 5, 6, 7]),
     shaperOrder: shuffle([0, 1, 2, 3, 4]),
-    droneRoots: shuffle([32.70, 36.71, 41.20, 49.00, 55.00, 61.74, 73.42, 82.41, 98.00]),
-    fmRatios: shuffle([0.5, 1.0, 1.4142, 1.5, 2.0, 2.718, 3.1415, 4.33, 5.66]),
+    droneRoots: shuffle(droneRootsPool),
+    fmRatios: shuffle(fmRatiosPool),
     bases,
     cornerKick,
     cornerDrums,
     terrainMode: rng.int(0, 3),
     bgSwapOnDrag: rng.nextFloat() < 0.45,
+    darkInterval: [1.4983, 1.4142, 1.0595, 0.7492][rng.int(0, 3)],
   };
 }
 
@@ -147,13 +238,26 @@ export function allocateFromXY(scene, rawX, rawY) {
   const qy = y < 0.5 ? 0 : 1;
   const quad = qy * 2 + qx;
 
+  const arch = scene.tempoArchetype ?? 1;
+  const isBeatArch = arch < 3;
+  const isDeathInd = arch === 3;
+  const isAmbient = arch === 4;
+  const isPowerElec = arch === 5;
+  const textureMode = isDeathInd ? 1 : isAmbient ? 2 : isPowerElec ? 3 : 0;
+
   // Rhythm & Tempo
   const bpm = Math.round(lerp(scene.bpmMin, scene.bpmMax, clamp(0.6 * x + 0.4 * b(0), 0, 1)));
-  const rhythmicDensity = clamp(0.25 + 0.75 * (0.5 * y + 0.5 * b(1)), 0.15, 1.0);
+  const rhythmicDensity = isBeatArch
+    ? clamp(0.25 + 0.75 * (0.5 * y + 0.5 * b(1)), 0.15, 1.0)
+    : clamp(0.12 + 0.45 * (0.5 * y + 0.5 * b(1)), 0.08, 0.65);
   const polymeterSkew = Math.floor(b(2) * 4);
 
   const baseK = scene.cornerKick[quad];
   const kickPattern = baseK.map((v, i) => {
+    if (!isBeatArch) {
+      if (isAmbient) return (v > 0 && b((i + 5) % 24) > 0.35) ? v : 0;
+      return (v > 0 && b((i + 3) % 24) > (1 - rhythmicDensity) * 0.45) ? v : 0;
+    }
     if (i === 0) return 2;
     const threshold = (1 - rhythmicDensity) * 0.8;
     if (v > 0) return (b((i + 3) % 24) > threshold * 0.5) ? v : 0;
@@ -164,6 +268,9 @@ export function allocateFromXY(scene, rawX, rawY) {
   const drumPattern = baseD.map((row, slot) =>
     row.map((v, step) => {
       const gate = ((slot * 5 + step * 3) % 17) / 17;
+      if (!isBeatArch) {
+        return (v > 0 && gate < rhythmicDensity + 0.45) ? v : 0;
+      }
       if (v > 0) return gate < rhythmicDensity + 0.2 ? v : 0;
       return (rhythmicDensity > 0.65 && gate < (rhythmicDensity - 0.55) * 0.7) ? 0.65 : 0;
     })
@@ -171,7 +278,29 @@ export function allocateFromXY(scene, rawX, rawY) {
 
   // Kick Engine
   const kickRecipe = scene.kickOrder[Math.min(scene.kickOrder.length - 1, Math.floor(b(3) * scene.kickOrder.length))];
-  const kick = {
+  const kick = isAmbient ? {
+    recipe: 3,
+    pitchMidi: Math.round(lerp(22, 32, b(4))),
+    drop: Math.round(lerp(10, 24, y)),
+    glide: Math.round(lerp(6, 18, b(5))),
+    shape: 0.0,
+    sub: lerp(0.75, 1.08, 1 - y * 0.3),
+    click: lerp(0.04, 0.22, x),
+    drive1: lerp(0.08, 0.26, b(7)),
+    screechHz: Math.round(lerp(80, 260, b(8))),
+    decayMs: Math.round(lerp(620, 960, 1 - x * 0.3)),
+  } : isDeathInd ? {
+    recipe: kickRecipe,
+    pitchMidi: Math.round(lerp(22, 33, b(4))),
+    drop: Math.round(lerp(18, 46, y)),
+    glide: Math.round(lerp(8, 22, b(5))),
+    shape: lerp(0.25, 0.95, b(6)),
+    sub: lerp(0.55, 1.12, 1 - y * 0.35),
+    click: lerp(0.35, 1.85, x),
+    drive1: lerp(0.58, 0.98, clamp(0.55 * y + 0.45 * b(7), 0, 1)),
+    screechHz: Math.round(lerp(160, 2200, b(8))),
+    decayMs: Math.round(lerp(420, 880, 1 - x * 0.35)),
+  } : {
     recipe: kickRecipe,
     pitchMidi: Math.round(lerp(26, 46, b(4))),
     drop: Math.round(lerp(20, 56, y)),
@@ -186,12 +315,38 @@ export function allocateFromXY(scene, rawX, rawY) {
 
   // Drumkit
   const kitIndex = scene.kitOrder[Math.min(3, Math.floor((x * 0.65 + b(9) * 0.35) * 4))];
-  const drumPitchShift = lerp(-8, 10, b(10));
+  const drumPitchShift = isDeathInd
+    ? lerp(-14, -4, b(10))
+    : isAmbient
+      ? lerp(-12, 2, b(10))
+      : lerp(-8, 10, b(10));
 
   // IDM Plugin
   const idmModel = scene.idmOrder[Math.min(scene.idmOrder.length - 1, Math.floor((y * 0.5 + b(11) * 0.5) * scene.idmOrder.length))];
   const idmAlt = (x > 0.66 || y > 0.76 || b(12) > 0.72) ? 1 : 0;
-  const idm = {
+  const idm = isAmbient ? {
+    model: idmModel,
+    alt: 0,
+    wet: lerp(0.75, 0.98, b(0)),
+    amount: lerp(0.35, 0.72, y),
+    p0: lerp(0.08, 0.32, b(13)),
+    p1: lerp(0.20, 0.55, b(14)),
+    p2: lerp(0.15, 0.45, b(15)),
+    p3: lerp(0.10, 0.45, b(16)),
+    p4: lerp(0.20, 0.55, b(17)),
+    p5: lerp(0.12, 0.58, y),
+    p6: lerp(0.76, 0.96, b(1)),
+    p7: lerp(0.12, 0.48, x),
+    p8: lerp(0.84, 0.98, clamp(0.6 * y + 0.4 * b(4), 0, 1)),
+    p9: lerp(0.15, 0.55, b(6)),
+    p10: lerp(0.04, 0.20, x),
+    p11: lerp(0.25, 0.75, b(7)),
+    p12: lerp(0.20, 0.55, b(2)),
+    p13: lerp(0.15, 0.55, b(10)),
+    p16: lerp(0.10, 0.45, b(12)),
+    p18: lerp(0.05, 0.35, x),
+    p20: lerp(0.10, 0.35, 1 - x),
+  } : {
     model: idmModel,
     alt: idmAlt,
     wet: lerp(0.70, 1.0, clamp(x + 0.25, 0, 1)),
@@ -201,12 +356,12 @@ export function allocateFromXY(scene, rawX, rawY) {
     p2: lerp(0.15, 0.95, b(15)),
     p3: lerp(0.10, 0.95, b(16)),
     p4: lerp(0.25, 0.95, b(17)),
-    p5: lerp(0.15, 0.98, y),
-    p6: lerp(0.20, 0.90, b(1)),
+    p5: isDeathInd ? lerp(0.10, 0.55, y) : lerp(0.15, 0.98, y),
+    p6: isDeathInd ? lerp(0.55, 0.95, b(1)) : lerp(0.20, 0.90, b(1)),
     p7: lerp(0.20, 0.95, x),
-    p8: lerp(0.32, 0.98, clamp(0.6 * y + 0.4 * b(4), 0, 1)),
+    p8: isDeathInd ? lerp(0.68, 0.98, clamp(0.6 * y + 0.4 * b(4), 0, 1)) : lerp(0.32, 0.98, clamp(0.6 * y + 0.4 * b(4), 0, 1)),
     p9: lerp(0.10, 0.95, b(6)),
-    p10: lerp(0.25, 0.95, clamp(0.7 * x + 0.3 * b(9), 0, 1)),
+    p10: isBeatArch ? lerp(0.25, 0.95, clamp(0.7 * x + 0.3 * b(9), 0, 1)) : lerp(0.12, 0.55, x),
     p11: lerp(0.20, 0.95, b(7)),
     p12: lerp(0.30, 0.95, b(2)),
     p13: lerp(0.10, 0.72, b(10)),
@@ -222,35 +377,64 @@ export function allocateFromXY(scene, rawX, rawY) {
   const fmRatio = scene.fmRatios[Math.floor(b(14) * scene.fmRatios.length)];
 
   const unstableDsp = {
+    textureMode,
+    darkInterval: scene.darkInterval || 1.4983,
     routingIndex,
     shaperModeIndex,
-    bitDepth: Math.round(lerp(4, 15, 1 - x * 0.65)),
-    srDivider: Math.round(lerp(1, 14, clamp(x * 0.75 + b(16) * 0.25, 0, 1))),
+    bitDepth: isAmbient ? Math.round(lerp(10, 16, 1 - x * 0.3)) : Math.round(lerp(4, 15, 1 - x * 0.65)),
+    srDivider: isAmbient ? 1 : Math.round(lerp(1, 14, clamp(x * 0.75 + b(16) * 0.25, 0, 1))),
     xorMask: Math.floor(b(13) * 31),
     droneBaseHz,
     fmRatio,
     subInterval: [0.5, 0.75, 1.0, 1.5][Math.floor(b(3) * 4)],
     lfsrMask: (scene.seed16 ^ (quad * 0x1337)) | 0x8001,
-    pulseEuclidK: Math.round(lerp(3, 11, b(6))),
+    pulseEuclidK: isBeatArch ? Math.round(lerp(3, 11, b(6))) : Math.round(lerp(1, 5, b(6))),
     pulseEuclidN: [12, 14, 16, 18][Math.floor(b(7) * 4)],
-    mangleSliceMs: Math.round(lerp(12, 140, 1 - x * 0.7)),
+    mangleSliceMs: isDeathInd ? Math.round(lerp(60, 260, 1 - x * 0.6)) : Math.round(lerp(12, 140, 1 - x * 0.7)),
     mangleRevProb: lerp(0.15, 0.90, b(9)),
-    fbDelayLMs: Number(lerp(16, 180, b(10)).toFixed(1)),
-    fbDelayRMs: Number(lerp(24, 210, b(12)).toFixed(1)),
+    fbDelayLMs: isAmbient
+      ? Number(lerp(240, 780, b(10)).toFixed(1))
+      : isDeathInd
+        ? Number(lerp(110, 480, b(10)).toFixed(1))
+        : isPowerElec
+          ? Number(lerp(12, 220, b(10)).toFixed(1))
+          : Number(lerp(16, 180, b(10)).toFixed(1)),
+    fbDelayRMs: isAmbient
+      ? Number(lerp(310, 890, b(12)).toFixed(1))
+      : isDeathInd
+        ? Number(lerp(160, 620, b(12)).toFixed(1))
+        : isPowerElec
+          ? Number(lerp(18, 280, b(12)).toFixed(1))
+          : Number(lerp(24, 210, b(12)).toFixed(1)),
     fbPolarity: b(15) > 0.5 ? 1 : -1,
     combBaseHz: Math.round(lerp(90, 640, y)),
   };
 
   const unstableParams = {
-    droneLevel: lerp(0.22, 0.78, b(0)),
-    pulseLevel: lerp(0.25, 0.85, b(4)),
-    fmIndex: lerp(0.18, 0.95, y),
-    mangleMix: lerp(0.30, 0.95, x),
-    shaperDrive: lerp(0.20, 0.96, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
-    fbGain: lerp(0.32, 0.96, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
-    fbDampHz: Math.round(lerp(900, 11000, 1 - y * 0.4)),
-    scDepth: lerp(0.55, 0.96, b(1)),
-    scMode: Math.floor(b(14) * 4),
+    sceneBoost: isBeatArch ? 1.0 : isAmbient ? 1.38 : isDeathInd ? 1.34 : 1.32,
+    droneLevel: isBeatArch ? lerp(0.22, 0.78, b(0)) : lerp(0.74, 0.98, 0.35 + 0.65 * b(0)),
+    pulseLevel: isAmbient ? lerp(0.08, 0.28, b(4)) : isPowerElec ? lerp(0.35, 0.95, b(4)) : lerp(0.25, 0.85, b(4)),
+    fmIndex: isAmbient ? lerp(0.12, 0.62, y) : lerp(0.18, 0.95, y),
+    mangleMix: isAmbient ? lerp(0.08, 0.30, x) : lerp(0.30, 0.95, x),
+    shaperDrive: isAmbient
+      ? lerp(0.08, 0.38, y)
+      : isPowerElec
+        ? lerp(0.68, 1.0, clamp(0.55 * y + 0.45 * b(17), 0, 1))
+        : lerp(0.20, 0.96, clamp(0.5 * y + 0.5 * b(17), 0, 1)),
+    fbGain: isAmbient
+      ? lerp(0.76, 0.95, clamp(0.5 * y + 0.5 * b(2), 0, 1))
+      : isDeathInd
+        ? lerp(0.58, 0.94, clamp(0.55 * y + 0.45 * b(2), 0, 1))
+        : isPowerElec
+          ? lerp(0.65, 0.98, clamp(0.6 * y + 0.4 * b(2), 0, 1))
+          : lerp(0.32, 0.96, clamp(0.6 * y + 0.4 * b(2), 0, 1)),
+    fbDampHz: isAmbient
+      ? Math.round(lerp(420, 2400, 1 - y * 0.45))
+      : isDeathInd
+        ? Math.round(lerp(520, 4200, 1 - y * 0.4))
+        : Math.round(lerp(900, 11000, 1 - y * 0.4)),
+    scDepth: isAmbient ? 0.12 : isPowerElec ? lerp(0.10, 0.36, b(1)) : isDeathInd ? lerp(0.24, 0.56, b(1)) : lerp(0.55, 0.96, b(1)),
+    scMode: isBeatArch ? Math.floor(b(14) * 4) : 0,
     padX: x,
     padY: y,
   };
@@ -321,5 +505,7 @@ export function allocateFromXY(scene, rawX, rawY) {
     mumble,
     visual,
     routingName: DSP_ROUTINGS[routingIndex],
+    tempoArchetype: scene.tempoArchetype,
+    archetypeName: scene.archetypeName,
   };
 }

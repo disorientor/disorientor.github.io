@@ -29,6 +29,18 @@ assert.notEqual(f00.visual.bgXY[0], f11.visual.bgXY[0], 'XY must sweep backgroun
 assert.notEqual(sA.bgOrder[0], sB.bgOrder[0], 'Radical scene switch must change background');
 console.log(`   PASS: XY sweeps BPM (${f00.bpm}..${f11.bpm}), patterns, IDM, DSP, and shader parameters.`);
 
+console.log('1a. Testing Equal Likelihood for Death Industrial / Dark Ambient / Power Electronics...');
+const archCounts = [0, 0, 0, 0, 0, 0];
+for (let i = 0; i < 1000; i++) {
+  const sc = createScene((i * 7919) & 0xffff);
+  archCounts[sc.tempoArchetype]++;
+}
+const beatTotal = archCounts[0] + archCounts[1] + archCounts[2];
+const darkTotal = archCounts[3] + archCounts[4] + archCounts[5];
+assert.ok(darkTotal >= 420 && darkTotal <= 580, `Expected ~50% dark/industrial/ambient/PE, got ${darkTotal}/1000`);
+assert.ok(archCounts[3] >= 100 && archCounts[4] >= 100 && archCounts[5] >= 100, `Each dark archetype must trigger frequently: ${archCounts.slice(3).join(',')}`);
+console.log(`   PASS: Beat/IDM=${beatTotal}/1000, DeathInd=${archCounts[3]}, DarkAmb=${archCounts[4]}, PowerElec=${archCounts[5]}.`);
+
 console.log('1b. Testing Imported Shader Transpilation (51 backgrounds, 40 glitches, 34 foregrounds)...');
 const shadersRoot = path.join(rootDir, 'shaders');
 const manifest = JSON.parse(fs.readFileSync(path.join(shadersRoot, 'manifest.json'), 'utf8'));
@@ -142,6 +154,27 @@ scProc.handleMessage({ type: 'trigKick', vel: 1.0 });
 const rmsDuring = measureRms(scProc, 8);
 assert.ok(rmsDuring < rmsBefore * 0.45, `Expected sidechain duck (${rmsDuring.toFixed(4)} vs ${rmsBefore.toFixed(4)})`);
 console.log(`   PASS: Sidechain ducked unstable RMS ${rmsBefore.toFixed(4)} -> ${rmsDuring.toFixed(4)}.`);
+
+console.log('4b. Testing Death Industrial, Dark Ambient, and Power Electronics DSP modes...');
+for (const [archIdx, label] of [[3, 'DEATH_INDUSTRIAL'], [4, 'DARK_AMBIENT'], [5, 'POWER_ELECTRONICS']]) {
+  const sc = createScene(0x4242 + archIdx, { archetype: archIdx });
+  const fr = allocateFromXY(sc, 0.62, 0.71);
+  const p = new RegisteredProcessor();
+  p.handleMessage({ type: 'scene', seed16: sc.seed16 });
+  p.handleMessage({ type: 'xyFrame', frame: fr });
+  p.handleMessage({ type: 'transport', playing: true, bpm: fr.bpm });
+  let peak = 0;
+  for (let b = 0; b < 300; b++) {
+    assert.equal(p.process([], [[outL, outR]]), true);
+    for (let i = 0; i < 128; i++) {
+      assert.ok(Number.isFinite(outL[i]) && Number.isFinite(outR[i]), `${label} non-finite sample`);
+      assert.ok(Math.abs(outL[i]) <= 1.0001 && Math.abs(outR[i]) <= 1.0001, `${label} limiter exceeded`);
+      peak = Math.max(peak, Math.abs(outL[i]), Math.abs(outR[i]));
+    }
+  }
+  assert.ok(peak > 0.15, `${label} must produce strong audio, got peak=${peak}`);
+  console.log(`   PASS: ${label} (texMode=${fr.unstableDsp.textureMode}, bpm=${fr.bpm}) peak=${peak.toFixed(3)}.`);
+}
 
 console.log('5. Checking minimal UI & HTML invariants...');
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
